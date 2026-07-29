@@ -23,8 +23,9 @@ Phase 1의 구현 현황, 체크리스트, R&R은 [docs/plan/phase1_implementati
 작업할 때는 다음 원칙을 지킵니다.
 
 - Task 진행 상태를 바꾸면 `docs/plan/phase1_implementation_plan.md`를 함께 수정합니다.
-- Task 구현이 끝나면 `docs/tasks/` 아래에 구현 설명 문서를 남깁니다.
+- Task 구현이 끝나면 `docs/tasks/phase*/` 아래에 구현 설명 문서를 남깁니다.
 - Phase별 상세 검증 계획이나 다음 Phase 계획은 `docs/plan/` 아래에 정리합니다.
+- 개인적인 기술 고민이나 공유 전 의사결정 메모는 Git에 올리지 않는 `docs/idea/` 아래에 둡니다.
 - 대용량 dataset, model weight, 실험 output은 Git에 포함하지 않습니다.
 
 ## 빠른 실행
@@ -78,8 +79,9 @@ python -m unittest discover -s tests
 |---|---|
 | `README.md` | 프로젝트 목적, 실행 방법, 폴더 역할을 안내하는 첫 문서 |
 | `.agents/` | Codex 또는 자동화 agent가 먼저 읽을 작업 기준 |
-| `docs/plan/` | Phase별 구현 계획, 검증 계획, 다음 단계 계획 |
-| `docs/tasks/` | Task별 구현 설명 문서 |
+| `docs/plan/` | 공유 가능한 Phase별 구현 계획, 검증 계획, 다음 단계 계획 |
+| `docs/tasks/phase*/` | Phase별 Task 구현 설명 문서 |
+| `docs/idea/` | 개인 기술 고민, 전략 메모, 의사결정 초안. Git 제외 |
 | `docs/assets/` | 문서에서 사용하는 대표 이미지와 시각화 예시 |
 | `configs/` | dataset, gate, YOLO 실험 설정 |
 | `common/` | loader, gate, inference, evaluation이 공유하는 schema |
@@ -99,8 +101,9 @@ python -m unittest discover -s tests
 | 문서 | 용도 |
 |---|---|
 | [docs/plan/phase1_implementation_plan.md](docs/plan/phase1_implementation_plan.md) | Phase 1 구현 체크리스트, R&R, 다음 작업 |
-| [docs/plan/phase1_validation_plan.md](docs/plan/phase1_validation_plan.md) | Phase 1 상세 검증 계획 |
+| [docs/plan/phase1_validation_plan.md](docs/plan/phase1_validation_plan.md) | Phase 1 공유용 검증 실행 절차와 산출물 규칙 |
 | [docs/plan/vision_frontend_validation_roadmap.md](docs/plan/vision_frontend_validation_roadmap.md) | Phase 2 이후 장기 로드맵 |
+| [docs/README.md](docs/README.md) | 문서 디렉터리 운영 규칙 |
 | [docs/sample_data.md](docs/sample_data.md) | 공개 sample data 준비 방법 |
 | [docs/smoke_test.md](docs/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
 | [docs/smoke_test_visualization_result.md](docs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |

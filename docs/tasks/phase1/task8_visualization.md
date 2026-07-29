@@ -113,7 +113,7 @@ python3 experiments/render_visualizations.py --help
 
 ## 다음 Task와의 연결
 
-Task 8은 Phase 1의 마지막 구현 Task다. 이후에는 실제 fixed-camera dataset에서 Task 4~8 end-to-end 산출물을 생성하고, Phase 1 성공 기준 충족 여부를 판단한다.
+Task 8은 Phase 1의 마지막 구현 Task다. 이후에는 실제 fixed-camera dataset에서 Task 4~8 end-to-end 산출물을 생성하고, 공유 가능한 산출물 위치와 제한사항을 기록한다.
 
 ## 알려진 제한사항
 

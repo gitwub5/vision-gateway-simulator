@@ -1,14 +1,10 @@
-# Vision Frontend Simulator 구현 계획
+# Vision Frontend Simulator Phase 1 구현 관리
 
-## 1. 프로젝트 목적
+## 1. 문서 목적
 
-이 프로젝트는 카메라와 GPU 사이에 위치할 Vision Frontend Gate 또는 NPX Gate의 효과를 소프트웨어로 먼저 검증하기 위한 시뮬레이션 프로젝트이다.
+이 문서는 Phase 1 구현 작업의 범위, R&R, 체크리스트, 파일 구조를 관리한다.
 
-최종 목표는 실제 하드웨어, 보드, 칩 구현 전에 다음 질문에 답하는 것이다.
-
-> 전체 프레임을 매번 GPU에 넣는 방식보다, 전처리 게이트가 필요한 ROI만 선별해 GPU에 전달하는 방식이 객체 탐지 성능을 유지하면서 GPU 사용량을 줄일 수 있는가?
-
-초기 단계에서는 실제 NPX 하드웨어나 SNN 모델을 구현하지 않고, rule-based 영상처리로 ROI Gate를 에뮬레이션한다.
+검증 가설, 성공 기준, ROI 개선 방향, SNN 전환 판단, DeepStream 포지셔닝 같은 기술적 고민은 Git에 올리지 않는 `docs/idea/`에서 먼저 정리한다.
 
 ## 2. 현재 구현 우선순위
 
@@ -24,8 +20,6 @@ Phase 1에서는 다음을 구현한다.
 - detection 좌표 복원
 - workload, recall, ROI 품질 비교 리포트
 - ROI 및 detection 시각화
-
-Phase 2 이후의 SNN, 멀티카메라, GPU 최적화, 하드웨어 스펙 도출은 Phase 1 결과를 기준으로 진행한다.
 
 ## 3. 협업 R&R
 
@@ -64,7 +58,7 @@ Phase 2 이후의 SNN, 멀티카메라, GPU 최적화, 하드웨어 스펙 도�
 - 한 Task가 여러 ownership을 건드리면 PR 또는 커밋 설명에 변경 범위를 명확히 적는다.
 - 같은 파일을 동시에 수정해야 하면 먼저 작은 interface 변경 커밋을 만든 뒤 각자 구현을 이어간다.
 - 체크박스는 해당 Task의 Primary Owner가 갱신하고, Secondary Reviewer가 결과를 확인한다.
-- 모든 Task 구현자는 작업 완료 시 `docs/tasks/` 아래에 구현 설명 문서를 작성한다.
+- 모든 Task 구현자는 작업 완료 시 `docs/tasks/phase*/` 아래에 구현 설명 문서를 작성한다.
 
 ### Task 완료 문서화 규칙
 
@@ -73,14 +67,14 @@ Phase 2 이후의 SNN, 멀티카메라, GPU 최적화, 하드웨어 스펙 도�
 문서 파일명은 다음 형식을 따른다.
 
 ```text
-docs/tasks/task{번호}_{짧은_설명}.md
+docs/tasks/phase{Phase번호}/task{번호}_{짧은_설명}.md
 ```
 
 예:
 
 ```text
-docs/tasks/task2_dataset_stream_loader.md
-docs/tasks/task3_rule_based_roi_gate.md
+docs/tasks/phase1/task2_dataset_stream_loader.md
+docs/tasks/phase1/task3_rule_based_roi_gate.md
 ```
 
 각 Task 문서에는 최소한 다음 내용을 포함한다.
@@ -109,7 +103,7 @@ docs/tasks/task3_rule_based_roi_gate.md
 
 ## 4. 구현 체크리스트
 
-체크박스는 실제 구현, 최소 동작 확인, `docs/tasks/` 구현 설명 문서 작성이 모두 끝났을 때 갱신한다. 단순 파일 생성만으로 완료 처리하지 않고, 해당 단계의 산출물이 생성되거나 다음 단계에서 사용할 수 있는 인터페이스가 준비되었을 때 완료로 본다.
+체크박스는 실제 구현, 최소 동작 확인, `docs/tasks/phase*/` 구현 설명 문서 작성이 모두 끝났을 때 갱신한다. 단순 파일 생성만으로 완료 처리하지 않고, 해당 단계의 산출물이 생성되거나 다음 단계에서 사용할 수 있는 인터페이스가 준비되었을 때 완료로 본다.
 
 ### Phase 1. Rule-based ROI Gate 검증
 
@@ -180,19 +174,11 @@ docs/tasks/task3_rule_based_roi_gate.md
 - [x] `data/` 저장 경로 표준화
 - [x] smoke test 실행 안내 출력
 
-## 5. Phase 1 검증 질문
+## 5. Phase 1 구현 범위 메모
 
-핵심 질문은 다음과 같다.
+Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, evaluation, visualization을 연결하는 데 집중한다.
 
-> Full-frame YOLOv8 대비, motion 기반 ROI crop만 YOLOv8에 입력했을 때 객체 탐지 recall을 유지하면서 GPU inference workload를 줄일 수 있는가?
-
-Phase 1에서는 세 가지 비교군을 둔다.
-
-```text
-A. Full-frame YOLOv8
-B. Rule-based ROI Gate + ROI YOLOv8
-C. Rule-based ROI Gate + ROI YOLOv8 + Periodic Full-frame Check
-```
+비공개 검증 기준과 다음 단계 판단 메모는 `docs/idea/`에서 관리한다.
 
 ## 6. 구현 순서
 
@@ -226,7 +212,7 @@ outputs/
 - `frame_id`, `timestamp`, `camera_id`, `frame`을 포함한 frame packet 생성
 - 추후 annotation loader를 붙일 수 있는 구조 유지
 
-초기에는 OD-VIRAT Tiny 또는 VIRAT 일부 시퀀스를 대상으로 한다.
+초기 입력 데이터 준비 방법은 `docs/sample_data.md`를 따른다.
 
 ### [x] Task 3. Rule-based ROI Gate Emulator
 
@@ -245,7 +231,7 @@ outputs/
 - temporal hold
 - periodic full-frame trigger
 
-중요한 설계 원칙:
+구현상 유지할 계약:
 
 - Phase 1에서는 `motion_map`만 사용해도 되지만, Phase 2 SNN 확장을 위해 `on_event`, `off_event`, `motion_map` 생성 코드는 분리한다.
 - ROI가 너무 많거나 전체 면적이 너무 크면 full-frame fallback이 가능해야 한다.
@@ -297,7 +283,7 @@ outputs/detections/full_frame.jsonl
 outputs/reports/full_frame_metrics.json
 ```
 
-초기에는 full-frame YOLO 결과를 pseudo baseline으로 사용한다. Dataset annotation이 준비되면 GT 기반 metric을 추가한다.
+초기 구현은 full-frame YOLO 결과를 비교 기준으로 사용할 수 있게 저장한다.
 
 ### [x] Task 6. ROI YOLO Inference
 
@@ -361,14 +347,16 @@ vision-frontend-simulator/
 │   │   └── vision_frontend_validation_roadmap.md
 │   ├── sample_data.md
 │   ├── smoke_test.md
+│   ├── idea/                 # local only, gitignored
 │   └── tasks/
-│       ├── task2_dataset_stream_loader.md
-│       ├── task3_rule_based_roi_gate.md
-│       ├── task4_roi_metadata.md
-│       ├── task5_full_frame_yolo_baseline.md
-│       ├── task6_roi_yolo_inference.md
-│       ├── task7_evaluation.md
-│       └── task8_visualization.md
+│       └── phase1/
+│           ├── task2_dataset_stream_loader.md
+│           ├── task3_rule_based_roi_gate.md
+│           ├── task4_roi_metadata.md
+│           ├── task5_full_frame_yolo_baseline.md
+│           ├── task6_roi_yolo_inference.md
+│           ├── task7_evaluation.md
+│           └── task8_visualization.md
 ├── .agents/
 │   └── project_context.md
 ├── configs/
@@ -474,26 +462,11 @@ yolo:
     - bus
 ```
 
-## 9. Phase 1 성공 기준
+## 9. 검증 판단 메모 위치
 
-최소 성공 기준:
+Phase 1 성공 기준, 다음 단계 진입 조건, ROI crop 개선 여부, SNN 전환 여부, DeepStream 대비 포지셔닝은 `docs/idea/`에서 로컬 메모로 관리한다.
 
-```text
-Object Recall 유지율 >= 95%
-ROI Containment Rate >= 98%
-YOLO 입력 면적 감소율 >= 50%
-평균 ROI 수 <= 3
-평균 ROI 면적 <= 전체 프레임의 30%
-Gate latency <= 10ms/frame
-```
-
-다음 단계 진입 기준:
-
-```text
-Object Recall 유지율 >= 98%
-YOLO workload reduction >= 50%
-Rule-based ROI Gate의 한계 사례가 명확히 수집됨
-```
+팀에 공유할 정도로 정리된 결론만 `docs/plan/` 문서로 승격한다.
 
 ## 10. 협업 규칙 초안
 
@@ -511,6 +484,8 @@ Rule-based ROI Gate의 한계 사례가 명확히 수집됨
 - `docs/plan/phase1_implementation_plan.md`: Phase 1 구현 순서, 체크리스트, R&R
 - `docs/plan/phase1_validation_plan.md`: Phase 1 세부 검증 계획
 - `docs/plan/`: 다음 Phase 계획과 세부 검증 문서를 정리하는 위치
+- `docs/tasks/phase*/`: Phase별 Task 구현 설명 문서
+- `docs/idea/`: 개인 기술 고민과 공유 전 의사결정 초안. Git 제외
 - `docs/sample_data.md`: 공개 sample data 다운로드와 수동 준비 안내
 - `docs/smoke_test.md`: 고정 카메라 synthetic smoke test 생성 및 실행 방법
 - `docs/plan/vision_frontend_validation_roadmap.md`: 전체 장기 로드맵
@@ -518,13 +493,13 @@ Rule-based ROI Gate의 한계 사례가 명확히 수집됨
 
 ## 12. 다음 작업
 
-Phase 1 구현 Task 1~8은 완료된 상태로 관리한다. 다음 작업은 구현 추가보다 실제 검증 실행과 다음 Phase 계획 정리다.
+Phase 1 구현 Task 1~8은 완료된 상태로 관리한다. 다음 작업은 공유 가능한 실행 절차와 산출물 정리다.
 
 ```text
 1. 가상환경에 전체 의존성 설치
 2. fixed-camera sample dataset 준비
 3. Task 4~8 end-to-end 실행
-4. comparison report와 visualization 결과 검토
-5. Phase 1 성공 기준 충족 여부 판단
-6. docs/plan/ 아래에 Phase 2 이후 세부 계획 정리
+4. comparison report와 visualization 결과 위치 기록
+5. 공유 가능한 제한사항 또는 버그 정리
+6. 전략적 판단 내용은 docs/idea/에서 먼저 정리
 ```
