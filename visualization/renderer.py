@@ -66,16 +66,12 @@ def render_visualizations(
         frame_rois = rois_by_frame.get(key, [])
         frame_full_detections = full_detections_by_frame.get(key, [])
         frame_roi_detections = roi_detections_by_frame.get(key, [])
-        if not frame_rois and not frame_full_detections and not frame_roi_detections:
-            continue
-
         summary.processed_frames += 1
         stem = _frame_stem(packet.camera_id, packet.frame_id)
 
-        if frame_rois:
-            roi_overlay = draw_roi_overlay(cv2, packet.frame, frame_rois, frame_roi_detections)
-            cv2.imwrite(str(output_dirs.roi_overlay / f"{stem}_roi_overlay.jpg"), roi_overlay)
-            summary.roi_overlay_count += 1
+        roi_overlay = draw_roi_overlay(cv2, packet.frame, frame_rois, frame_roi_detections)
+        cv2.imwrite(str(output_dirs.roi_overlay / f"{stem}_roi_overlay.jpg"), roi_overlay)
+        summary.roi_overlay_count += 1
 
         comparison = draw_detection_comparison(
             cv2,

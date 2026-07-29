@@ -1,0 +1,14 @@
+npx_gate:
+  analysis_width: 256
+  analysis_height: 144
+  threshold_motion: 25
+  threshold_on: 15
+  threshold_off: 15
+  morphology_kernel_size: 3
+  min_area_ratio: 0.001
+  merge_distance_ratio: 0.08
+  margin_ratio: 0.25
+  hold_frames: 15
+  full_frame_interval: 60
+  max_roi_per_frame: 5
+  max_total_roi_area_ratio: 0.5
