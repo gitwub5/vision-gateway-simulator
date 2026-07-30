@@ -135,6 +135,14 @@ python experiments/run_phase1_experiment.py \
 
 - 실제 Phase 1 fixed-camera validation 후보
 - 데이터 사용 약관과 접근 권한을 먼저 확인
+- 공식 dataset 안내와 repository를 확인한 뒤 수동 준비
+  - https://iscaaslab.com/datasets/
+  - https://github.com/hayatkhan8660-maker/OD-VIRAT
+  - https://github.com/hayatkhan8660-maker/OD-VIRAT/blob/main/DATA.md
+  - OD-VIRAT Tiny Google Drive folder: https://drive.google.com/drive/folders/1MqVKIfS_RimUVVin1UHk_uwPmex5vid7?usp=drive_link
+- 현재 placeholder config는 `configs/dataset.od_virat_tiny.yaml`
+- Google Drive에서 받은 Tiny zip 파일들을 `data/od_virat_tiny/` 아래에 그대로 해제한다.
+- 해제 후 package 폴더명은 upstream 그대로 둔다. 현재 config는 기본적으로 `data/od_virat_tiny/data/test`와 `data/od_virat_tiny/json_anntations/test_annotations.json`을 사용한다.
 - annotation loader를 확장하면 GT 기반 recall/mAP 평가로 이어갈 수 있음
 
 ### Internal CCTV

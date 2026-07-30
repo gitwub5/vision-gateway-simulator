@@ -81,6 +81,7 @@ python -m unittest discover -s tests
 | `.agents/` | Codex 또는 자동화 agent가 먼저 읽을 작업 기준 |
 | `docs/plan/` | 공유 가능한 Phase별 구현 계획, 검증 계획, 다음 단계 계획 |
 | `docs/tasks/phase*/` | Phase별 Task 구현 설명 문서 |
+| `docs/runs/` | 공유 가능한 검증 실행 기록과 report 위치 |
 | `docs/idea/` | 개인 기술 고민, 전략 메모, 의사결정 초안. Git 제외 |
 | `docs/assets/` | 문서에서 사용하는 대표 이미지와 시각화 예시 |
 | `configs/` | dataset, gate, YOLO 실험 설정 |

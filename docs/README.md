@@ -8,6 +8,7 @@
 |---|---|
 | `plan/` | Phase별 구현 계획, 검증 계획, 로드맵 |
 | `tasks/phase*/` | Phase별 Task 구현 기록 |
+| `runs/` | 공유 가능한 검증 실행 기록과 report 위치 |
 | `sample_data.md` | 검증용 sample data 준비 방법 |
 | `smoke_test.md` | smoke test 실행 방법 |
 | `smoke_test_visualization_result.md` | smoke visualization 결과 |

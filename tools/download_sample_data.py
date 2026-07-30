@@ -68,8 +68,19 @@ SAMPLES: dict[str, SampleDataset] = {
         url=None,
         expected_size_bytes=None,
         usage_note=(
-            "Use this for real Phase 1 validation when available. Access and packaging can vary, "
-            "so prepare it manually and point a dataset config at a video file or image sequence."
+            "Use this for GT-based Phase 1/1.1 validation when available. OD-VIRAT Tiny is "
+            "provided through the OD-VIRAT project as a Google Drive folder rather than "
+            "as a stable direct-download single file in this repo. Check the official "
+            "dataset page https://iscaaslab.com/datasets/, OD-VIRAT DATA.md "
+            "https://github.com/hayatkhan8660-maker/OD-VIRAT/blob/main/DATA.md, and "
+            "the Tiny folder "
+            "https://drive.google.com/drive/folders/1MqVKIfS_RimUVVin1UHk_uwPmex5vid7?usp=drive_link. "
+            "Download the Tiny zip files from Google Drive and extract them as-is under "
+            "data/od_virat_tiny/. Keep the upstream folder names. The default validation "
+            "config points at data/od_virat_tiny/data/test and "
+            "data/od_virat_tiny/json_anntations/test_annotations.json. After the "
+            "annotation format is confirmed, implement the dataset-specific annotation "
+            "loader."
         ),
         auto_download=False,
     ),

@@ -1,0 +1,16 @@
+dataset:
+  type: image_sequence
+  input_path: data/od_virat_tiny/data/test
+  camera_id: od_virat_tiny_01
+  fps_override: null
+  frame_limit: null
+  start_frame: 0
+  image_extensions:
+    - .jpg
+    - .jpeg
+    - .png
+    - .bmp
+
+annotations:
+  type: od_virat_tiny
+  input_path: data/od_virat_tiny/json_anntations/test_annotations.json

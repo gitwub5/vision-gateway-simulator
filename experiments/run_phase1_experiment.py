@@ -20,6 +20,7 @@ from data_loader import create_dataset_stream, load_dataset_config
 from evaluation import (
     ComparisonInputs,
     build_comparison_report,
+    collect_hardware_snapshot,
     read_detection_jsonl,
     write_report_json,
     write_report_markdown,
@@ -148,6 +149,7 @@ def main() -> None:
             "iou_threshold": args.iou_threshold,
             "include_full_frame_checks": not args.disable_full_frame_checks,
         },
+        "hardware": collect_hardware_snapshot(),
         "outputs": paths.to_json_dict(),
         "summaries": {
             "gate": gate_summary,
