@@ -17,11 +17,22 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data_loader import create_dataset_stream, load_dataset_config
+from data_loader.annotation_loader import (
+    create_annotation_loader,
+    load_annotation_config,
+    read_ground_truth_jsonl,
+    write_ground_truth_jsonl,
+)
 from evaluation import (
+    AnnotationQuality,
     ComparisonInputs,
+    GtReportInputs,
+    build_gt_report,
     build_comparison_report,
     collect_hardware_snapshot,
     read_detection_jsonl,
+    write_gt_report_json,
+    write_gt_report_markdown,
     write_report_json,
     write_report_markdown,
 )
@@ -66,6 +77,10 @@ def main() -> None:
     dataset_config = load_dataset_config(args.dataset_config)
     if args.limit is not None:
         dataset_config = replace(dataset_config, frame_limit=args.limit)
+    annotation_config = load_annotation_config(args.dataset_config)
+    gt_validation_enabled = bool(annotation_config and annotation_config.get("enabled", True))
+    if args.disable_gt_validation:
+        gt_validation_enabled = False
     gate_config = load_npx_gate_config(args.gate_config)
     yolo_config, _ = load_yolo_config(args.yolo_config)
     if args.model is not None:
@@ -118,6 +133,18 @@ def main() -> None:
         ),
     )
 
+    gt_summary = None
+    if gt_validation_enabled:
+        gt_summary = timed(
+            "gt_validation",
+            lambda: run_gt_validation(
+                dataset_config=dataset_config,
+                annotation_config=annotation_config,
+                paths=paths,
+                iou_threshold=args.iou_threshold,
+            ),
+        )
+
     visualization_summary = None
     if not args.skip_visualization:
         visualization_summary = timed(
@@ -127,6 +154,7 @@ def main() -> None:
                 paths=paths,
                 render_limit=args.render_limit,
                 iou_threshold=args.iou_threshold,
+                include_gt=gt_validation_enabled,
             ),
         )
 
@@ -148,6 +176,7 @@ def main() -> None:
             "render_limit": args.render_limit,
             "iou_threshold": args.iou_threshold,
             "include_full_frame_checks": not args.disable_full_frame_checks,
+            "gt_validation_enabled": gt_validation_enabled,
         },
         "hardware": collect_hardware_snapshot(),
         "outputs": paths.to_json_dict(),
@@ -156,6 +185,7 @@ def main() -> None:
             "full_frame_yolo": full_summary,
             "roi_yolo": roi_summary,
             "comparison": comparison_summary,
+            "gt_validation": gt_summary,
             "visualization": visualization_summary,
         },
     }
@@ -168,18 +198,22 @@ class ExperimentPaths:
         self.root = root
         self.roi_metadata_dir = root / "roi_metadata"
         self.detections_dir = root / "detections"
+        self.annotations_dir = root / "annotations"
         self.reports_dir = root / "reports"
         self.visualizations_dir = root / "visualizations"
         self.cache = root / "cache"
         self.manifest = root / "manifest.json"
         self.roi_metadata = self.roi_metadata_dir / "rule_roi.jsonl"
         self.frame_metadata = self.roi_metadata_dir / "gate_decisions.jsonl"
+        self.ground_truth = self.annotations_dir / "ground_truth.jsonl"
         self.full_frame_detections = self.detections_dir / "full_frame.jsonl"
         self.roi_detections = self.detections_dir / "roi_yolo.jsonl"
         self.full_frame_metrics = self.reports_dir / "full_frame_metrics.json"
         self.roi_metrics = self.reports_dir / "roi_yolo_metrics.json"
         self.comparison_json = self.reports_dir / "comparison_report.json"
         self.comparison_markdown = self.reports_dir / "comparison_report.md"
+        self.gt_report_json = self.reports_dir / "gt_report.json"
+        self.gt_report_markdown = self.reports_dir / "gt_report.md"
 
     @classmethod
     def from_root(cls, root: str | Path) -> "ExperimentPaths":
@@ -189,6 +223,7 @@ class ExperimentPaths:
         for path in [
             self.roi_metadata_dir,
             self.detections_dir,
+            self.annotations_dir,
             self.reports_dir,
             self.visualizations_dir,
             self.cache,
@@ -201,12 +236,15 @@ class ExperimentPaths:
             "manifest": str(self.manifest),
             "roi_metadata": str(self.roi_metadata),
             "frame_metadata": str(self.frame_metadata),
+            "ground_truth": str(self.ground_truth),
             "full_frame_detections": str(self.full_frame_detections),
             "roi_detections": str(self.roi_detections),
             "full_frame_metrics": str(self.full_frame_metrics),
             "roi_metrics": str(self.roi_metrics),
             "comparison_json": str(self.comparison_json),
             "comparison_markdown": str(self.comparison_markdown),
+            "gt_report_json": str(self.gt_report_json),
+            "gt_report_markdown": str(self.gt_report_markdown),
             "visualizations": str(self.visualizations_dir),
         }
 
@@ -287,12 +325,46 @@ def run_comparison(paths: ExperimentPaths, iou_threshold: float) -> dict[str, An
     return report.to_json_dict()
 
 
-def run_visualization(dataset_config, paths: ExperimentPaths, render_limit: int | None, iou_threshold: float) -> dict:
+def run_gt_validation(dataset_config, annotation_config, paths: ExperimentPaths, iou_threshold: float) -> dict[str, Any]:
+    loader = create_annotation_loader(annotation_config, dataset_config)
+    if loader is None:
+        return {"enabled": False}
+    ground_truth = loader.load()
+    write_ground_truth_jsonl(ground_truth, paths.ground_truth)
+    inputs = GtReportInputs(
+        ground_truth=paths.ground_truth,
+        full_frame_detections=paths.full_frame_detections,
+        roi_detections=paths.roi_detections,
+        roi_metadata=paths.roi_metadata,
+        report_json=paths.gt_report_json,
+        report_markdown=paths.gt_report_markdown,
+    )
+    report = build_gt_report(
+        inputs=inputs,
+        ground_truth=ground_truth,
+        full_frame_detections=read_detection_jsonl(paths.full_frame_detections),
+        roi_detections=read_detection_jsonl(paths.roi_detections),
+        iou_threshold=iou_threshold,
+        annotation_quality=AnnotationQuality.from_mapping(annotation_config.get("quality")),
+    )
+    write_gt_report_json(report, paths.gt_report_json)
+    write_gt_report_markdown(report, paths.gt_report_markdown)
+    return report.to_json_dict()
+
+
+def run_visualization(
+    dataset_config,
+    paths: ExperimentPaths,
+    render_limit: int | None,
+    iou_threshold: float,
+    include_gt: bool = False,
+) -> dict:
     summary = render_visualizations(
         frames=create_dataset_stream(dataset_config),
         roi_records=read_roi_metadata_jsonl(paths.roi_metadata),
         full_frame_detections=read_detection_jsonl(paths.full_frame_detections),
         roi_detections=read_detection_jsonl(paths.roi_detections),
+        ground_truth=read_ground_truth_jsonl(paths.ground_truth) if include_gt and paths.ground_truth.exists() else None,
         output_root=paths.visualizations_dir,
         limit=render_limit,
         iou_threshold=iou_threshold,
@@ -334,6 +406,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iou-threshold", type=float, default=0.5)
     parser.add_argument("--model", default=None)
     parser.add_argument("--disable-full-frame-checks", action="store_true")
+    parser.add_argument("--disable-gt-validation", action="store_true")
     parser.add_argument("--skip-visualization", action="store_true")
     return parser.parse_args()
 

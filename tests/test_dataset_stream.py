@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from data_loader import DatasetConfig, ImageSequenceStream, VideoFrameStream, create_dataset_stream
+from data_loader.dataset_stream import list_image_sequence_paths
 
 
 class FakeFrame:
@@ -83,6 +84,16 @@ class DatasetStreamTest(unittest.TestCase):
         self.assertEqual(packets[0].frame_id, 0)
         self.assertEqual(packets[0].timestamp, 0.0)
         self.assertEqual(packets[0].original_size.as_list(), [32, 24])
+
+    def test_image_sequence_paths_use_natural_numeric_sort(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for name in ["10.jpg", "2.jpg", "1.jpg", "skip.txt"]:
+                (root / name).write_text("image", encoding="utf-8")
+
+            image_paths = list_image_sequence_paths(root)
+
+        self.assertEqual([path.name for path in image_paths], ["1.jpg", "2.jpg", "10.jpg"])
 
     def test_create_dataset_stream_from_config(self) -> None:
         config = DatasetConfig(type="image_sequence", input_path=Path("."), camera_id="cam_cfg")

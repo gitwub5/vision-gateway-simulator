@@ -63,4 +63,4 @@ Task 8 visualization pipeline이 실제 이미지 산출물을 생성하는지 �
 - comparison panel 렌더링 여부
 - failure case 저장 경로 동작 여부
 
-실제 ROI 품질, recall, workload reduction 판단은 Oxford Town Centre, OD-VIRAT Tiny, 또는 internal fixed-camera CCTV sample로 수행해야 한다.
+실제 ROI 품질, recall, workload reduction 판단은 Construction Site Static Camera, OD-VIRAT Tiny, 또는 internal fixed-camera CCTV sample로 수행해야 한다.

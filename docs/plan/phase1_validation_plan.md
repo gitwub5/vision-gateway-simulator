@@ -11,20 +11,22 @@ Phase 1 검증은 두 단계로 나눈다.
 | 단계 | 기준 | 목적 | 현재 상태 |
 |---|---|---|---|
 | Pipeline Qualification | full-frame YOLO pseudo reference | end-to-end 실행, report 생성, profile 비교 가능성 확인 | 우선 진행 |
-| Algorithm Validation | GT annotation | 실제 object recall, ROI containment, false ROI 평가 | annotation loader 필요 |
+| Annotation-aware Validation | dataset annotation | annotated object recall, ROI containment 보조 평가 | OD-VIRAT Tiny partial annotation loader 구현됨 |
 
-Phase 1.1은 Pipeline Qualification이 끝난 뒤 진행한다. GT 기반 Algorithm Validation은 OD-VIRAT Tiny 또는 internal CCTV annotation 준비 이후 확정한다.
+Phase 1.1은 Pipeline Qualification이 끝난 뒤 진행한다. 현재 public annotation dataset은 exhaustive GT로 가정하지 않는다. 실제 object recall을 hard criterion으로 쓰려면 annotation completeness가 확인된 internal CCTV 또는 별도 curated validation set이 필요하다.
 
 ## 2. Dataset 기준
 
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
 | Tier 0 | `opencv-vtest` | `configs/dataset.opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `oxford-town-centre` | `configs/dataset.oxford_town_centre.yaml` | crowded CCTV stress test | pseudo-reference 기준 profile 비교 |
-| Tier 2 | `od-virat-tiny` | `configs/dataset.od_virat_tiny.yaml` | GT 기반 public validation, 기본 test split | annotation loader 이후 |
+| Tier 1 | `construction-site-static-camera` | `configs/dataset.construction_site_static_camera.yaml` | 산업 관제형 고정 카메라 public validation | pseudo-reference 기준 primary profile 비교, annotation 품질 확인 전까지 GT hard criterion 제외 |
+| Tier 2 | `od-virat-tiny` | `configs/dataset.od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
-우선순위는 Tier 0과 Tier 1을 먼저 고정하는 것이다.
+우선순위는 Tier 0 smoke와 Tier 1 construction-site-static-camera를 먼저 고정하는 것이다.
+
+Construction Site Static Camera는 단일 연속 영상이 아니라 여러 static-camera scene이 묶인 image set이다. Temporal ROI policy 검증에는 전체 폴더를 한 sequence로 사용하지 않고, scene boundary를 수동 확인한 뒤 연속 구간별 config/run으로 평가한다. ROI가 0개인 segment는 pipeline/GT smoke로만 기록하고 ROI policy 품질 판단에서 제외한다.
 
 ## 3. 고정 실험 Matrix
 
@@ -58,7 +60,7 @@ Run id 규칙:
 
 ```text
 opencv_vtest_f0000_0120_balanced_20260729
-oxford_f0000_1000_recall_20260729
+construction_static_f0000_0120_recall_20260730
 ```
 
 ## 5. 기본 실행 명령
@@ -75,26 +77,26 @@ python3 experiments/run_phase1_experiment.py \
   --render-limit 30
 ```
 
-Oxford balanced review:
+Construction static camera balanced review:
 
 ```bash
 python3 experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.oxford_town_centre.yaml \
+  --dataset-config configs/dataset.construction_site_static_camera.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name oxford_balanced \
+  --experiment-name construction_static_balanced \
   --limit 1000 \
   --render-limit 100
 ```
 
-Oxford no-refresh ablation:
+Construction static camera no-refresh ablation:
 
 ```bash
 python3 experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.oxford_town_centre.yaml \
+  --dataset-config configs/dataset.construction_site_static_camera.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name oxford_balanced_no_refresh \
+  --experiment-name construction_static_balanced_no_refresh \
   --limit 1000 \
   --render-limit 100 \
   --disable-full-frame-checks
@@ -135,14 +137,21 @@ Pipeline Qualification에서 확인할 지표:
 - failure case count
 - hardware/backend snapshot
 
-GT 기반 Algorithm Validation에서 추가할 지표:
+Annotation-aware Validation에서 추가할 지표:
 
-- GT object recall
-- GT class별 recall
-- GT bbox 기준 ROI containment
+- annotated object recall
+- annotated class별 recall
+- annotation bbox 기준 ROI containment
 - false ROI rate
-- missed GT case taxonomy
+- missed annotated-object case taxonomy
 - detection duplicate rate
+
+Annotation metric 해석 기준:
+
+- 새 annotation dataset을 추가할 때는 `annotations.quality.completeness`와 `expected_exhaustive`를 config에 명시한다.
+- `expected_exhaustive: false` 또는 `completeness: unknown/partial`이면 recall과 ROI containment는 annotated-object lower-bound check로만 사용한다.
+- visible object가 annotation에 누락될 수 있는 dataset에서는 false ROI rate, precision, false positive count를 hard criterion으로 쓰지 않는다.
+- Phase 1.1 Keep/Tune 판단은 baseline balanced 대비 pseudo recall, ROI count latency, failure visualization을 우선하고, annotation metric은 annotation 품질 범위 안에서 보조 기준으로 사용한다.
 
 ## 8. Profile별 결과 정리
 
@@ -205,13 +214,13 @@ Bucket:
 아래 조건을 만족하면 Phase 1.1 ROI crop/gate policy 개선으로 넘어간다.
 
 - [x] `opencv-vtest` quick run이 end-to-end로 성공한다.
-- [x] `oxford-town-centre` quick run이 end-to-end로 성공한다.
+- [ ] `construction-site-static-camera` quick run이 end-to-end로 성공한다.
 - [x] `od-virat-tiny` quick run이 end-to-end로 성공한다.
 - [x] aggressive/balanced/recall profile 3개 결과가 같은 형식으로 비교 가능하다.
 - [x] no-refresh ablation으로 periodic full-frame check 효과를 분리할 수 있다.
 - [ ] failure visualization으로 missed pseudo-reference case를 수동 검토할 수 있다.
 - [x] ROI 개수 증가가 latency/call overhead에 미치는 영향을 report로 확인할 수 있다.
-- [ ] GT 기반 validation을 위한 OD-VIRAT Tiny data layout과 annotation loader 구현 범위가 정해져 있다.
+- [x] OD-VIRAT Tiny annotation 품질 한계와 loader 구현 범위가 문서화되어 있다.
 
 ## 11. 구현 작업 목록
 
@@ -221,9 +230,9 @@ Bucket:
 - [x] ROI count latency benchmark 도구 추가
   - `tools/benchmark_roi_count_latency.py`
   - `roi_metadata`, `gate_decisions`, `roi_yolo_metrics`, `comparison_report`를 읽어 ROI count bucket별 report 생성
-- [x] OD-VIRAT Tiny config 초안 추가
+- [x] OD-VIRAT Tiny config 추가
   - `configs/dataset.od_virat_tiny.yaml`
-  - annotation loader 구현 전 placeholder로 시작
+  - partial annotation 품질 metadata 포함
 - [x] Pipeline 실행 결과 기록 방식 정리
   - `docs/runs/phase1_validation_runs.md` 또는 output manifest 기준으로 관리
 - [x] Unit test 추가

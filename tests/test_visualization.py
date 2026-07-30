@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from common import Detection, FramePacket, FrameSize, ROI, ROIMetadata, TriggerType
+from common import Detection, FramePacket, FrameSize, GroundTruthAnnotation, ROI, ROIMetadata, TriggerType
 from visualization.renderer import (
     VisualizationSummary,
+    find_missed_ground_truth_annotations,
     find_missed_reference_detections,
     render_visualizations,
 )
@@ -54,6 +55,14 @@ class VisualizationTest(unittest.TestCase):
         self.assertEqual(find_missed_reference_detections(reference, matched), [])
         self.assertEqual(find_missed_reference_detections(reference, missed), reference)
 
+    def test_find_missed_ground_truth_annotations(self) -> None:
+        ground_truth = [_gt_annotation([0, 0, 10, 10])]
+        matched = [_detection("roi_yolo", [1, 1, 11, 11], roi_id="roi_001")]
+        missed = [_detection("roi_yolo", [30, 30, 40, 40], roi_id="roi_002")]
+
+        self.assertEqual(find_missed_ground_truth_annotations(ground_truth, matched), [])
+        self.assertEqual(find_missed_ground_truth_annotations(ground_truth, missed), ground_truth)
+
     def test_render_visualizations_writes_overlay_comparison_and_failure(self) -> None:
         fake_cv2 = FakeCv2()
         fake_np = FakeNp()
@@ -68,6 +77,7 @@ class VisualizationTest(unittest.TestCase):
                 roi_records=[_roi_record(ROI(0, 0, 10, 10))],
                 full_frame_detections=[_detection("full_frame_yolo", [20, 20, 30, 30])],
                 roi_detections=[_detection("roi_yolo", [1, 1, 8, 8], roi_id="roi_001")],
+                ground_truth=[_gt_annotation([20, 20, 30, 30])],
                 output_root="outputs/visualizations/test",
             )
         finally:
@@ -113,6 +123,19 @@ def _detection(source: str, bbox_xyxy: list[float], roi_id: str | None = None) -
         bbox_xyxy=bbox_xyxy,
         source=source,
         roi_id=roi_id,
+    )
+
+
+def _gt_annotation(bbox_xyxy: list[float]) -> GroundTruthAnnotation:
+    return GroundTruthAnnotation(
+        camera_id="cam_test",
+        frame_id=1,
+        class_id=0,
+        class_name="person",
+        bbox_xyxy=bbox_xyxy,
+        annotation_id=1,
+        image_id=1,
+        file_name="1.jpg",
     )
 
 

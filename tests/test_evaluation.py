@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from common import Detection, FrameSize, GateFrameMetadata, ROI, ROIMetadata, TriggerType
+from common import Detection, FrameSize, GateFrameMetadata, GroundTruthAnnotation, ROI, ROIMetadata, TriggerType
 from evaluation.comparison_report import (
     ComparisonInputs,
     build_comparison_report,
@@ -14,6 +14,7 @@ from evaluation.comparison_report import (
     write_report_markdown,
 )
 from evaluation.detection_metrics import bbox_iou, match_detections_by_iou
+from evaluation.gt_report import AnnotationQuality, summarize_detector_gt, summarize_gt_roi_containment
 from evaluation.roi_containment import summarize_roi_containment
 from evaluation.workload_metrics import reduction_ratio
 
@@ -45,6 +46,43 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(reduction_ratio(100, 40), 0.6)
         self.assertEqual(reduction_ratio(100, 120), -0.2)
         self.assertEqual(reduction_ratio(0, 40), 0.0)
+
+    def test_gt_detector_and_roi_summaries(self) -> None:
+        ground_truth = [
+            _gt_annotation("person", [0, 0, 10, 10]),
+            _gt_annotation("Car", [30, 30, 50, 50], annotation_id=2),
+        ]
+        detections = [
+            _detection("roi_yolo", [0, 0, 10, 10]),
+            _detection("roi_yolo", [1, 1, 9, 9]),
+        ]
+        rois = [_roi_record(ROI(0, 0, 12, 12)), _roi_record(ROI(70, 70, 10, 10))]
+
+        detector_summary = summarize_detector_gt("roi_yolo", ground_truth, detections)
+        roi_summary = summarize_gt_roi_containment(ground_truth, rois)
+
+        self.assertEqual(detector_summary.matched_gt_count, 1)
+        self.assertEqual(detector_summary.missed_gt_count, 1)
+        self.assertEqual(detector_summary.duplicate_detection_count, 1)
+        self.assertEqual(detector_summary.class_recall["person"], 1.0)
+        self.assertEqual(detector_summary.class_recall["Car"], 0.0)
+        self.assertEqual(roi_summary.contained_gt_count, 1)
+        self.assertEqual(roi_summary.false_roi_count, 1)
+
+    def test_annotation_quality_from_mapping(self) -> None:
+        quality = AnnotationQuality.from_mapping(
+            {
+                "completeness": "partial",
+                "expected_exhaustive": False,
+                "notes": ["visible objects may be unlabeled"],
+                "unreliable_metrics": ["false_roi_rate"],
+            }
+        )
+
+        self.assertEqual(quality.completeness, "partial")
+        self.assertFalse(quality.expected_exhaustive)
+        self.assertEqual(quality.notes, ("visible objects may be unlabeled",))
+        self.assertEqual(quality.unreliable_metrics, ("false_roi_rate",))
 
 
 class ComparisonReportTest(unittest.TestCase):
@@ -124,6 +162,23 @@ def _detection(source: str, bbox_xyxy: list[float], roi_id: str | None = None) -
         bbox_xyxy=bbox_xyxy,
         source=source,
         roi_id=roi_id,
+    )
+
+
+def _gt_annotation(
+    class_name: str,
+    bbox_xyxy: list[float],
+    annotation_id: int = 1,
+) -> GroundTruthAnnotation:
+    return GroundTruthAnnotation(
+        camera_id="cam_test",
+        frame_id=1,
+        class_id=0,
+        class_name=class_name,
+        bbox_xyxy=bbox_xyxy,
+        annotation_id=annotation_id,
+        image_id=1,
+        file_name="1.jpg",
     )
 
 

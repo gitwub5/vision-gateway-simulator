@@ -65,7 +65,7 @@ python experiments/run_phase1_experiment.py \
 ```
 
 실험 결과는 `outputs/experiments/<timestamp>_<experiment_name>/` 아래에 묶어서 저장됩니다.
-Oxford Town Centre를 실행할 때는 `--gate-config configs/npx_gate.oxford.yaml`을 사용합니다.
+Phase 1.1 public validation은 `construction-site-static-camera`와 `od-virat-tiny`를 우선 사용합니다.
 
 테스트:
 

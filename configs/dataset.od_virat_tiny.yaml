@@ -12,5 +12,16 @@ dataset:
     - .bmp
 
 annotations:
+  enabled: true
   type: od_virat_tiny
   input_path: data/od_virat_tiny/json_anntations/test_annotations.json
+  quality:
+    completeness: partial
+    expected_exhaustive: false
+    unreliable_metrics:
+      - false_roi_rate
+      - precision
+      - false_positive_count
+    notes:
+      - OD-VIRAT Tiny annotations can miss visible people or vehicles in some frames.
+      - Treat annotation recall and annotation ROI containment as annotated-object lower-bound checks, not exhaustive real-world recall.

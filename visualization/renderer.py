@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from common import Detection, FramePacket, ROIMetadata
+from common import Detection, FramePacket, GroundTruthAnnotation, ROIMetadata
 from evaluation.detection_metrics import bbox_iou
 
 
@@ -48,6 +48,7 @@ def render_visualizations(
     roi_records: Iterable[ROIMetadata],
     full_frame_detections: Iterable[Detection],
     roi_detections: Iterable[Detection],
+    ground_truth: Iterable[GroundTruthAnnotation] | None = None,
     output_root: str | Path = "outputs/visualizations",
     limit: int | None = None,
     iou_threshold: float = 0.5,
@@ -59,6 +60,7 @@ def render_visualizations(
     rois_by_frame = _group_by_frame(roi_records)
     full_detections_by_frame = _group_by_frame(full_frame_detections)
     roi_detections_by_frame = _group_by_frame(roi_detections)
+    gt_by_frame = _group_by_frame(ground_truth or [])
     summary = VisualizationSummary()
 
     for packet in frames:
@@ -66,10 +68,11 @@ def render_visualizations(
         frame_rois = rois_by_frame.get(key, [])
         frame_full_detections = full_detections_by_frame.get(key, [])
         frame_roi_detections = roi_detections_by_frame.get(key, [])
+        frame_gt = gt_by_frame.get(key, [])
         summary.processed_frames += 1
         stem = _frame_stem(packet.camera_id, packet.frame_id)
 
-        roi_overlay = draw_roi_overlay(cv2, packet.frame, frame_rois, frame_roi_detections)
+        roi_overlay = draw_roi_overlay(cv2, packet.frame, frame_rois, frame_roi_detections, frame_gt)
         cv2.imwrite(str(output_dirs.roi_overlay / f"{stem}_roi_overlay.jpg"), roi_overlay)
         summary.roi_overlay_count += 1
 
@@ -80,6 +83,7 @@ def render_visualizations(
             frame_rois,
             frame_full_detections,
             frame_roi_detections,
+            frame_gt,
         )
         cv2.imwrite(str(output_dirs.comparison / f"{stem}_comparison.jpg"), comparison)
         summary.comparison_count += 1
@@ -89,7 +93,12 @@ def render_visualizations(
             frame_roi_detections,
             iou_threshold=iou_threshold,
         )
-        if missed:
+        missed_gt = find_missed_ground_truth_annotations(
+            frame_gt,
+            frame_roi_detections,
+            iou_threshold=iou_threshold,
+        )
+        if missed or missed_gt:
             failure = draw_failure_case(
                 cv2,
                 np,
@@ -98,6 +107,8 @@ def render_visualizations(
                 frame_full_detections,
                 frame_roi_detections,
                 missed,
+                frame_gt,
+                missed_gt,
             )
             cv2.imwrite(str(output_dirs.failures / f"{stem}_failure.jpg"), failure)
             summary.failure_case_count += 1
@@ -108,10 +119,18 @@ def render_visualizations(
     return summary
 
 
-def draw_roi_overlay(cv2: Any, frame: Any, rois: list[ROIMetadata], detections: list[Detection]) -> Any:
+def draw_roi_overlay(
+    cv2: Any,
+    frame: Any,
+    rois: list[ROIMetadata],
+    detections: list[Detection],
+    ground_truth: list[GroundTruthAnnotation] | None = None,
+) -> Any:
     canvas = frame.copy()
     for roi_record in rois:
         _draw_roi(cv2, canvas, roi_record)
+    for gt in ground_truth or []:
+        _draw_ground_truth(cv2, canvas, gt)
     for detection in detections:
         _draw_detection(cv2, canvas, detection, color=(0, 190, 255), label_prefix="roi")
     return canvas
@@ -124,11 +143,15 @@ def draw_detection_comparison(
     rois: list[ROIMetadata],
     full_frame_detections: list[Detection],
     roi_detections: list[Detection],
+    ground_truth: list[GroundTruthAnnotation] | None = None,
 ) -> Any:
     full_panel = frame.copy()
     roi_panel = frame.copy()
     _draw_panel_title(cv2, full_panel, "Full-frame YOLO")
     _draw_panel_title(cv2, roi_panel, "ROI-gated YOLO")
+    for gt in ground_truth or []:
+        _draw_ground_truth(cv2, full_panel, gt)
+        _draw_ground_truth(cv2, roi_panel, gt)
     for detection in full_frame_detections:
         _draw_detection(cv2, full_panel, detection, color=(255, 160, 0), label_prefix="full")
     for roi_record in rois:
@@ -147,14 +170,26 @@ def draw_failure_case(
     full_frame_detections: list[Detection],
     roi_detections: list[Detection],
     missed_detections: list[Detection],
+    ground_truth: list[GroundTruthAnnotation] | None = None,
+    missed_gt: list[GroundTruthAnnotation] | None = None,
 ) -> Any:
-    canvas = draw_detection_comparison(cv2, np, frame, rois, full_frame_detections, roi_detections)
+    canvas = draw_detection_comparison(
+        cv2,
+        np,
+        frame,
+        rois,
+        full_frame_detections,
+        roi_detections,
+        ground_truth,
+    )
     width = frame.shape[1]
     for detection in missed_detections:
         _draw_detection(cv2, canvas, detection, color=(0, 0, 255), label_prefix="missed")
+    for gt in missed_gt or []:
+        _draw_ground_truth(cv2, canvas, gt, color=(0, 0, 255), label_prefix="missed_gt")
     cv2.putText(
         canvas,
-        f"Failure candidates: {len(missed_detections)} missed full-frame detections",
+        f"Failure candidates: {len(missed_detections)} pseudo miss, {len(missed_gt or [])} GT miss",
         (width + 12, 48),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
@@ -163,6 +198,36 @@ def draw_failure_case(
         cv2.LINE_AA,
     )
     return canvas
+
+
+def find_missed_ground_truth_annotations(
+    ground_truth: Iterable[GroundTruthAnnotation],
+    candidate_detections: Iterable[Detection],
+    iou_threshold: float = 0.5,
+) -> list[GroundTruthAnnotation]:
+    candidates = list(candidate_detections)
+    used_candidate_indexes: set[int] = set()
+    missed: list[GroundTruthAnnotation] = []
+
+    for gt in ground_truth:
+        best_index = None
+        best_iou = 0.0
+        for index, candidate in enumerate(candidates):
+            if index in used_candidate_indexes:
+                continue
+            if not _is_gt_match_candidate(gt, candidate):
+                continue
+            iou = bbox_iou(gt.bbox_xyxy, candidate.bbox_xyxy)
+            if iou > best_iou:
+                best_iou = iou
+                best_index = index
+
+        if best_index is None or best_iou < iou_threshold:
+            missed.append(gt)
+        else:
+            used_candidate_indexes.add(best_index)
+
+    return missed
 
 
 def find_missed_reference_detections(
@@ -215,6 +280,18 @@ def _draw_detection(
     _draw_label(cv2, canvas, label, x1, y1, color)
 
 
+def _draw_ground_truth(
+    cv2: Any,
+    canvas: Any,
+    gt: GroundTruthAnnotation,
+    color: tuple[int, int, int] = (255, 0, 255),
+    label_prefix: str = "gt",
+) -> None:
+    x1, y1, x2, y2 = [int(round(value)) for value in gt.bbox_xyxy]
+    cv2.rectangle(canvas, (x1, y1), (x2, y2), color, 2)
+    _draw_label(cv2, canvas, f"{label_prefix}:{gt.class_name}", x1, y2, color)
+
+
 def _draw_label(
     cv2: Any,
     canvas: Any,
@@ -254,6 +331,25 @@ def _is_match_candidate(reference: Detection, candidate: Detection) -> bool:
         and reference.frame_id == candidate.frame_id
         and reference.class_name == candidate.class_name
     )
+
+
+def _is_gt_match_candidate(gt: GroundTruthAnnotation, candidate: Detection) -> bool:
+    return (
+        gt.camera_id == candidate.camera_id
+        and gt.frame_id == candidate.frame_id
+        and _normalize_class_name(gt.class_name) == _normalize_class_name(candidate.class_name)
+    )
+
+
+def _normalize_class_name(class_name: str) -> str:
+    normalized = class_name.strip().lower()
+    aliases = {
+        "bike/bicycle": "bicycle",
+        "bike": "bicycle",
+        "truck": "vehicle",
+        "bus": "vehicle",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _load_dependencies():

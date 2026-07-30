@@ -39,24 +39,26 @@ SAMPLES: dict[str, SampleDataset] = {
         expected_size_bytes=None,
         usage_note=(
             "OpenCV vtest.avi is a small fixed-camera pedestrian sample. Use it for "
-            "local Phase 1 pipeline validation before preparing Oxford Town Centre, "
-            "OD-VIRAT, or internal CCTV data."
+            "local Phase 1 pipeline validation before preparing Construction Site "
+            "Static Camera, OD-VIRAT, or internal CCTV data."
         ),
     ),
-    "oxford-town-centre": SampleDataset(
-        key="oxford-town-centre",
-        description="Oxford Town Centre fixed CCTV pedestrian dataset.",
-        output_path=Path("data/oxford_town_centre/TownCentreXVID.mp4"),
-        config_path=Path("configs/dataset.oxford_town_centre.yaml"),
+    "construction-site-static-camera": SampleDataset(
+        key="construction-site-static-camera",
+        description="Construction-site images captured from four static cameras.",
+        output_path=Path("data/construction_site_static_camera/"),
+        config_path=Path("configs/dataset.construction_site_static_camera.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
-            "Oxford Town Centre is a fixed CCTV pedestrian dataset and is a good "
-            "Phase 1 validation candidate, but the original publisher page is no "
-            "longer reliably available and public mirrors may require terms, login, "
-            "or torrent tooling. Download it manually only after checking whether "
-            "your intended use is allowed. Place the video at "
-            "data/oxford_town_centre/TownCentreXVID.mp4."
+            "Preferred public Phase 1.1 validation candidate for industrial fixed-camera "
+            "monitoring. The dataset contains construction-site images from static cameras "
+            "with object coordinate txt files for classes such as Person, Dump_truck, "
+            "Excavator, Truck, and crane/truck variants. Download it manually from "
+            "https://doi.org/10.26439/ulima.datasets.13359 after checking terms, then "
+            "place images under data/construction_site_static_camera/images and labels "
+            "under data/construction_site_static_camera/labels. Keep annotations disabled "
+            "until the source txt format is confirmed and a converter is added."
         ),
         auto_download=False,
     ),

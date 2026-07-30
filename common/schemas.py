@@ -122,6 +122,23 @@ class Detection:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class GroundTruthAnnotation:
+    camera_id: str
+    frame_id: int
+    class_id: int
+    class_name: str
+    bbox_xyxy: list[float]
+    annotation_id: int | str
+    image_id: int | str
+    file_name: str
+    source: str = "ground_truth"
+    iscrowd: int = 0
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 @dataclass
 class ExperimentMetrics:
     frame_count: int = 0

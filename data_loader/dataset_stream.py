@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from time import time
 from typing import Any
 
@@ -124,9 +125,7 @@ class ImageSequenceStream(DatasetStream):
         if not self.input_path.is_dir():
             raise NotADirectoryError(f"Image sequence input is not a directory: {self.input_path}")
 
-        image_paths = sorted(
-            path for path in self.input_path.iterdir() if path.suffix.lower() in self.extensions
-        )
+        image_paths = list_image_sequence_paths(self.input_path, self.extensions)
         image_paths = image_paths[self.start_frame :]
         if self.frame_limit is not None:
             image_paths = image_paths[: self.frame_limit]
@@ -172,6 +171,18 @@ def create_dataset_stream(config: DatasetConfig | dict[str, Any]) -> DatasetStre
     raise ValueError(f"Unsupported dataset.type: {dataset_config.type}")
 
 
+def list_image_sequence_paths(
+    input_path: str | Path,
+    extensions: tuple[str, ...] = DEFAULT_IMAGE_EXTENSIONS,
+) -> list[Path]:
+    root = Path(input_path)
+    normalized_extensions = tuple(ext.lower() for ext in extensions)
+    return sorted(
+        (path for path in root.iterdir() if path.suffix.lower() in normalized_extensions),
+        key=_natural_path_sort_key,
+    )
+
+
 def load_dataset_config(config_path: str | Path) -> DatasetConfig:
     yaml = _require_yaml()
     with Path(config_path).open("r", encoding="utf-8") as file:
@@ -199,3 +210,9 @@ def _require_yaml():
             "`pip install -r requirements.txt`."
         ) from exc
     return yaml
+
+
+def _natural_path_sort_key(path: Path) -> tuple:
+    parts = re.split(r"(\d+)", path.stem)
+    stem_key = tuple(int(part) if part.isdigit() else part.lower() for part in parts)
+    return stem_key, path.suffix.lower(), path.name.lower()
