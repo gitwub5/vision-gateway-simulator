@@ -58,14 +58,14 @@ class AnnotationLoaderTest(unittest.TestCase):
     def test_ua_detrac_loader_maps_xml_frames_to_dataset_frame_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            image_root = root / "MVI_20011"
+            image_root = root / "MVI_39031"
             image_root.mkdir()
             for name in ["img00001.jpg", "img00002.jpg", "img00010.jpg"]:
                 (image_root / name).write_text("image", encoding="utf-8")
-            annotation_path = root / "MVI_20011.xml"
+            annotation_path = root / "MVI_39031.xml"
             annotation_path.write_text(
                 """<?xml version="1.0" encoding="utf-8"?>
-<sequence name="MVI_20011">
+<sequence name="MVI_39031">
   <frame num="1">
     <target_list>
       <target id="7">
@@ -90,7 +90,7 @@ class AnnotationLoaderTest(unittest.TestCase):
             config = DatasetConfig(
                 type="image_sequence",
                 input_path=image_root,
-                camera_id="MVI_20011",
+                camera_id="MVI_39031",
                 start_frame=1,
                 frame_limit=1,
             )

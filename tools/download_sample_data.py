@@ -71,18 +71,17 @@ SAMPLES: dict[str, SampleDataset] = {
         key="ua-detrac",
         description="UA-DETRAC fixed traffic-camera vehicle detection/tracking dataset.",
         output_path=Path("data/ua_detrac/"),
-        config_path=Path("configs/dataset.ua_detrac_mvi_20011.yaml"),
+        config_path=Path("configs/dataset.ua_detrac_mvi_39031.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
             "Preferred public temporal GT dataset for ROI proposal validation. UA-DETRAC "
             "contains fixed traffic-camera image sequences with vehicle bounding boxes. "
-            "Download the train images and train annotation XML archives manually from "
-            "https://detrac-db.rit.albany.edu/Data/DETRAC-train-data.zip and "
-            "https://detrac-db.rit.albany.edu/Data/DETRAC-Train-Annotations-XML.zip. "
-            "Extract them under data/ua_detrac/ so the default quick config can find "
-            "data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011 "
-            "and data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml."
+            "Download and extract the image and annotation XML archives under "
+            "data/ua_detrac/. The current default quick config matches the zip-expanded "
+            "layout where images are under "
+            "data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031 and annotations are "
+            "under data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml."
         ),
         auto_download=False,
     ),

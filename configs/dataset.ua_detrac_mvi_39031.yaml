@@ -1,7 +1,7 @@
 dataset:
   type: image_sequence
-  input_path: data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011
-  camera_id: MVI_20011
+  input_path: data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031
+  camera_id: MVI_39031
   fps_override: 25
   frame_limit: 120
   start_frame: 0
@@ -14,7 +14,7 @@ dataset:
 annotations:
   enabled: true
   type: ua_detrac_xml
-  input_path: data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml
+  input_path: data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml
   quality:
     completeness: exhaustive
     expected_exhaustive: true

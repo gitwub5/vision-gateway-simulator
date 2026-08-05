@@ -121,7 +121,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 
 ## 3. Baseline
 
-기본 baseline은 `UA-DETRAC MVI_20011 + balanced profile`로 둔다.
+기본 baseline은 `UA-DETRAC MVI_39031 + balanced profile`로 둔다.
 
 Construction Site Static Camera는 Phase 1.1 후보로 검토했지만 active baseline에서 제외했다. `IMG259`-`IMG457` 구간 high-res ROI generation 결과는 보존하되, official config는 거의 모든 frame에서 full-frame fallback으로 빠졌고 fallback을 끈 diagnostic run은 ROI가 거의 전체 프레임을 덮어 ROI proposal 품질 판단에 부적합했다.
 

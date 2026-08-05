@@ -29,7 +29,7 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
 | Tier 0 | `opencv-vtest` | `configs/dataset.opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `ua-detrac` | `configs/dataset.ua_detrac_mvi_20011.yaml` | 연속 프레임과 bbox GT가 있는 ROI proposal primary validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
+| Tier 1 | `ua-detrac` | `configs/dataset.ua_detrac_mvi_39031.yaml` | 연속 프레임과 bbox GT가 있는 ROI proposal primary validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
 | Tier 2 | `od-virat-tiny` | `configs/dataset.od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
@@ -70,7 +70,7 @@ Run id 규칙:
 
 ```text
 opencv_vtest_f0000_0120_balanced_20260729
-ua_detrac_mvi_20011_f0000_0120_recall_20260805
+ua_detrac_mvi_39031_f0000_0120_recall_20260805
 ```
 
 ## 5. 기본 실행 명령
@@ -91,10 +91,10 @@ UA-DETRAC balanced review:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_20011_balanced \
+  --experiment-name ua_detrac_mvi_39031_balanced \
   --limit 1000 \
   --render-limit 100
 ```
@@ -103,10 +103,10 @@ UA-DETRAC high-res ROI analysis review:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
   --gate-config configs/npx_gate.profile_balanced_highres.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_20011_balanced_highres \
+  --experiment-name ua_detrac_mvi_39031_balanced_highres \
   --limit 1000 \
   --render-limit 100
 ```
@@ -115,10 +115,10 @@ UA-DETRAC no-refresh ablation:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_20011_balanced_no_refresh \
+  --experiment-name ua_detrac_mvi_39031_balanced_no_refresh \
   --limit 1000 \
   --render-limit 100 \
   --disable-full-frame-checks

@@ -45,7 +45,7 @@ python tools/download_sample_data.py --dataset internal-cctv
 |---|---|---|---|---|---|---|---|
 | `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/dataset.opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
 | `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/dataset.od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
-| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_20011.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
+| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_39031.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
 | `internal-cctv` | 수동 준비 | 사내 고정 CCTV | 회사 환경 기준 최종 smoke/validation | `data/internal_cctv/` | `configs/dataset.internal_cctv_sample.yaml` | 높음 | 사내 보안 정책 준수 필요 |
 
 ## 권장 사용 순서
@@ -138,30 +138,30 @@ outputs/roi_proposal_validation/construction_static_0259_0457_balanced_highres_2
 
 ```text
 https://detrac-db.rit.albany.edu/Data/DETRAC-train-data.zip
-https://detrac-db.rit.albany.edu/Data/DETRAC-Train-Annotations-XML.zip
+https://detrac-db.rit.albany.edu/Data/DETRAC-Test-Annotations-XML.zip
 ```
 
 기본 준비 위치:
 
 ```text
-data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011/
-data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml
+data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031/
+data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml
 ```
 
 기본 quick config:
 
 ```text
-configs/dataset.ua_detrac_mvi_20011.yaml
+configs/dataset.ua_detrac_mvi_39031.yaml
 ```
 
 실행 예:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_20011_balanced \
+  --experiment-name ua_detrac_mvi_39031_balanced \
   --limit 120
 ```
 
