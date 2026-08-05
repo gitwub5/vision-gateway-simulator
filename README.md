@@ -56,7 +56,7 @@ python experiments/run_rule_roi_baseline.py \
 전체 Phase 1 실험 실행:
 
 ```bash
-python experiments/run_phase1_experiment.py \
+python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/dataset.opencv_vtest.yaml \
   --gate-config configs/npx_gate.yaml \
   --yolo-config configs/yolo.yaml \
@@ -64,8 +64,8 @@ python experiments/run_phase1_experiment.py \
   --limit 120
 ```
 
-실험 결과는 `outputs/experiments/<timestamp>_<experiment_name>/` 아래에 묶어서 저장됩니다.
-Phase 1.1 public validation은 `construction-site-static-camera`와 `od-virat-tiny`를 우선 사용합니다.
+실험 결과는 `outputs/e2e_inference_validation/<timestamp>_<experiment_name>/` 아래에 묶어서 저장됩니다.
+Phase 1.1 public validation은 `ua-detrac`을 primary temporal GT dataset으로 사용하고, `od-virat-tiny`는 partial annotation 보조 검증으로 사용합니다.
 
 테스트:
 
@@ -94,7 +94,7 @@ python -m unittest discover -s tests
 | `experiments/` | 각 모듈을 연결해서 산출물을 생성하는 실행 스크립트 |
 | `tools/` | sample data 다운로드, smoke video 생성 등 보조 도구 |
 | `tests/` | 단위 테스트 |
-| `outputs/` | 실험 결과 저장 위치. 실행 단위 결과는 `outputs/experiments/` 아래에 저장 |
+| `outputs/` | 실험 결과 저장 위치. E2E inference 결과는 `outputs/e2e_inference_validation/` 아래에 저장 |
 | `data/` | dataset 저장 위치. Git 제외 |
 
 ## 주요 문서

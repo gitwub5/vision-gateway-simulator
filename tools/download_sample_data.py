@@ -39,28 +39,9 @@ SAMPLES: dict[str, SampleDataset] = {
         expected_size_bytes=None,
         usage_note=(
             "OpenCV vtest.avi is a small fixed-camera pedestrian sample. Use it for "
-            "local Phase 1 pipeline validation before preparing Construction Site "
-            "Static Camera, OD-VIRAT, or internal CCTV data."
+            "local Phase 1 pipeline validation before preparing OD-VIRAT, a selected "
+            "temporal GT dataset, or internal CCTV data."
         ),
-    ),
-    "construction-site-static-camera": SampleDataset(
-        key="construction-site-static-camera",
-        description="Construction-site images captured from four static cameras.",
-        output_path=Path("data/construction_site_static_camera/"),
-        config_path=Path("configs/dataset.construction_site_static_camera.yaml"),
-        url=None,
-        expected_size_bytes=None,
-        usage_note=(
-            "Preferred public Phase 1.1 validation candidate for industrial fixed-camera "
-            "monitoring. The dataset contains construction-site images from static cameras "
-            "with object coordinate txt files for classes such as Person, Dump_truck, "
-            "Excavator, Truck, and crane/truck variants. Download it manually from "
-            "https://doi.org/10.26439/ulima.datasets.13359 after checking terms, then "
-            "place images under data/construction_site_static_camera/images and labels "
-            "under data/construction_site_static_camera/labels. Keep annotations disabled "
-            "until the source txt format is confirmed and a converter is added."
-        ),
-        auto_download=False,
     ),
     "od-virat-tiny": SampleDataset(
         key="od-virat-tiny",
@@ -83,6 +64,25 @@ SAMPLES: dict[str, SampleDataset] = {
             "data/od_virat_tiny/json_anntations/test_annotations.json. After the "
             "annotation format is confirmed, implement the dataset-specific annotation "
             "loader."
+        ),
+        auto_download=False,
+    ),
+    "ua-detrac": SampleDataset(
+        key="ua-detrac",
+        description="UA-DETRAC fixed traffic-camera vehicle detection/tracking dataset.",
+        output_path=Path("data/ua_detrac/"),
+        config_path=Path("configs/dataset.ua_detrac_mvi_20011.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Preferred public temporal GT dataset for ROI proposal validation. UA-DETRAC "
+            "contains fixed traffic-camera image sequences with vehicle bounding boxes. "
+            "Download the train images and train annotation XML archives manually from "
+            "https://detrac-db.rit.albany.edu/Data/DETRAC-train-data.zip and "
+            "https://detrac-db.rit.albany.edu/Data/DETRAC-Train-Annotations-XML.zip. "
+            "Extract them under data/ua_detrac/ so the default quick config can find "
+            "data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011 "
+            "and data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml."
         ),
         auto_download=False,
     ),

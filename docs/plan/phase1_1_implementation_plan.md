@@ -47,6 +47,8 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 
 ### 2.2 Stage A: ROI Budget / Fallback Policy
 
+- [x] ROI gate processing size를 config로 키울 수 있는 옵션 추가
+- [x] `balanced_highres` config 추가
 - [ ] `roi_budget.enabled` feature flag 추가
 - [ ] `max_roi_per_frame` 초과 시 full-frame fallback 구현
 - [ ] `max_total_roi_area_ratio` 초과 시 full-frame fallback 구현
@@ -54,7 +56,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [ ] 너무 작은 ROI 제거 또는 minimum padding 처리
 - [ ] budget decision reason을 `gate_decisions.jsonl`에 기록
 - [ ] `budget_balanced` config 추가
-- [ ] baseline balanced 대비 Construction Site Static Camera quick run 비교
+- [ ] baseline balanced 대비 UA-DETRAC quick run 비교
 - [ ] OD-VIRAT Tiny annotated-object 보조 run 비교
 - [ ] ROI count latency benchmark 생성
 - [ ] Keep/Tune/Disable/Remove 판정 기록
@@ -68,7 +70,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [ ] motion density 변화 기반 force refresh 구현
 - [ ] refresh decision reason을 `gate_decisions.jsonl`에 기록
 - [ ] `adaptive_refresh_balanced` config 추가
-- [ ] fixed refresh/no-refresh 대비 Construction Site Static Camera quick run 비교
+- [ ] fixed refresh/no-refresh 대비 UA-DETRAC quick run 비교
 - [ ] OD-VIRAT Tiny annotated-object 보조 run 비교
 - [ ] Keep/Tune/Disable/Remove 판정 기록
 
@@ -119,7 +121,9 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 
 ## 3. Baseline
 
-기본 baseline은 Phase 1 결과의 `Construction Site Static Camera + balanced profile`로 둔다.
+기본 baseline은 `UA-DETRAC MVI_20011 + balanced profile`로 둔다.
+
+Construction Site Static Camera는 Phase 1.1 후보로 검토했지만 active baseline에서 제외했다. `IMG259`-`IMG457` 구간 high-res ROI generation 결과는 보존하되, official config는 거의 모든 frame에서 full-frame fallback으로 빠졌고 fallback을 끈 diagnostic run은 ROI가 거의 전체 프레임을 덮어 ROI proposal 품질 판단에 부적합했다.
 
 OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation dataset이므로 primary GT dataset으로 쓰지 않는다. 대신 annotated-object lower-bound 보조 평가와 public surveillance sample 확인에 사용한다.
 
@@ -174,6 +178,7 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 ### 구현 항목
 
 - `roi_budget.enabled` feature flag 추가
+- ROI gate processing size config를 이용한 high-res analysis profile 비교
 - `max_roi_per_frame` 초과 시 full-frame fallback
 - `max_total_roi_area_ratio` 초과 시 full-frame fallback
 - 가까운 ROI merge
@@ -185,6 +190,7 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 | Run | 설명 |
 |---|---|
 | `baseline_balanced` | 기존 balanced |
+| `baseline_balanced_highres` | ROI gate high-res analysis 적용 |
 | `budget_balanced` | ROI budget/fallback 적용 |
 | `baseline_recall` | recall upper bound |
 
@@ -193,7 +199,7 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 - pseudo recall이 `baseline_balanced`보다 크게 낮아지지 않는다.
 - ROI count `2-3`, `4-5`, `6-8` bucket의 latency delta가 개선된다.
 - input area reduction이 `baseline_recall`보다 높다.
-- Construction Site Static Camera failure visualization에서 반복 miss pattern이 늘지 않는다.
+- UA-DETRAC failure visualization에서 반복 miss pattern이 늘지 않는다.
 - OD-VIRAT Tiny annotated-object recall/containment가 악화되지 않는지 보조 확인한다.
 
 ### Tune/Disable/Remove 기준
@@ -336,7 +342,7 @@ DeepStream과 겹치지 않는 장기 차별점은 pixel-domain ROI보다 bitstr
 
 각 stage는 동일한 절차로 검증한다.
 
-1. Construction Site Static Camera 120-frame quick run 실행
+1. UA-DETRAC 120-frame quick run 실행
 2. pseudo-reference report 생성
 3. profile summary 생성
 4. ROI count latency benchmark 생성

@@ -22,6 +22,33 @@ class FakeEventMaps:
 
 
 class RuleBasedNpxGateTest(unittest.TestCase):
+    def test_processing_width_preserves_source_aspect_ratio(self) -> None:
+        config = NpxGateConfig(processing_width=1280)
+
+        self.assertEqual(config.analysis_size_for_frame(FrameSize(width=3840, height=2160)), FrameSize(1280, 720))
+
+    def test_processing_size_does_not_upscale_by_default(self) -> None:
+        config = NpxGateConfig(processing_width=1280)
+
+        self.assertEqual(config.analysis_size_for_frame(FrameSize(width=640, height=360)), FrameSize(640, 360))
+
+    def test_config_loads_nested_processing_size(self) -> None:
+        config = NpxGateConfig.from_mapping({"npx_gate": {"processing": {"width": 960}}})
+
+        self.assertEqual(config.processing_width, 960)
+        self.assertIsNone(config.processing_height)
+
+    def test_decision_records_dynamic_analysis_size(self) -> None:
+        gate = RuleBasedNpxGate(NpxGateConfig(processing_width=1280, full_frame_interval=60))
+        packet = _packet(frame_id=0, original_size=FrameSize(width=3840, height=2160))
+        seen_sizes: list[FrameSize] = []
+
+        with _patched_gate_helpers(rois=[], seen_sizes=seen_sizes):
+            decision = gate.process(packet)
+
+        self.assertEqual(seen_sizes, [FrameSize(width=1280, height=720)])
+        self.assertEqual(decision.analysis_frame_size, FrameSize(width=1280, height=720))
+
     def test_first_frame_triggers_full_frame_check(self) -> None:
         gate = RuleBasedNpxGate(NpxGateConfig(full_frame_interval=60))
         packet = _packet(frame_id=0)
@@ -112,21 +139,28 @@ class GatePolicyTest(unittest.TestCase):
         self.assertEqual(hold.update([]), [])
 
 
-def _packet(frame_id: int) -> FramePacket:
+def _packet(frame_id: int, original_size: FrameSize | None = None) -> FramePacket:
+    if original_size is None:
+        original_size = FrameSize(width=100, height=100)
     return FramePacket(
         camera_id="cam_test",
         frame_id=frame_id,
         timestamp=float(frame_id) / 30.0,
         frame=object(),
-        original_size=FrameSize(width=100, height=100),
+        original_size=original_size,
     )
 
 
-def _patched_gate_helpers(rois: list[ROI]):
+def _patched_gate_helpers(rois: list[ROI], seen_sizes: list[FrameSize] | None = None):
+    def resize(gray, analysis_size):
+        if seen_sizes is not None:
+            seen_sizes.append(analysis_size)
+        return FakeGrayFrame()
+
     return patch.multiple(
         "npx_emulator.gate",
         to_gray=lambda frame: FakeGrayFrame(),
-        resize_for_analysis=lambda gray, analysis_size: FakeGrayFrame(),
+        resize_for_analysis=resize,
         encode_event_maps=lambda **kwargs: FakeEventMaps(),
         filter_motion_map=lambda motion_map, kernel_size: motion_map,
         generate_roi_candidates=lambda motion_map, min_area_ratio: rois,

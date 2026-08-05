@@ -24,6 +24,9 @@ from npx_emulator.temporal_hold import TemporalHold
 class NpxGateConfig:
     analysis_width: int = 256
     analysis_height: int = 144
+    processing_width: int | None = None
+    processing_height: int | None = None
+    processing_allow_upscale: bool = False
     threshold_motion: int = 25
     threshold_on: int = 15
     threshold_off: int = 15
@@ -40,12 +43,37 @@ class NpxGateConfig:
     def analysis_size(self) -> FrameSize:
         return FrameSize(width=self.analysis_width, height=self.analysis_height)
 
+    def analysis_size_for_frame(self, original_size: FrameSize) -> FrameSize:
+        if self.processing_width is None and self.processing_height is None:
+            return self.analysis_size
+
+        width = self.processing_width
+        height = self.processing_height
+        if width is None:
+            width = round(original_size.width * (height / original_size.height))
+        if height is None:
+            height = round(original_size.height * (width / original_size.width))
+
+        width = max(1, int(width))
+        height = max(1, int(height))
+        if not self.processing_allow_upscale:
+            scale = min(1.0, original_size.width / width, original_size.height / height)
+            width = max(1, round(width * scale))
+            height = max(1, round(height * scale))
+        return FrameSize(width=width, height=height)
+
     @classmethod
     def from_mapping(cls, config: dict[str, Any]) -> "NpxGateConfig":
         gate = config.get("npx_gate", config)
+        processing = gate.get("processing", {}) or {}
         return cls(
             analysis_width=int(gate.get("analysis_width", cls.analysis_width)),
             analysis_height=int(gate.get("analysis_height", cls.analysis_height)),
+            processing_width=_optional_int(gate.get("processing_width", processing.get("width"))),
+            processing_height=_optional_int(gate.get("processing_height", processing.get("height"))),
+            processing_allow_upscale=bool(
+                gate.get("processing_allow_upscale", processing.get("allow_upscale", cls.processing_allow_upscale))
+            ),
             threshold_motion=int(gate.get("threshold_motion", cls.threshold_motion)),
             threshold_on=int(gate.get("threshold_on", cls.threshold_on)),
             threshold_off=int(gate.get("threshold_off", cls.threshold_off)),
@@ -83,13 +111,16 @@ class RuleBasedNpxGate:
         self.config = config
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None
+        self._previous_analysis_size: FrameSize | None = None
 
     def process(self, packet: FramePacket) -> GateDecision:
         started = perf_counter()
-        analysis_gray = resize_for_analysis(to_gray(packet.frame), self.config.analysis_size)
+        analysis_size = self.config.analysis_size_for_frame(packet.original_size)
+        analysis_gray = resize_for_analysis(to_gray(packet.frame), analysis_size)
 
         if self._previous_analysis_gray is None:
             self._previous_analysis_gray = analysis_gray
+            self._previous_analysis_size = analysis_size
             return self._decision(
                 packet=packet,
                 trigger_type=TriggerType.FULL_FRAME,
@@ -97,6 +128,21 @@ class RuleBasedNpxGate:
                 started=started,
                 should_run_full_frame=True,
                 event_maps=None,
+                analysis_size=analysis_size,
+            )
+
+        if self._previous_analysis_size != analysis_size:
+            self._previous_analysis_gray = analysis_gray
+            self._previous_analysis_size = analysis_size
+            self._temporal_hold.clear()
+            return self._decision(
+                packet=packet,
+                trigger_type=TriggerType.FULL_FRAME,
+                rois=[],
+                started=started,
+                should_run_full_frame=True,
+                event_maps=None,
+                analysis_size=analysis_size,
             )
 
         event_maps = encode_event_maps(
@@ -107,17 +153,18 @@ class RuleBasedNpxGate:
             threshold_motion=self.config.threshold_motion,
         )
         self._previous_analysis_gray = analysis_gray
+        self._previous_analysis_size = analysis_size
 
         filtered_motion = filter_motion_map(event_maps.motion_map, self.config.morphology_kernel_size)
         analysis_rois = generate_roi_candidates(filtered_motion, self.config.min_area_ratio)
         merged_analysis_rois = merge_rois(
             analysis_rois,
             distance_ratio=self.config.merge_distance_ratio,
-            frame_size=self.config.analysis_size,
+            frame_size=analysis_size,
         )
         current_rois = [
             add_margin_and_clip(
-                scale_roi_to_original(roi, self.config.analysis_size, packet.original_size),
+                scale_roi_to_original(roi, analysis_size, packet.original_size),
                 packet.original_size,
                 self.config.margin_ratio,
             )
@@ -134,6 +181,7 @@ class RuleBasedNpxGate:
                 started=started,
                 should_run_full_frame=True,
                 event_maps=event_maps,
+                analysis_size=analysis_size,
             )
 
         held_rois = self._temporal_hold.update(current_rois)
@@ -155,6 +203,7 @@ class RuleBasedNpxGate:
                 started=started,
                 should_run_full_frame=True,
                 event_maps=event_maps,
+                analysis_size=analysis_size,
             )
 
         return self._decision(
@@ -164,6 +213,7 @@ class RuleBasedNpxGate:
             started=started,
             should_run_full_frame=False,
             event_maps=event_maps,
+            analysis_size=analysis_size,
         )
 
     def _decision(
@@ -174,7 +224,10 @@ class RuleBasedNpxGate:
         started: float,
         should_run_full_frame: bool,
         event_maps: EventMaps | None,
+        analysis_size: FrameSize | None = None,
     ) -> GateDecision:
+        if analysis_size is None:
+            analysis_size = self.config.analysis_size_for_frame(packet.original_size)
         return GateDecision(
             camera_id=packet.camera_id,
             frame_id=packet.frame_id,
@@ -182,7 +235,7 @@ class RuleBasedNpxGate:
             trigger_type=trigger_type,
             rois=rois,
             original_frame_size=packet.original_size,
-            analysis_frame_size=self.config.analysis_size,
+            analysis_frame_size=analysis_size,
             gate_latency_ms=(perf_counter() - started) * 1000.0,
             should_run_full_frame=should_run_full_frame,
             event_maps=event_maps,
@@ -208,6 +261,12 @@ def is_periodic_full_frame(frame_id: int, interval: int) -> bool:
 
 def sort_rois_by_area(rois: list[ROI]) -> list[ROI]:
     return sorted(rois, key=lambda roi: roi.area(), reverse=True)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def load_npx_gate_config(config_path: str | Path) -> NpxGateConfig:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 from common import GroundTruthAnnotation
 from data_loader.dataset_stream import (
@@ -72,72 +73,71 @@ class OdViratTinyAnnotationLoader(AnnotationLoader):
         return gt_annotations
 
 
-class ConstructionSiteStaticCameraAnnotationLoader(AnnotationLoader):
-    """Loads construction-site YOLO txt labels into dataset frame ids."""
+class UaDetracAnnotationLoader(AnnotationLoader):
+    """Loads UA-DETRAC sequence XML annotations into dataset frame ids."""
 
-    DEFAULT_CLASSES = (
-        "Dump_truck",
-        "Excavator",
-        "Concrete_mixer_truck",
-        "Skid_steer",
-        "Tower_crane",
-        "Truck_crane",
-        "Truck",
-        "Person",
-    )
+    VEHICLE_CLASS_MAP = {
+        "car": (2, "car"),
+        "bus": (5, "bus"),
+        "van": (2, "car"),
+        "others": (7, "truck"),
+        "other": (7, "truck"),
+        "truck": (7, "truck"),
+    }
 
-    def __init__(
-        self,
-        input_path: str | Path,
-        dataset_config: DatasetConfig,
-        class_names: list[str] | tuple[str, ...] | None = None,
-        image_size: list[int] | tuple[int, int] | None = None,
-    ) -> None:
+    def __init__(self, input_path: str | Path, dataset_config: DatasetConfig) -> None:
         super().__init__(input_path)
         self.dataset_config = dataset_config
-        self.class_names = tuple(class_names or self.DEFAULT_CLASSES)
-        self.image_size = tuple(int(value) for value in image_size) if image_size else None
 
     def load(self) -> list[GroundTruthAnnotation]:
         if self.input_path is None:
             return []
-        if not self.input_path.exists():
-            raise FileNotFoundError(f"Annotation directory does not exist: {self.input_path}")
+        annotation_path = self._resolve_annotation_path()
+        root = ET.parse(annotation_path).getroot()
+        frame_metadata = _dataset_frame_metadata_by_one_based_index(self.dataset_config)
 
-        gt_annotations: list[GroundTruthAnnotation] = []
-        image_paths = _dataset_image_paths(self.dataset_config)
-        for offset, image_path in enumerate(image_paths):
-            label_path = self.input_path / f"{image_path.stem}.txt"
-            if not label_path.exists():
+        annotations: list[GroundTruthAnnotation] = []
+        sequence_name = annotation_path.stem
+        for frame in root.findall(".//frame"):
+            frame_num = int(frame.attrib.get("num", "0"))
+            if frame_num not in frame_metadata:
                 continue
-            width, height = self.image_size or _read_image_size(image_path)
-            frame_id = self.dataset_config.start_frame + offset
-            for label_index, line in enumerate(label_path.read_text(encoding="utf-8").splitlines()):
-                stripped = line.strip()
-                if not stripped:
+            frame_id, file_name = frame_metadata[frame_num]
+            for target in frame.findall("./target_list/target"):
+                box = target.find("box")
+                if box is None:
                     continue
-                parts = stripped.split()
-                if len(parts) != 5:
-                    raise ValueError(f"Expected YOLO txt label with 5 columns in {label_path}: {line}")
-                class_id = int(parts[0])
-                x_center, y_center, box_width, box_height = [float(value) for value in parts[1:]]
-                x1 = (x_center - box_width / 2.0) * width
-                y1 = (y_center - box_height / 2.0) * height
-                x2 = (x_center + box_width / 2.0) * width
-                y2 = (y_center + box_height / 2.0) * height
-                gt_annotations.append(
+                x = float(box.attrib["left"])
+                y = float(box.attrib["top"])
+                width = float(box.attrib["width"])
+                height = float(box.attrib["height"])
+                vehicle_type = _ua_detrac_vehicle_type(target)
+                class_id, class_name = self.VEHICLE_CLASS_MAP.get(vehicle_type, (7, "truck"))
+                target_id = target.attrib.get("id", "")
+                annotations.append(
                     GroundTruthAnnotation(
                         camera_id=self.dataset_config.camera_id,
                         frame_id=frame_id,
                         class_id=class_id,
-                        class_name=_class_name_for_id(class_id, self.class_names),
-                        bbox_xyxy=[x1, y1, x2, y2],
-                        annotation_id=f"{image_path.stem}_{label_index}",
-                        image_id=image_path.stem,
-                        file_name=image_path.name,
+                        class_name=class_name,
+                        bbox_xyxy=[x, y, x + width, y + height],
+                        annotation_id=f"{sequence_name}_f{frame_num:05d}_target_{target_id}",
+                        image_id=frame_num,
+                        file_name=file_name,
                     )
                 )
-        return gt_annotations
+        return annotations
+
+    def _resolve_annotation_path(self) -> Path:
+        if self.input_path is None:
+            raise FileNotFoundError("UA-DETRAC annotation path is not configured")
+        if self.input_path.is_file():
+            return self.input_path
+        if self.input_path.is_dir():
+            candidate = self.input_path / f"{self.dataset_config.camera_id}.xml"
+            if candidate.exists():
+                return candidate
+        raise FileNotFoundError(f"UA-DETRAC annotation XML does not exist: {self.input_path}")
 
 
 def create_annotation_loader(
@@ -148,19 +148,16 @@ def create_annotation_loader(
         return None
 
     annotation_type = str(annotation_config.get("type", "")).lower()
+    if annotation_type in {"", "none", "null"}:
+        return None
     input_path = annotation_config.get("input_path")
     if not input_path:
         raise ValueError("annotations.input_path is required when annotations are enabled")
 
     if annotation_type == "od_virat_tiny":
         return OdViratTinyAnnotationLoader(input_path, dataset_config)
-    if annotation_type == "construction_site_static_camera_txt":
-        return ConstructionSiteStaticCameraAnnotationLoader(
-            input_path,
-            dataset_config,
-            class_names=annotation_config.get("classes"),
-            image_size=annotation_config.get("image_size"),
-        )
+    if annotation_type == "ua_detrac_xml":
+        return UaDetracAnnotationLoader(input_path, dataset_config)
     raise ValueError(f"Unsupported annotations.type: {annotation_type}")
 
 
@@ -213,6 +210,14 @@ def _dataset_frame_ids_by_file_name(dataset_config: DatasetConfig) -> dict[str, 
     }
 
 
+def _dataset_frame_metadata_by_one_based_index(dataset_config: DatasetConfig) -> dict[int, tuple[int, str]]:
+    image_paths = _dataset_image_paths(dataset_config)
+    return {
+        dataset_config.start_frame + offset + 1: (dataset_config.start_frame + offset, image_path.name)
+        for offset, image_path in enumerate(image_paths)
+    }
+
+
 def _dataset_image_paths(dataset_config: DatasetConfig) -> list[Path]:
     if dataset_config.type not in {"image_sequence", "images"}:
         raise ValueError("Annotation mapping requires an image sequence dataset")
@@ -227,23 +232,11 @@ def _dataset_image_paths(dataset_config: DatasetConfig) -> list[Path]:
     return image_paths
 
 
-def _read_image_size(image_path: Path) -> tuple[int, int]:
-    try:
-        import cv2
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "OpenCV is required for reading image sizes from YOLO txt annotations. "
-            "Install project dependencies with `pip install -r requirements.txt`."
-        ) from exc
-    image = cv2.imread(str(image_path))
-    if image is None:
-        raise FileNotFoundError(f"Could not read image for annotation sizing: {image_path}")
-    height, width = image.shape[:2]
-    return width, height
-
-
-def _class_name_for_id(class_id: int, class_names: tuple[str, ...]) -> str:
-    return class_names[class_id] if class_id < len(class_names) else str(class_id)
+def _ua_detrac_vehicle_type(target: ET.Element) -> str:
+    attribute = target.find("attribute")
+    if attribute is None:
+        return "others"
+    return str(attribute.attrib.get("vehicle_type", "others")).strip().lower()
 
 
 def _require_yaml():

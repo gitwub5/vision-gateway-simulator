@@ -9,7 +9,7 @@
 - 공개 배포 가능한 sample만 자동 다운로드한다.
 - 약관 동의, 로그인, torrent, 사내 권한이 필요한 데이터는 자동 다운로드하지 않고 준비 방법만 안내한다.
 - 원본 데이터는 `data/` 아래에 저장하고 Git에는 포함하지 않는다.
-- 실험 결과는 `outputs/experiments/<run_id>/` 아래에 저장한다.
+- 실험 결과는 `outputs/e2e_inference_validation/<run_id>/` 아래에 저장한다.
 
 ## 사용법
 
@@ -34,8 +34,8 @@ python tools/download_sample_data.py --dataset opencv-vtest --force
 수동 준비 dataset 안내 확인:
 
 ```bash
-python tools/download_sample_data.py --dataset construction-site-static-camera
 python tools/download_sample_data.py --dataset od-virat-tiny
+python tools/download_sample_data.py --dataset ua-detrac
 python tools/download_sample_data.py --dataset internal-cctv
 ```
 
@@ -44,8 +44,8 @@ python tools/download_sample_data.py --dataset internal-cctv
 | Dataset key | 준비 방식 | 카메라 특성 | Phase 1 용도 | 데이터 위치 | Config | 현재 권장도 | 비고 |
 |---|---|---|---|---|---|---|---|
 | `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/dataset.opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
-| `construction-site-static-camera` | 수동 준비 | 고정 CCTV/static camera | 산업 관제형 사람/장비 ROI gate validation | `data/construction_site_static_camera/` | `configs/dataset.construction_site_static_camera.yaml` | 높음 | 4개 static camera, Person/장비/차량 class |
-| `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | annotation 포함 검증 후보 | `data/od_virat_tiny/` | `configs/dataset.od_virat_tiny.yaml` | 높음 | 패키징 방식에 맞춰 config 조정 필요 |
+| `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/dataset.od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
+| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_20011.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
 | `internal-cctv` | 수동 준비 | 사내 고정 CCTV | 회사 환경 기준 최종 smoke/validation | `data/internal_cctv/` | `configs/dataset.internal_cctv_sample.yaml` | 높음 | 사내 보안 정책 준수 필요 |
 
 ## 권장 사용 순서
@@ -53,7 +53,7 @@ python tools/download_sample_data.py --dataset internal-cctv
 | 순서 | Dataset | 목적 |
 |---|---|---|
 | 1 | `opencv-vtest` | 자동 다운로드 가능한 고정 카메라 샘플로 전체 pipeline 동작 확인 |
-| 2 | `construction-site-static-camera` | 산업 관제형 고정 camera 환경에서 ROI gate 검증 |
+| 2 | `ua-detrac` | 연속 프레임과 bbox GT가 있는 primary ROI proposal validation |
 | 3 | `od-virat-tiny` | annotation 기반 보조 평가와 public validation |
 | 4 | `internal-cctv` | 사내 적용 환경 기준 최종 검증 |
 
@@ -70,7 +70,7 @@ python experiments/inspect_dataset_stream.py \
 전체 Phase 1 실험 실행:
 
 ```bash
-python experiments/run_phase1_experiment.py \
+python experiments/run_e2e_inference_validation.py \
   --dataset-config <dataset_config> \
   --gate-config <gate_config> \
   --yolo-config configs/yolo.yaml \
@@ -81,7 +81,7 @@ python experiments/run_phase1_experiment.py \
 예시:
 
 ```bash
-python experiments/run_phase1_experiment.py \
+python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/dataset.opencv_vtest.yaml \
   --gate-config configs/npx_gate.yaml \
   --yolo-config configs/yolo.yaml \
@@ -92,7 +92,7 @@ python experiments/run_phase1_experiment.py \
 출력 위치:
 
 ```text
-outputs/experiments/<timestamp>_<experiment_name>/
+outputs/e2e_inference_validation/<timestamp>_<experiment_name>/
 ```
 
 ## Dataset별 메모
@@ -104,53 +104,70 @@ outputs/experiments/<timestamp>_<experiment_name>/
 - 초기 pipeline 동작 확인에 적합
 - 정확한 Phase 1 성능 판단용으로는 부족할 수 있음
 
-### Construction Site Static Camera
+### Removed: Construction Site Static Camera
 
-- Phase 1.1 public validation의 기본 후보
-- 4개 static camera에서 추출된 construction site image dataset
-- `Person`, `Dump_truck`, `Excavator`, `Concrete_mixer_truck`, `Skid_steer`, `Tower_crane`, `Truck_crane`, `Truck` class를 포함
-- 스마트팩토리와 완전히 같은 도메인은 아니지만, “고정 관제 + 작업자/장비/차량” 조건에 가깝다.
-- 데이터 출처와 약관을 확인한 뒤 수동 준비
-  - https://doi.org/10.26439/ulima.datasets.13359
-  - dataset paper: https://pmc.ncbi.nlm.nih.gov/articles/PMC8933580/
-- annotation txt 원본 포맷 확인 전까지 기본 config의 `annotations.enabled`는 `false`로 둔다.
-- GT report를 hard criterion으로 쓰기 전에 visible `Person`/장비/차량이 빠짐없이 표기됐는지 샘플 visual QA로 확인한다.
-- 표기 누락이 있으면 `false_roi_rate`, precision, false positive count는 보조/주의 지표로만 사용한다.
+Construction Site Static Camera는 Phase 1.1 후보로 검토했지만 active dataset에서 제외했다.
 
-준비 위치:
+제외 이유:
+
+- 단일 연속 CCTV 영상이 아니라 여러 static scene image가 섞여 있어 temporal ROI policy 검증이 왜곡된다.
+- `IMG259`-`IMG457` 구간 high-res gate 검증에서도 official config는 거의 모든 frame에서 full-frame fallback으로 빠졌다.
+- fallback을 끈 diagnostic run에서는 ROI가 거의 전체 프레임을 덮어 ROI proposal 품질 판단에 부적합했다.
+- YOLOv8 COCO 기본 모델과 class/domain mismatch가 크다.
+
+과거 실험 결과는 삭제하지 않고 `outputs/` 아래에 보존한다.
 
 ```text
-data/construction_site_static_camera/1-250/
-data/construction_site_static_camera/251-500/
-data/construction_site_static_camera/501-800/
-data/construction_site_static_camera/801-1049/
+outputs/experiments/construction_static_0259_0457_balanced_20260805/
+outputs/roi_proposal_validation/construction_static_0259_0457_balanced_highres_20260805/
 ```
 
-각 폴더에는 이미지와 같은 stem의 YOLO txt label이 함께 있다. 이 dataset은 단일 연속 영상이 아니라 여러 static-camera scene이 묶인 image set이다. ROI gate의 temporal behavior를 검증할 때는 전체 폴더를 한 번에 돌리지 말고, 사람이 확인한 연속 scene 구간만 `start_frame`과 `frame_limit`으로 잘라서 실행한다.
+### UA-DETRAC
 
-현재 기본 config는 `251-500` 폴더에서 `IMG259`-`IMG457` 구간만 사용한다. 이 구간은 사용자가 공사현장 장면으로 수동 확인한 기본 validation segment다.
+- Phase 1.1 ROI Proposal Validation의 primary public temporal GT dataset
+- 고정/준고정 교통 CCTV에서 촬영된 연속 image sequence
+- vehicle bbox annotation이 frame 단위 XML로 제공된다.
+- YOLOv8 COCO 기본 class와 잘 맞는다.
+  - `car` -> `car`
+  - `bus` -> `bus`
+  - `van` -> `car`
+  - `others` -> `truck`
+- 산업현장 도메인은 아니지만, ROI 생성/추적/fallback policy를 GT 기준으로 검증하기에 적합하다.
 
-주의:
+수동 다운로드:
 
-- 이 dataset은 GT loader와 failure visualization 검증에는 유용하다.
-- 장면이 바뀌는 경계를 넘겨 실행하면 temporal hold, adaptive refresh, tracking ROI 지표가 왜곡된다.
-- motion-based ROI gate 성능 판단에는 실제 연속 motion이 있는 segment인지 먼저 visual QA가 필요하다.
-- ROI가 0개인 segment는 pipeline/GT smoke로만 기록하고 ROI policy 품질 판단에서 제외한다.
+```text
+https://detrac-db.rit.albany.edu/Data/DETRAC-train-data.zip
+https://detrac-db.rit.albany.edu/Data/DETRAC-Train-Annotations-XML.zip
+```
+
+기본 준비 위치:
+
+```text
+data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011/
+data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml
+```
+
+기본 quick config:
+
+```text
+configs/dataset.ua_detrac_mvi_20011.yaml
+```
 
 실행 예:
 
 ```bash
-python experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.construction_site_static_camera.yaml \
+python experiments/run_e2e_inference_validation.py \
+  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name construction_static_balanced \
+  --experiment-name ua_detrac_mvi_20011_balanced \
   --limit 120
 ```
 
 ### OD-VIRAT Tiny
 
-- 실제 Phase 1 fixed-camera validation 후보
+- partial annotation 보조 검증 후보
 - 데이터 사용 약관과 접근 권한을 먼저 확인
 - 공식 dataset 안내와 repository를 확인한 뒤 수동 준비
   - https://iscaaslab.com/datasets/

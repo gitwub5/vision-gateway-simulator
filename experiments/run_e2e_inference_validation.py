@@ -1,4 +1,4 @@
-"""Run the Phase 1 pipeline into a timestamped experiment output directory."""
+"""Run ROI-gated end-to-end model inference validation."""
 
 from __future__ import annotations
 
@@ -59,6 +59,10 @@ from npx_emulator import (
 from visualization import render_visualizations
 
 
+PIPELINE_TYPE = "e2e_inference_validation"
+DEFAULT_OUTPUT_ROOT = "outputs/e2e_inference_validation"
+
+
 def main() -> None:
     args = parse_args()
     started_at = datetime.now().astimezone()
@@ -78,7 +82,12 @@ def main() -> None:
     if args.limit is not None:
         dataset_config = replace(dataset_config, frame_limit=args.limit)
     annotation_config = load_annotation_config(args.dataset_config)
-    gt_validation_enabled = bool(annotation_config and annotation_config.get("enabled", True))
+    annotation_type = str((annotation_config or {}).get("type", "")).lower()
+    gt_validation_enabled = bool(
+        annotation_config
+        and annotation_config.get("enabled", True)
+        and annotation_type not in {"", "none", "null"}
+    )
     if args.disable_gt_validation:
         gt_validation_enabled = False
     gate_config = load_npx_gate_config(args.gate_config)
@@ -162,6 +171,7 @@ def main() -> None:
     finished_at = datetime.now().astimezone()
     manifest = {
         "schema_version": 1,
+        "pipeline_type": PIPELINE_TYPE,
         "run_id": run_id,
         "experiment_name": experiment_name,
         "started_at": started_at.isoformat(),
@@ -169,6 +179,7 @@ def main() -> None:
         "total_seconds": total_seconds,
         "stage_seconds": stage_timings,
         "inputs": {
+            "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
             "gate_config": args.gate_config,
             "yolo_config": args.yolo_config,
@@ -190,7 +201,17 @@ def main() -> None:
         },
     }
     write_json(manifest, paths.manifest)
-    print(json.dumps({"run_id": run_id, "output_root": str(output_root), "total_seconds": total_seconds}, indent=2))
+    print(
+        json.dumps(
+            {
+                "pipeline_type": PIPELINE_TYPE,
+                "run_id": run_id,
+                "output_root": str(output_root),
+                "total_seconds": total_seconds,
+            },
+            indent=2,
+        )
+    )
 
 
 class ExperimentPaths:
@@ -374,6 +395,8 @@ def run_visualization(
 
 def make_run_id(started_at: datetime, experiment_name: str) -> str:
     safe_name = experiment_name.replace("/", "_").replace(" ", "_")
+    if not safe_name.startswith("e2e_"):
+        safe_name = f"e2e_{safe_name}"
     return f"{started_at.strftime('%Y%m%d_%H%M%S')}_{safe_name}"
 
 
@@ -382,7 +405,7 @@ def resolve_experiment_name(args: argparse.Namespace) -> str:
         return args.experiment_name
     if args.dataset_name:
         return args.dataset_name
-    return "sample"
+    return "e2e_sample"
 
 
 def write_json(data: dict[str, Any], output_path: Path) -> None:
@@ -393,13 +416,13 @@ def write_json(data: dict[str, Any], output_path: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a complete Phase 1 experiment.")
+    parser = argparse.ArgumentParser(description="Run ROI-gated end-to-end inference validation.")
     parser.add_argument("--dataset-config", default="configs/dataset.yaml")
     parser.add_argument("--gate-config", default="configs/npx_gate.yaml")
     parser.add_argument("--yolo-config", default="configs/yolo.yaml")
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--dataset-name", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--output-root", default="outputs/experiments")
+    parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--render-limit", type=int, default=30)

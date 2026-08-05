@@ -15,18 +15,27 @@ Phase 1 검증은 두 단계로 나눈다.
 
 Phase 1.1은 Pipeline Qualification이 끝난 뒤 진행한다. 현재 public annotation dataset은 exhaustive GT로 가정하지 않는다. 실제 object recall을 hard criterion으로 쓰려면 annotation completeness가 확인된 internal CCTV 또는 별도 curated validation set이 필요하다.
 
+Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
+
+| Pipeline | Script | Output root | 목적 |
+|---|---|---|---|
+| ROI Proposal Validation | `experiments/run_roi_proposal_validation.py` (planned) | `outputs/roi_proposal_validation/` | downstream model 없이 ROI 생성 품질 평가 |
+| E2E Inference Validation | `experiments/run_e2e_inference_validation.py` | `outputs/e2e_inference_validation/` | ROI 생성부터 GPU/model inference, workload, latency까지 평가 |
+
+기존 `experiments/run_phase1_experiment.py`는 제거하고, E2E 검증은 `experiments/run_e2e_inference_validation.py`만 사용한다.
+
 ## 2. Dataset 기준
 
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
 | Tier 0 | `opencv-vtest` | `configs/dataset.opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `construction-site-static-camera` | `configs/dataset.construction_site_static_camera.yaml` | 산업 관제형 고정 카메라 public validation | pseudo-reference 기준 primary profile 비교, annotation 품질 확인 전까지 GT hard criterion 제외 |
+| Tier 1 | `ua-detrac` | `configs/dataset.ua_detrac_mvi_20011.yaml` | 연속 프레임과 bbox GT가 있는 ROI proposal primary validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
 | Tier 2 | `od-virat-tiny` | `configs/dataset.od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
-우선순위는 Tier 0 smoke와 Tier 1 construction-site-static-camera를 먼저 고정하는 것이다.
+우선순위는 Tier 0 smoke와 Tier 1 UA-DETRAC을 먼저 고정하는 것이다.
 
-Construction Site Static Camera는 단일 연속 영상이 아니라 여러 static-camera scene이 묶인 image set이다. Temporal ROI policy 검증에는 전체 폴더를 한 sequence로 사용하지 않고, scene boundary를 수동 확인한 뒤 연속 구간별 config/run으로 평가한다. ROI가 0개인 segment는 pipeline/GT smoke로만 기록하고 ROI policy 품질 판단에서 제외한다.
+Construction Site Static Camera는 검토 후 active validation dataset에서 제외했다. `IMG259`-`IMG457` 구간의 balanced/high-res ROI gate 결과는 `outputs/`에 보존하되, 단일 연속 영상이 아니고 raw ROI가 거의 전체 프레임으로 확장되어 ROI proposal primary 검증에 부적합하다고 기록한다.
 
 ## 3. 고정 실험 Matrix
 
@@ -36,6 +45,7 @@ Construction Site Static Camera는 단일 연속 영상이 아니라 여러 stat
 |---|---|---|---|
 | `roi_aggressive` | `configs/npx_gate.profile_aggressive.yaml` | on | 절감 우선 profile |
 | `roi_balanced` | `configs/npx_gate.profile_balanced.yaml` | on | 기본 profile |
+| `roi_balanced_highres` | `configs/npx_gate.profile_balanced_highres.yaml` | on | 작은 객체가 많은 4K/static scene용 high-res ROI analysis |
 | `roi_recall` | `configs/npx_gate.profile_recall.yaml` | on | 검출 유지 우선 profile |
 | `roi_balanced_no_refresh` | `configs/npx_gate.profile_balanced.yaml` | off | periodic full-frame check 효과 분리 |
 | `roi_dataset_specific` | dataset-specific config | on | dataset별 tuned config 비교 |
@@ -60,7 +70,7 @@ Run id 규칙:
 
 ```text
 opencv_vtest_f0000_0120_balanced_20260729
-construction_static_f0000_0120_recall_20260730
+ua_detrac_mvi_20011_f0000_0120_recall_20260805
 ```
 
 ## 5. 기본 실행 명령
@@ -68,7 +78,7 @@ construction_static_f0000_0120_recall_20260730
 OpenCV vtest quick:
 
 ```bash
-python3 experiments/run_phase1_experiment.py \
+python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/dataset.opencv_vtest.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
@@ -77,26 +87,38 @@ python3 experiments/run_phase1_experiment.py \
   --render-limit 30
 ```
 
-Construction static camera balanced review:
+UA-DETRAC balanced review:
 
 ```bash
-python3 experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.construction_site_static_camera.yaml \
+python3 experiments/run_e2e_inference_validation.py \
+  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name construction_static_balanced \
+  --experiment-name ua_detrac_mvi_20011_balanced \
   --limit 1000 \
   --render-limit 100
 ```
 
-Construction static camera no-refresh ablation:
+UA-DETRAC high-res ROI analysis review:
 
 ```bash
-python3 experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.construction_site_static_camera.yaml \
+python3 experiments/run_e2e_inference_validation.py \
+  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
+  --gate-config configs/npx_gate.profile_balanced_highres.yaml \
+  --yolo-config configs/yolo.yaml \
+  --experiment-name ua_detrac_mvi_20011_balanced_highres \
+  --limit 1000 \
+  --render-limit 100
+```
+
+UA-DETRAC no-refresh ablation:
+
+```bash
+python3 experiments/run_e2e_inference_validation.py \
+  --dataset-config configs/dataset.ua_detrac_mvi_20011.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name construction_static_balanced_no_refresh \
+  --experiment-name ua_detrac_mvi_20011_balanced_no_refresh \
   --limit 1000 \
   --render-limit 100 \
   --disable-full-frame-checks
@@ -104,7 +126,7 @@ python3 experiments/run_phase1_experiment.py \
 
 ## 6. 필수 산출물
 
-각 run은 `outputs/experiments/<run_id>/` 아래에 생성된다.
+각 run은 `outputs/e2e_inference_validation/<run_id>/` 아래에 생성된다.
 
 ```text
 manifest.json
@@ -166,6 +188,7 @@ Phase 1.1 시작 전에는 같은 dataset/segment 기준으로 profile 결과를
 | full-frame check count | | | | | |
 | average ROI count | | | | | |
 | average ROI area ratio | | | | | |
+| analysis frame size | | | | | |
 | ROI YOLO average latency | | | | | |
 | gate average latency | | | | | |
 | failure case count | | | | | |
@@ -214,7 +237,7 @@ Bucket:
 아래 조건을 만족하면 Phase 1.1 ROI crop/gate policy 개선으로 넘어간다.
 
 - [x] `opencv-vtest` quick run이 end-to-end로 성공한다.
-- [ ] `construction-site-static-camera` quick run이 end-to-end로 성공한다.
+- [ ] `ua-detrac` quick run이 end-to-end로 성공한다.
 - [x] `od-virat-tiny` quick run이 end-to-end로 성공한다.
 - [x] aggressive/balanced/recall profile 3개 결과가 같은 형식으로 비교 가능하다.
 - [x] no-refresh ablation으로 periodic full-frame check 효과를 분리할 수 있다.

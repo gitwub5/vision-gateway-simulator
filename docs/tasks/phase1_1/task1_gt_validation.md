@@ -11,7 +11,7 @@ OD-VIRAT Tiny annotations are partial and are not treated as exhaustive ground t
 - Added `GroundTruthAnnotation` as the shared GT schema.
 - Added OD-VIRAT Tiny COCO-style annotation loading in `data_loader/annotation_loader.py`.
 - Mapped annotation `file_name` to dataset `frame_id` using the same natural numeric image sequence ordering as `ImageSequenceStream`.
-- Added optional annotation validation to `experiments/run_phase1_experiment.py`.
+- Added optional annotation validation to `experiments/run_e2e_inference_validation.py`.
 - Added annotation report outputs:
   - `annotations/ground_truth.jsonl`
   - `reports/gt_report.json`
@@ -26,7 +26,7 @@ Annotation validation is enabled when the dataset config has an `annotations` se
 Disable options:
 
 ```bash
-python3 experiments/run_phase1_experiment.py \
+python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/dataset.od_virat_tiny.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
@@ -62,7 +62,7 @@ Unit tests:
 OD-VIRAT Tiny quick run:
 
 ```bash
-.venv/bin/python experiments/run_phase1_experiment.py \
+.venv/bin/python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/dataset.od_virat_tiny.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
@@ -77,6 +77,8 @@ Generated run:
 ```text
 outputs/experiments/odvirat_test_f0000_0120_gt_balanced_natural_sort_20260730/
 ```
+
+This historical run was created before the E2E output root split. New E2E runs default to `outputs/e2e_inference_validation/<run_id>/`.
 
 Key quick-run metrics:
 

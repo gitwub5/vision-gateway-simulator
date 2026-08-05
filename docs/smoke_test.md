@@ -4,7 +4,7 @@
 
 Phase 1 개발 중 외부 dataset 없이 pipeline이 깨졌는지 빠르게 확인하기 위한 synthetic fixed-camera smoke test다.
 
-이 영상은 정확도 검증용이 아니다. 실제 ROI 품질, recall, workload reduction 판단은 Construction Site Static Camera, OD-VIRAT, 또는 사내 고정 CCTV 샘플로 수행한다.
+이 영상은 정확도 검증용이 아니다. 실제 ROI 품질, recall, workload reduction 판단은 UA-DETRAC, OD-VIRAT, 또는 사내 고정 CCTV 샘플로 수행한다.
 
 ## 생성되는 영상
 
@@ -77,6 +77,6 @@ outputs/roi_metadata/smoke_gate_decisions.jsonl
 Synthetic fixed-camera video:
 개발 중 smoke/regression test
 
-Construction Site Static Camera / OD-VIRAT / 사내 CCTV:
+UA-DETRAC / OD-VIRAT / 사내 CCTV:
 실제 Phase 1 validation
 ```

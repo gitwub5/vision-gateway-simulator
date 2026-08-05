@@ -1,0 +1,24 @@
+dataset:
+  type: image_sequence
+  input_path: data/ua_detrac/DETRAC-Train-Data/Insight-MVT_Annotation_Train/MVI_20011
+  camera_id: MVI_20011
+  fps_override: 25
+  frame_limit: 120
+  start_frame: 0
+  image_extensions:
+    - .jpg
+    - .jpeg
+    - .png
+    - .bmp
+
+annotations:
+  enabled: true
+  type: ua_detrac_xml
+  input_path: data/ua_detrac/DETRAC-Train-Annotations-XML/MVI_20011.xml
+  quality:
+    completeness: exhaustive
+    expected_exhaustive: true
+    unreliable_metrics: []
+    notes:
+      - UA-DETRAC provides frame-level vehicle bounding boxes and is used as the primary public temporal GT dataset for ROI proposal validation.
+      - UA-DETRAC classes are mapped to COCO-compatible YOLOv8 names where possible: car->car, bus->bus, van->car, others->truck.

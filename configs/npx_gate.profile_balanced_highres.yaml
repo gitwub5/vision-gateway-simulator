@@ -1,0 +1,17 @@
+npx_gate:
+  analysis_width: 384
+  analysis_height: 216
+  processing:
+    width: 1280
+    allow_upscale: false
+  threshold_motion: 8
+  threshold_on: 8
+  threshold_off: 8
+  morphology_kernel_size: 1
+  min_area_ratio: 0.00008
+  merge_distance_ratio: 0.10
+  margin_ratio: 0.20
+  hold_frames: 12
+  full_frame_interval: 120
+  max_roi_per_frame: 8
+  max_total_roi_area_ratio: 0.35
