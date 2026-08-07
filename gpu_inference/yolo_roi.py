@@ -270,7 +270,7 @@ def read_roi_metadata_jsonl(input_path: str | Path) -> list[ROIMetadata]:
                     score=float(data.get("score", 1.0)),
                     coord_system="original_frame",
                 ),
-                source=str(data.get("source", "rule_based_roi_gate")),
+                source=str(data.get("source", "rule_based_roi_generator")),
                 trigger_type=TriggerType(str(data.get("trigger_type", TriggerType.ROI.value))),
             )
         )
@@ -293,7 +293,7 @@ def read_gate_frame_metadata_jsonl(input_path: str | Path) -> list[GateFrameMeta
                 gate_latency_ms=float(data["gate_latency_ms"]),
                 original_frame_size=FrameSize(width=int(original_width), height=int(original_height)),
                 analysis_frame_size=FrameSize(width=int(analysis_width), height=int(analysis_height)),
-                source=str(data.get("source", "rule_based_roi_gate")),
+                source=str(data.get("source", "rule_based_roi_generator")),
             )
         )
     return records

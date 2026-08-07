@@ -48,8 +48,8 @@ from gpu_inference.yolo_roi import (
     read_roi_metadata_jsonl,
     write_roi_metrics_json,
 )
-from npx_emulator import load_npx_gate_config
-from experiments.validation_common import load_validation_config, run_gate_metadata, write_json
+from roi_generator import load_roi_generator_config
+from experiments.validation_common import load_validation_config, run_roi_generator_metadata, write_json
 from visualization import render_visualizations
 
 
@@ -86,7 +86,7 @@ def main() -> None:
     )
     if args.disable_gt_validation:
         gt_validation_enabled = False
-    gate_config = load_npx_gate_config(args.gate_config)
+    roi_generator_config = load_roi_generator_config(args.roi_generator_config)
     model_config, _ = load_model_config(args.model_config)
     if args.model is not None:
         model_config = replace(model_config, model=args.model)
@@ -97,11 +97,11 @@ def main() -> None:
         stage_timings[stage_name] = perf_counter() - started
         return result
 
-    gate_summary = timed(
-        "roi_gate_metadata",
-        lambda: run_gate_metadata(
+    roi_generator_summary = timed(
+        "roi_generator_metadata",
+        lambda: run_roi_generator_metadata(
             dataset_config=dataset_config,
-            gate_config=gate_config,
+            roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
         ),
@@ -178,7 +178,7 @@ def main() -> None:
         "inputs": {
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
-            "gate_config": args.gate_config,
+            "roi_generator_config": args.roi_generator_config,
             "model_config": args.model_config,
             "limit": args.limit,
             "render_limit": args.render_limit,
@@ -190,7 +190,7 @@ def main() -> None:
         "hardware": collect_hardware_snapshot(),
         "outputs": paths.to_json_dict(),
         "summaries": {
-            "gate": gate_summary,
+            "roi_generator": roi_generator_summary,
             "full_frame_yolo": full_summary,
             "roi_yolo": roi_summary,
             "comparison": comparison_summary,
@@ -393,7 +393,8 @@ def resolve_experiment_name(args: argparse.Namespace) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ROI-gated end-to-end inference validation.")
     parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
-    parser.add_argument("--gate-config", default="configs/npx_gate/default.yaml")
+    parser.add_argument("--roi-generator-config", default="configs/roi_generator/default.yaml")
+    parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)
     parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
     parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)
     parser.add_argument("--experiment-name", default=None)

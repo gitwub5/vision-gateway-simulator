@@ -31,8 +31,8 @@ from evaluation.roi_proposal_report import (
     write_roi_proposal_report_markdown,
 )
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
-from npx_emulator import load_npx_gate_config
-from experiments.validation_common import load_validation_config, run_gate_metadata, write_json
+from roi_generator import load_roi_generator_config
+from experiments.validation_common import load_validation_config, run_roi_generator_metadata, write_json
 from visualization.roi_proposal_renderer import render_roi_failure_visualizations
 
 
@@ -105,7 +105,7 @@ def main() -> None:
         raise ValueError("ROI proposal validation requires enabled dataset annotations.")
     validation_config = load_validation_config(args.dataset_config)
     target_classes = tuple(str(item) for item in validation_config.get("target_classes", []) if item is not None)
-    gate_config = load_npx_gate_config(args.gate_config)
+    roi_generator_config = load_roi_generator_config(args.roi_generator_config)
 
     def timed(stage_name: str, func):
         started = perf_counter()
@@ -121,11 +121,11 @@ def main() -> None:
             output_path=paths.ground_truth,
         ),
     )
-    gate_summary = timed(
-        "roi_gate_metadata",
-        lambda: run_gate_metadata(
+    roi_generator_summary = timed(
+        "roi_generator_metadata",
+        lambda: run_roi_generator_metadata(
             dataset_config=dataset_config,
-            gate_config=gate_config,
+            roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
         ),
@@ -164,7 +164,7 @@ def main() -> None:
         "inputs": {
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
-            "gate_config": args.gate_config,
+            "roi_generator_config": args.roi_generator_config,
             "limit": args.limit,
             "render_limit": args.render_limit,
             "target_classes": list(target_classes),
@@ -174,7 +174,7 @@ def main() -> None:
         "outputs": paths.to_json_dict(),
         "summaries": {
             "ground_truth": gt_summary,
-            "gate": gate_summary,
+            "roi_generator": roi_generator_summary,
             "roi_proposal": report_summary,
             "visualization": visualization_summary,
         },
@@ -235,7 +235,8 @@ def make_run_id(started_at: datetime, experiment_name: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run target-aware ROI proposal validation.")
     parser.add_argument("--dataset-config", required=True)
-    parser.add_argument("--gate-config", default="configs/npx_gate/profile_balanced.yaml")
+    parser.add_argument("--roi-generator-config", default="configs/roi_generator/profile_balanced.yaml")
+    parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=None)

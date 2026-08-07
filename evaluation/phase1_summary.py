@@ -19,7 +19,7 @@ class ProfileSummary:
     experiment_name: str
     output_root: str
     dataset_config: str
-    gate_config: str
+    roi_generator_config: str
     include_full_frame_checks: bool
     pseudo_recall: float
     roi_containment_rate: float
@@ -73,7 +73,7 @@ def summarize_profile_run(run_root: str | Path) -> ProfileSummary:
         experiment_name=str(manifest.get("experiment_name", root.name)),
         output_root=str(root),
         dataset_config=str(inputs.get("dataset_config", "")),
-        gate_config=str(inputs.get("gate_config", "")),
+        roi_generator_config=str(inputs.get("roi_generator_config", inputs.get("gate_config", ""))),
         include_full_frame_checks=bool(inputs.get("include_full_frame_checks", True)),
         pseudo_recall=float(detection.get("pseudo_recall", 0.0)),
         roi_containment_rate=float(roi.get("containment_rate", 0.0)),

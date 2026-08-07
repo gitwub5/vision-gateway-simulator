@@ -200,7 +200,7 @@ def print_next_steps(sample: SampleDataset) -> None:
     print(
         "Run ROI metadata smoke test:\n"
         f"  python experiments/run_rule_roi_baseline.py --dataset-config {sample.config_path} "
-        "--gate-config configs/npx_gate/default.yaml --limit 30"
+        "--roi-generator-config configs/roi_generator/default.yaml --limit 30"
     )
 
 

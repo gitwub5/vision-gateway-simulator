@@ -4,13 +4,13 @@ import unittest
 from unittest.mock import patch
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from npx_emulator.gate import (
-    NpxGateConfig,
-    RuleBasedNpxGate,
+from roi_generator.gate import (
+    RoiGeneratorConfig,
+    RuleBasedRoiGenerator,
     is_periodic_full_frame,
     should_fallback_to_full_frame,
 )
-from npx_emulator.temporal_hold import TemporalHold
+from roi_generator.temporal_hold import TemporalHold
 
 
 class FakeGrayFrame:
@@ -21,25 +21,25 @@ class FakeEventMaps:
     motion_map = object()
 
 
-class RuleBasedNpxGateTest(unittest.TestCase):
+class RuleBasedRoiGeneratorTest(unittest.TestCase):
     def test_processing_width_preserves_source_aspect_ratio(self) -> None:
-        config = NpxGateConfig(processing_width=1280)
+        config = RoiGeneratorConfig(processing_width=1280)
 
         self.assertEqual(config.analysis_size_for_frame(FrameSize(width=3840, height=2160)), FrameSize(1280, 720))
 
     def test_processing_size_does_not_upscale_by_default(self) -> None:
-        config = NpxGateConfig(processing_width=1280)
+        config = RoiGeneratorConfig(processing_width=1280)
 
         self.assertEqual(config.analysis_size_for_frame(FrameSize(width=640, height=360)), FrameSize(640, 360))
 
     def test_config_loads_nested_processing_size(self) -> None:
-        config = NpxGateConfig.from_mapping({"npx_gate": {"processing": {"width": 960}}})
+        config = RoiGeneratorConfig.from_mapping({"roi_generator": {"processing": {"width": 960}}})
 
         self.assertEqual(config.processing_width, 960)
         self.assertIsNone(config.processing_height)
 
     def test_decision_records_dynamic_analysis_size(self) -> None:
-        gate = RuleBasedNpxGate(NpxGateConfig(processing_width=1280, full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(processing_width=1280, full_frame_interval=60))
         packet = _packet(frame_id=0, original_size=FrameSize(width=3840, height=2160))
         seen_sizes: list[FrameSize] = []
 
@@ -50,7 +50,7 @@ class RuleBasedNpxGateTest(unittest.TestCase):
         self.assertEqual(decision.analysis_frame_size, FrameSize(width=1280, height=720))
 
     def test_first_frame_triggers_full_frame_check(self) -> None:
-        gate = RuleBasedNpxGate(NpxGateConfig(full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=60))
         packet = _packet(frame_id=0)
 
         with _patched_gate_helpers(rois=[]):
@@ -61,7 +61,7 @@ class RuleBasedNpxGateTest(unittest.TestCase):
         self.assertEqual(decision.rois, [])
 
     def test_motion_roi_triggers_roi_decision(self) -> None:
-        gate = RuleBasedNpxGate(NpxGateConfig(full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=60))
 
         with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
             gate.process(_packet(frame_id=0))
@@ -75,7 +75,7 @@ class RuleBasedNpxGateTest(unittest.TestCase):
         self.assertGreater(decision.rois[0].h, 0)
 
     def test_temporal_hold_triggers_when_motion_disappears(self) -> None:
-        gate = RuleBasedNpxGate(NpxGateConfig(hold_frames=2, full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(hold_frames=2, full_frame_interval=60))
 
         with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
             gate.process(_packet(frame_id=0))
@@ -89,7 +89,7 @@ class RuleBasedNpxGateTest(unittest.TestCase):
         self.assertEqual(len(held.rois), 1)
 
     def test_periodic_full_frame_preserves_rois(self) -> None:
-        gate = RuleBasedNpxGate(NpxGateConfig(full_frame_interval=2))
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=2))
 
         with _patched_gate_helpers(rois=[ROI(x=5, y=5, w=8, h=8, coord_system="analysis_frame")]):
             gate.process(_packet(frame_id=0))
@@ -101,8 +101,8 @@ class RuleBasedNpxGateTest(unittest.TestCase):
         self.assertEqual(len(decision.rois), 1)
 
     def test_excessive_roi_area_falls_back_to_full_frame(self) -> None:
-        gate = RuleBasedNpxGate(
-            NpxGateConfig(full_frame_interval=60, max_total_roi_area_ratio=0.1, margin_ratio=0.0)
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=60, max_total_roi_area_ratio=0.1, margin_ratio=0.0)
         )
 
         with _patched_gate_helpers(rois=[ROI(x=0, y=0, w=80, h=80, coord_system="analysis_frame")]):
@@ -116,12 +116,12 @@ class RuleBasedNpxGateTest(unittest.TestCase):
 
 class GatePolicyTest(unittest.TestCase):
     def test_should_fallback_when_roi_count_exceeds_limit(self) -> None:
-        config = NpxGateConfig(max_roi_per_frame=1)
+        config = RoiGeneratorConfig(max_roi_per_frame=1)
         rois = [ROI(0, 0, 10, 10), ROI(20, 20, 10, 10)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
 
     def test_should_fallback_when_roi_area_exceeds_limit(self) -> None:
-        config = NpxGateConfig(max_total_roi_area_ratio=0.25)
+        config = RoiGeneratorConfig(max_total_roi_area_ratio=0.25)
         rois = [ROI(0, 0, 60, 60)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
 
@@ -158,7 +158,7 @@ def _patched_gate_helpers(rois: list[ROI], seen_sizes: list[FrameSize] | None = 
         return FakeGrayFrame()
 
     return patch.multiple(
-        "npx_emulator.gate",
+        "roi_generator.gate",
         to_gray=lambda frame: FakeGrayFrame(),
         resize_for_analysis=resize,
         encode_event_maps=lambda **kwargs: FakeEventMaps(),

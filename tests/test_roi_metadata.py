@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from npx_emulator.gate import GateDecision
-from npx_emulator.metadata import (
+from roi_generator.gate import GateDecision
+from roi_generator.metadata import (
     GateFrameMetadataWriter,
     ROIMetadataWriter,
     build_roi_id,
@@ -121,9 +121,9 @@ class RunRuleRoiBaselineTest(unittest.TestCase):
             ]
 
             with patch.object(runner, "load_dataset_config", return_value=object()), patch.object(
-                runner, "load_npx_gate_config", return_value=object()
+                runner, "load_roi_generator_config", return_value=object()
             ), patch.object(runner, "create_dataset_stream", return_value=iter(packets)), patch.object(
-                runner, "RuleBasedNpxGate", FakeGate
+                runner, "RuleBasedRoiGenerator", FakeGate
             ), patch("sys.argv", argv), redirect_stdout(StringIO()):
                 runner.main()
 

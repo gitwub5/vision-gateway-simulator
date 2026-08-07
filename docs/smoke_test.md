@@ -23,7 +23,7 @@ data/smoke/fixed_camera_motion.mp4
 이 구성으로 다음 동작을 확인할 수 있다.
 
 - Dataset Stream Loader
-- Rule-based ROI Gate
+- Rule-based ROI generator
 - Temporal hold
 - ROI metadata 저장
 - Frame-level gate decision 저장
@@ -58,7 +58,7 @@ python experiments/inspect_dataset_stream.py \
 ```bash
 python experiments/run_rule_roi_baseline.py \
   --dataset-config configs/datasets/smoke.yaml \
-  --gate-config configs/npx_gate/smoke.yaml \
+  --roi-generator-config configs/roi_generator/smoke.yaml \
   --roi-output outputs/roi_metadata/smoke_rule_roi.jsonl \
   --frame-output outputs/roi_metadata/smoke_gate_decisions.jsonl \
   --limit 60

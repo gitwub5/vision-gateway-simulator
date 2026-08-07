@@ -1,10 +1,10 @@
-# Task 3. Rule-based ROI Gate Emulator 구현 정리
+# Task 3. Rule-based ROI generator Emulator 구현 정리
 
 ## 목적
 
 Task 3의 목적은 `FramePacket` 입력을 받아 GPU에 전달할 ROI 또는 full-frame trigger 결정을 만드는 rule-based Vision Frontend Gate를 구현하는 것이다.
 
-Phase 1에서는 실제 NPX 하드웨어나 SNN을 사용하지 않고, 다음 흐름을 소프트웨어로 에뮬레이션한다.
+Phase 1에서는 실제 ROI generator 하드웨어나 SNN을 사용하지 않고, 다음 흐름을 소프트웨어로 에뮬레이션한다.
 
 ```text
 FramePacket
@@ -28,22 +28,22 @@ GateDecision
 
 ## 변경한 주요 파일
 
-- `npx_emulator/gate.py`
-- `npx_emulator/__init__.py`
-- `npx_emulator/temporal_hold.py`
+- `roi_generator/gate.py`
+- `roi_generator/__init__.py`
+- `roi_generator/temporal_hold.py`
 - `requirements.txt`
-- `tests/test_npx_gate.py`
+- `tests/test_roi_generator.py`
 - `docs/plan/phase1_implementation_plan.md`
 - `README.md`
 
 ## 핵심 설계 결정
 
-### `RuleBasedNpxGate`
+### `RuleBasedRoiGenerator`
 
 Task 3의 중심 클래스다.
 
 ```python
-gate = RuleBasedNpxGate(config)
+gate = RuleBasedRoiGenerator(config)
 decision = gate.process(frame_packet)
 ```
 
@@ -59,7 +59,7 @@ decision = gate.process(frame_packet)
 - `gate_latency_ms`
 - `event_maps`
 
-이 구조를 둔 이유는 Task 4 ROI metadata 저장, Task 5/6 YOLO inference, Task 7 workload/latency evaluation이 같은 gate 결과를 공유할 수 있게 하기 위해서다.
+이 구조를 둔 이유는 Task 4 ROI metadata 저장, Task 5/6 YOLO inference, Task 7 workload/latency evaluation이 같은 ROI generator 결과를 공유할 수 있게 하기 위해서다.
 
 ### 첫 frame은 full-frame trigger
 
@@ -97,7 +97,7 @@ original frame ROI
 
 움직임이 잠깐 사라져도 ROI를 일정 frame 동안 유지한다.
 
-사람이나 차량이 잠깐 멈추면 frame difference에서는 motion이 사라질 수 있기 때문에, Task 3에서는 `TemporalHold`를 gate orchestration에 연결했다.
+사람이나 차량이 잠깐 멈추면 frame difference에서는 motion이 사라질 수 있기 때문에, Task 3에서는 `TemporalHold`를 ROI generator orchestration에 연결했다.
 
 ### Periodic full-frame check
 
@@ -121,9 +121,9 @@ Task 3는 아직 실제 dataset end-to-end 실행 script를 완성하지 않는�
 현재는 Python API 기준으로 다음처럼 사용할 수 있다.
 
 ```python
-from npx_emulator import NpxGateConfig, RuleBasedNpxGate
+from roi_generator import RoiGeneratorConfig, RuleBasedRoiGenerator
 
-gate = RuleBasedNpxGate(NpxGateConfig())
+gate = RuleBasedRoiGenerator(RoiGeneratorConfig())
 
 for packet in stream:
     decision = gate.process(packet)
@@ -133,8 +133,8 @@ for packet in stream:
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator experiments tests
-python3 -m unittest tests.test_npx_gate
+python3 -m compileall common data_loader roi_generator experiments tests
+python3 -m unittest tests.test_roi_generator
 ```
 
 검증 항목:
@@ -145,7 +145,7 @@ python3 -m unittest tests.test_npx_gate
 - periodic full-frame check가 동작하는지 확인
 - ROI 개수/면적 기준 fallback이 동작하는지 확인
 
-현재 로컬 환경에는 OpenCV/NumPy가 설치되어 있지 않을 수 있으므로, unit test는 gate 내부 helper를 monkeypatch하여 정책과 orchestration을 검증한다. 실제 video/image frame 처리에는 `requirements.txt` 설치가 필요하다.
+현재 로컬 환경에는 OpenCV/NumPy가 설치되어 있지 않을 수 있으므로, unit test는 ROI generator 내부 helper를 monkeypatch하여 정책과 orchestration을 검증한다. 실제 video/image frame 처리에는 `requirements.txt` 설치가 필요하다.
 
 ## 다음 Task와의 연결
 

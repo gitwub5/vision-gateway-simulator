@@ -15,5 +15,5 @@
 |---|---|
 | `phase1_implementation_plan.md` | Phase 1 기본 구현 계획 |
 | `phase1_validation_plan.md` | Phase 1/1.1 공통 검증 파이프라인 |
-| `phase1_1_implementation_plan.md` | Phase 1.1 ROI/gate policy 개선 구현 계획과 Keep/Tune/Disable/Remove 기준 |
+| `phase1_1_implementation_plan.md` | Phase 1.1 ROI/ROI generator policy 개선 구현 계획과 Keep/Tune/Disable/Remove 기준 |
 | `vision_frontend_validation_roadmap.md` | Phase 간 검증 로드맵 |

@@ -1,9 +1,6 @@
-npx_gate:
+roi_generator:
   analysis_width: 384
   analysis_height: 216
-  processing:
-    width: 1280
-    allow_upscale: false
   threshold_motion: 8
   threshold_on: 8
   threshold_off: 8

@@ -61,7 +61,7 @@ class ROIMetadata:
     original_frame_size: FrameSize
     analysis_frame_size: FrameSize
     roi: ROI
-    source: str = "rule_based_roi_gate"
+    source: str = "rule_based_roi_generator"
     trigger_type: TriggerType = TriggerType.ROI
 
     def to_json_dict(self) -> dict[str, Any]:
@@ -90,7 +90,7 @@ class GateFrameMetadata:
     gate_latency_ms: float
     original_frame_size: FrameSize
     analysis_frame_size: FrameSize
-    source: str = "rule_based_roi_gate"
+    source: str = "rule_based_roi_generator"
 
     def to_json_dict(self) -> dict[str, Any]:
         return {

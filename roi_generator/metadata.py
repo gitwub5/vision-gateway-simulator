@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Protocol
 
 from common import GateFrameMetadata, ROIMetadata
-from npx_emulator.gate import GateDecision
+from roi_generator.gate import GateDecision
 
 
 class JsonSerializable(Protocol):

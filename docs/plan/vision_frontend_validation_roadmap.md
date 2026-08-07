@@ -8,7 +8,7 @@
 
 | Phase | 공유 범위 |
 |---|---|
-| Phase 1. Rule-based ROI Gate | 구현 완료 상태, 실행 절차, 산출물 위치 |
+| Phase 1. Rule-based ROI generator | 구현 완료 상태, 실행 절차, 산출물 위치 |
 | Phase 2. SNN Tile Eventness Model | 공유 가능한 구현 계획이 확정되면 추가 |
 | Phase 3. Multi-camera Simulation | 공유 가능한 구현 계획이 확정되면 추가 |
 | Phase 4. GPU Pipeline Optimization | 공유 가능한 구현 계획이 확정되면 추가 |

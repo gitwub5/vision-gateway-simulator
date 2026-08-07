@@ -96,7 +96,7 @@ python experiments/render_visualizations.py --iou-threshold 0.4
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator gpu_inference evaluation visualization experiments tests tools
+python3 -m compileall common data_loader roi_generator gpu_inference evaluation visualization experiments tests tools
 python3 -m unittest tests.test_visualization
 python3 experiments/render_visualizations.py --help
 ```

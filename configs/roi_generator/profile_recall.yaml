@@ -1,4 +1,4 @@
-npx_gate:
+roi_generator:
   analysis_width: 384
   analysis_height: 216
   threshold_motion: 5

@@ -28,7 +28,7 @@ Disable options:
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/od_virat_tiny.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --disable-gt-validation
 ```
@@ -64,7 +64,7 @@ OD-VIRAT Tiny quick run:
 ```bash
 .venv/bin/python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/od_virat_tiny.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name odvirat_test_gt_balanced_natural_sort \
   --run-id odvirat_test_f0000_0120_gt_balanced_natural_sort_20260730 \
@@ -101,4 +101,4 @@ OD-VIRAT Tiny annotation classes are not identical to COCO/YOLO classes. Matchin
 
 Annotations are not assumed to be exhaustive. Every annotated dataset config should declare `annotations.quality.completeness`, `expected_exhaustive`, and any metrics that require caution. If a dataset can have visible but unlabeled target objects, use recall and ROI containment as annotated-object lower-bound checks. Do not use false ROI rate, precision, or false positive count as hard criteria unless the dataset has been visually checked as exhaustive for the target classes.
 
-Earlier OD-VIRAT quick runs without natural numeric sorting are invalid. Lexicographic filename ordering placed files such as `10.jpg`, `100.jpg`, and `1000.jpg` before `2.jpg`, which broke temporal continuity and distorted ROI gate metrics.
+Earlier OD-VIRAT quick runs without natural numeric sorting are invalid. Lexicographic filename ordering placed files such as `10.jpg`, `100.jpg`, and `1000.jpg` before `2.jpg`, which broke temporal continuity and distorted ROI generator metrics.

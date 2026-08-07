@@ -45,7 +45,7 @@ python tools/download_sample_data.py --dataset internal-cctv
 
 | Dataset key | 준비 방식 | 카메라 특성 | Phase 1 용도 | 데이터 위치 | Config | 현재 권장도 | 비고 |
 |---|---|---|---|---|---|---|---|
-| `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/datasets/opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
+| `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI generator smoke test | `data/opencv_vtest/vtest.avi` | `configs/datasets/opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
 | `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/datasets/od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
 | `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/datasets/ua_detrac_mvi_39051.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
 | `physicalai-smartspaces` | row 단위 선택 다운로드 | 합성 고정 산업/창고 카메라 | 산업 도메인 ROI proposal validation 후보 | `data/physicalai_smartspaces/row_<id>/` | `configs/datasets/physicalai_row<id>.yaml` | 높음 후보 | 전체 dataset은 TB급이므로 row 709/726/962 같은 소수 row만 선택 |
@@ -88,7 +88,7 @@ python experiments/inspect_dataset_stream.py \
 ```bash
 python experiments/run_e2e_inference_validation.py \
   --dataset-config <dataset_config> \
-  --gate-config <gate_config> \
+  --roi-generator-config <roi_generator_config> \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name <experiment_name> \
   --limit 120
@@ -99,7 +99,7 @@ python experiments/run_e2e_inference_validation.py \
 ```bash
 python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/opencv_vtest.yaml \
-  --gate-config configs/npx_gate/default.yaml \
+  --roi-generator-config configs/roi_generator/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest \
   --limit 120
@@ -175,7 +175,7 @@ configs/datasets/ua_detrac_mvi_39051.yaml
 ```bash
 python experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_39051_balanced \
   --limit 120

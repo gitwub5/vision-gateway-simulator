@@ -1,6 +1,6 @@
 # Phase 1.1 ROI/Gate Policy Implementation Plan
 
-이 문서는 Phase 1.1에서 ROI crop/gate policy를 개선하기 위한 공유 구현 계획이다.
+이 문서는 Phase 1.1에서 ROI crop/ROI generator policy를 개선하기 위한 공유 구현 계획이다.
 
 Phase 1.1의 목표는 ROI crop 면적을 무조건 줄이는 것이 아니다. 산업/장면별 target class에 필요한 ROI를 충분히 포함하면서 모델 입력 픽셀량, ROI 개수, full-frame refresh/fallback 비용을 줄일 수 있는지 검증한다.
 
@@ -50,7 +50,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 
 ### 2.2 Stage A: ROI Budget / Fallback Policy
 
-- [x] ROI gate processing size를 config로 키울 수 있는 옵션 추가
+- [x] ROI generator processing size를 config로 키울 수 있는 옵션 추가
 - [x] `balanced_highres` config 추가
 - [ ] `roi_budget.enabled` feature flag 추가
 - [ ] `max_roi_per_frame` 초과 시 full-frame fallback 구현
@@ -187,7 +187,7 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 ### 구현 항목
 
 - `roi_budget.enabled` feature flag 추가
-- ROI gate processing size config를 이용한 high-res analysis profile 비교
+- ROI generator processing size config를 이용한 high-res analysis profile 비교
 - `max_roi_per_frame` 초과 시 full-frame fallback
 - `max_total_roi_area_ratio` 초과 시 full-frame fallback
 - 가까운 ROI merge
@@ -199,7 +199,7 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 | Run | 설명 |
 |---|---|
 | `baseline_balanced` | 기존 balanced |
-| `baseline_balanced_highres` | ROI gate high-res analysis 적용 |
+| `baseline_balanced_highres` | ROI generator high-res analysis 적용 |
 | `budget_balanced` | ROI budget/fallback 적용 |
 | `baseline_recall` | recall upper bound |
 

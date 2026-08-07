@@ -1,4 +1,4 @@
-"""Rule-based ROI Gate emulator orchestration."""
+"""Rule-based ROI generator orchestration."""
 
 from __future__ import annotations
 
@@ -8,20 +8,20 @@ from time import perf_counter
 from typing import Any
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from npx_emulator.event_encoder import EventMaps, encode_event_maps
-from npx_emulator.motion_detector import filter_motion_map
-from npx_emulator.preprocess import resize_for_analysis, to_gray
-from npx_emulator.roi_generator import (
+from roi_generator.event_encoder import EventMaps, encode_event_maps
+from roi_generator.motion_detector import filter_motion_map
+from roi_generator.preprocess import resize_for_analysis, to_gray
+from roi_generator.roi_generator import (
     add_margin_and_clip,
     generate_roi_candidates,
     merge_rois,
     scale_roi_to_original,
 )
-from npx_emulator.temporal_hold import TemporalHold
+from roi_generator.temporal_hold import TemporalHold
 
 
 @dataclass(frozen=True)
-class NpxGateConfig:
+class RoiGeneratorConfig:
     analysis_width: int = 256
     analysis_height: int = 144
     processing_width: int | None = None
@@ -63,29 +63,32 @@ class NpxGateConfig:
         return FrameSize(width=width, height=height)
 
     @classmethod
-    def from_mapping(cls, config: dict[str, Any]) -> "NpxGateConfig":
-        gate = config.get("npx_gate", config)
-        processing = gate.get("processing", {}) or {}
+    def from_mapping(cls, config: dict[str, Any]) -> "RoiGeneratorConfig":
+        roi_generator = config.get("roi_generator", config.get("npx_gate", config))
+        processing = roi_generator.get("processing", {}) or {}
         return cls(
-            analysis_width=int(gate.get("analysis_width", cls.analysis_width)),
-            analysis_height=int(gate.get("analysis_height", cls.analysis_height)),
-            processing_width=_optional_int(gate.get("processing_width", processing.get("width"))),
-            processing_height=_optional_int(gate.get("processing_height", processing.get("height"))),
+            analysis_width=int(roi_generator.get("analysis_width", cls.analysis_width)),
+            analysis_height=int(roi_generator.get("analysis_height", cls.analysis_height)),
+            processing_width=_optional_int(roi_generator.get("processing_width", processing.get("width"))),
+            processing_height=_optional_int(roi_generator.get("processing_height", processing.get("height"))),
             processing_allow_upscale=bool(
-                gate.get("processing_allow_upscale", processing.get("allow_upscale", cls.processing_allow_upscale))
+                roi_generator.get(
+                    "processing_allow_upscale",
+                    processing.get("allow_upscale", cls.processing_allow_upscale),
+                )
             ),
-            threshold_motion=int(gate.get("threshold_motion", cls.threshold_motion)),
-            threshold_on=int(gate.get("threshold_on", cls.threshold_on)),
-            threshold_off=int(gate.get("threshold_off", cls.threshold_off)),
-            morphology_kernel_size=int(gate.get("morphology_kernel_size", cls.morphology_kernel_size)),
-            min_area_ratio=float(gate.get("min_area_ratio", cls.min_area_ratio)),
-            merge_distance_ratio=float(gate.get("merge_distance_ratio", cls.merge_distance_ratio)),
-            margin_ratio=float(gate.get("margin_ratio", cls.margin_ratio)),
-            hold_frames=int(gate.get("hold_frames", cls.hold_frames)),
-            full_frame_interval=int(gate.get("full_frame_interval", cls.full_frame_interval)),
-            max_roi_per_frame=int(gate.get("max_roi_per_frame", cls.max_roi_per_frame)),
+            threshold_motion=int(roi_generator.get("threshold_motion", cls.threshold_motion)),
+            threshold_on=int(roi_generator.get("threshold_on", cls.threshold_on)),
+            threshold_off=int(roi_generator.get("threshold_off", cls.threshold_off)),
+            morphology_kernel_size=int(roi_generator.get("morphology_kernel_size", cls.morphology_kernel_size)),
+            min_area_ratio=float(roi_generator.get("min_area_ratio", cls.min_area_ratio)),
+            merge_distance_ratio=float(roi_generator.get("merge_distance_ratio", cls.merge_distance_ratio)),
+            margin_ratio=float(roi_generator.get("margin_ratio", cls.margin_ratio)),
+            hold_frames=int(roi_generator.get("hold_frames", cls.hold_frames)),
+            full_frame_interval=int(roi_generator.get("full_frame_interval", cls.full_frame_interval)),
+            max_roi_per_frame=int(roi_generator.get("max_roi_per_frame", cls.max_roi_per_frame)),
             max_total_roi_area_ratio=float(
-                gate.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
+                roi_generator.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
             ),
         )
 
@@ -104,10 +107,10 @@ class GateDecision:
     event_maps: EventMaps | None = field(default=None, repr=False, compare=False)
 
 
-class RuleBasedNpxGate:
+class RuleBasedRoiGenerator:
     """Converts FramePacket input into ROI or full-frame trigger decisions."""
 
-    def __init__(self, config: NpxGateConfig) -> None:
+    def __init__(self, config: RoiGeneratorConfig) -> None:
         self.config = config
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None
@@ -242,7 +245,7 @@ class RuleBasedNpxGate:
         )
 
 
-def should_fallback_to_full_frame(rois: list[ROI], frame_size: FrameSize, config: NpxGateConfig) -> bool:
+def should_fallback_to_full_frame(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> bool:
     if not rois:
         return False
     if len(rois) > config.max_roi_per_frame:
@@ -269,11 +272,11 @@ def _optional_int(value: Any) -> int | None:
     return int(value)
 
 
-def load_npx_gate_config(config_path: str | Path) -> NpxGateConfig:
+def load_roi_generator_config(config_path: str | Path) -> RoiGeneratorConfig:
     yaml = _require_yaml()
     with Path(config_path).open("r", encoding="utf-8") as file:
         config = yaml.safe_load(file) or {}
-    return NpxGateConfig.from_mapping(config)
+    return RoiGeneratorConfig.from_mapping(config)
 
 
 def _require_yaml():

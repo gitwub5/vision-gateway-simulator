@@ -9,7 +9,7 @@ Task 8 visualization pipeline이 실제 이미지 산출물을 생성하는지 �
 ## 실행 입력
 
 - Dataset config: `configs/datasets/smoke.yaml`
-- Gate config: `configs/npx_gate/smoke.yaml`
+- ROI generator config: `configs/roi_generator/smoke.yaml`
 - Model config: `configs/models/yolo_default.yaml`
 - Visualization output root: `outputs/visualizations/smoke`
 - Frame limit: `60`

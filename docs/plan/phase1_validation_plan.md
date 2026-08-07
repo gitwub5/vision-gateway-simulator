@@ -1,6 +1,6 @@
 # Phase 1 Validation Pipeline Plan
 
-이 문서는 Phase 1.1 ROI crop/gate policy 개선으로 넘어가기 전에, Phase 1 검증 파이프라인을 공유 가능한 기준으로 고정하기 위한 작업 계획이다.
+이 문서는 Phase 1.1 ROI crop/ROI generator policy 개선으로 넘어가기 전에, Phase 1 검증 파이프라인을 공유 가능한 기준으로 고정하기 위한 작업 계획이다.
 
 목표는 알고리즘 성공을 주장하는 것이 아니라, 다음 단계 개선안도 같은 방식으로 비교할 수 있는 재현 가능한 검증 체계를 만드는 것이다.
 
@@ -36,19 +36,19 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 
 우선순위는 Tier 0 smoke 이후, 산업 도메인 후보인 PhysicalAI row 단위 dataset과 실사 temporal GT인 UA-DETRAC을 함께 고정하는 것이다.
 
-Construction Site Static Camera는 검토 후 active validation dataset에서 제외했다. `IMG259`-`IMG457` 구간의 balanced/high-res ROI gate 결과는 `outputs/`에 보존하되, 단일 연속 영상이 아니고 raw ROI가 거의 전체 프레임으로 확장되어 ROI proposal primary 검증에 부적합하다고 기록한다.
+Construction Site Static Camera는 검토 후 active validation dataset에서 제외했다. `IMG259`-`IMG457` 구간의 balanced/high-res ROI generator 결과는 `outputs/`에 보존하되, 단일 연속 영상이 아니고 raw ROI가 거의 전체 프레임으로 확장되어 ROI proposal primary 검증에 부적합하다고 기록한다.
 
 ## 3. 고정 실험 Matrix
 
 각 dataset/segment에 대해 가능한 한 같은 matrix를 적용한다.
 
-| Run | Gate config | Full-frame checks | 목적 |
+| Run | ROI generator config | Full-frame checks | 목적 |
 |---|---|---|---|
-| `roi_aggressive` | `configs/npx_gate/profile_aggressive.yaml` | on | 절감 우선 profile |
-| `roi_balanced` | `configs/npx_gate/profile_balanced.yaml` | on | 기본 profile |
-| `roi_balanced_highres` | `configs/npx_gate/profile_balanced_highres.yaml` | on | 작은 객체가 많은 4K/static scene용 high-res ROI analysis |
-| `roi_recall` | `configs/npx_gate/profile_recall.yaml` | on | 검출 유지 우선 profile |
-| `roi_balanced_no_refresh` | `configs/npx_gate/profile_balanced.yaml` | off | periodic full-frame check 효과 분리 |
+| `roi_aggressive` | `configs/roi_generator/profile_aggressive.yaml` | on | 절감 우선 profile |
+| `roi_balanced` | `configs/roi_generator/profile_balanced.yaml` | on | 기본 profile |
+| `roi_balanced_highres` | `configs/roi_generator/profile_balanced_highres.yaml` | on | 작은 객체가 많은 4K/static scene용 high-res ROI analysis |
+| `roi_recall` | `configs/roi_generator/profile_recall.yaml` | on | 검출 유지 우선 profile |
+| `roi_balanced_no_refresh` | `configs/roi_generator/profile_balanced.yaml` | off | periodic full-frame check 효과 분리 |
 | `roi_dataset_specific` | dataset-specific config | on | dataset별 tuned config 비교 |
 
 Full-frame baseline은 각 run 내부에서 동일하게 생성된다.
@@ -83,7 +83,7 @@ OpenCV vtest quick:
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/opencv_vtest.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest_balanced \
   --limit 120 \
@@ -95,7 +95,7 @@ UA-DETRAC balanced review:
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_39051_balanced \
   --limit 1000 \
@@ -107,7 +107,7 @@ PhysicalAI row 709 ROI proposal quick:
 ```bash
 python3 experiments/run_roi_proposal_validation.py \
   --dataset-config configs/datasets/physicalai_row0709.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --experiment-name physicalai_row0709_balanced \
   --limit 120 \
   --render-limit 30
@@ -118,7 +118,7 @@ UA-DETRAC high-res ROI analysis review:
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --gate-config configs/npx_gate/profile_balanced_highres.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced_highres.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_39051_balanced_highres \
   --limit 1000 \
@@ -130,7 +130,7 @@ UA-DETRAC no-refresh ablation:
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
   --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_39051_balanced_no_refresh \
   --limit 1000 \
@@ -281,7 +281,7 @@ Bucket:
 
 ## 10. Pipeline Qualification 통과 조건
 
-아래 조건을 만족하면 Phase 1.1 ROI crop/gate policy 개선으로 넘어간다.
+아래 조건을 만족하면 Phase 1.1 ROI crop/ROI generator policy 개선으로 넘어간다.
 
 - [x] `opencv-vtest` quick run이 end-to-end로 성공한다.
 - [x] `ua-detrac` quick run이 end-to-end로 성공한다.
@@ -321,7 +321,7 @@ Phase 1.1 개선안은 이 문서의 matrix와 산출물 형식을 그대로 사
 
 비교 대상:
 
-- current rule-based ROI gate
+- current rule-based ROI generator
 - improved ROI policy controller
 - tracking-assisted ROI
 - confidence-aware refresh

@@ -1,14 +1,14 @@
-"""Rule-based NPX/Vision Frontend Gate emulator."""
+"""Rule-based ROI generator emulator."""
 
-from npx_emulator.gate import (
+from roi_generator.gate import (
     GateDecision,
-    NpxGateConfig,
-    RuleBasedNpxGate,
+    RoiGeneratorConfig,
+    RuleBasedRoiGenerator,
     is_periodic_full_frame,
-    load_npx_gate_config,
+    load_roi_generator_config,
     should_fallback_to_full_frame,
 )
-from npx_emulator.metadata import (
+from roi_generator.metadata import (
     GateFrameMetadataWriter,
     ROIMetadataWriter,
     build_roi_id,
@@ -18,10 +18,10 @@ from npx_emulator.metadata import (
 
 __all__ = [
     "GateDecision",
-    "NpxGateConfig",
-    "RuleBasedNpxGate",
+    "RoiGeneratorConfig",
+    "RuleBasedRoiGenerator",
     "is_periodic_full_frame",
-    "load_npx_gate_config",
+    "load_roi_generator_config",
     "should_fallback_to_full_frame",
     "GateFrameMetadataWriter",
     "ROIMetadataWriter",

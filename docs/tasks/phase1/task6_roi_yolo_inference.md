@@ -88,7 +88,7 @@ Task 7에서는 이 값을 Task 5의 full-frame baseline과 비교해 workload r
 ```bash
 python experiments/run_rule_roi_baseline.py \
   --dataset-config configs/datasets/default.yaml \
-  --gate-config configs/npx_gate/default.yaml \
+  --roi-generator-config configs/roi_generator/default.yaml \
   --roi-output outputs/roi_metadata/rule_roi.jsonl \
   --frame-output outputs/roi_metadata/gate_decisions.jsonl
 ```
@@ -122,7 +122,7 @@ python experiments/run_roi_yolo_inference.py \
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator gpu_inference evaluation experiments tests tools
+python3 -m compileall common data_loader roi_generator gpu_inference evaluation experiments tests tools
 python3 -m unittest tests.test_yolo_roi
 ```
 

@@ -8,13 +8,13 @@
 
 ## 2. 현재 구현 우선순위
 
-현재 우선순위는 `Phase 1. Rule-based ROI Gate 검증`이다.
+현재 우선순위는 `Phase 1. Rule-based ROI generator 검증`이다.
 
 Phase 1에서는 다음을 구현한다.
 
 - Dataset video 또는 image sequence loader
 - Full-frame YOLOv8 baseline
-- Rule-based ROI Gate emulator
+- Rule-based ROI generator emulator
 - ROI crop 생성
 - ROI crop 기반 YOLOv8 inference
 - detection 좌표 복원
@@ -29,7 +29,7 @@ Phase 1에서는 다음을 구현한다.
 
 | 역할 | 담당 영역 | 주요 책임 |
 |---|---|---|
-| Owner A | 데이터 입력 + ROI Gate pipeline | dataset loader, frame schema 사용, rule-based ROI 생성, ROI metadata 생성 |
+| Owner A | 데이터 입력 + ROI generator pipeline | dataset loader, frame schema 사용, rule-based ROI 생성, ROI metadata 생성 |
 | Owner B | GPU inference + evaluation pipeline | YOLO baseline, ROI YOLO, 좌표 복원, metric 계산, report/visualization |
 | Shared | 공통 계약 + 실험 설정 | `common/schemas.py`, `configs/**/*.yaml`, `docs/plan/phase1_implementation_plan.md`, README, 문서 |
 
@@ -38,7 +38,7 @@ Phase 1에서는 다음을 구현한다.
 | 경로 | Primary Owner | Secondary Reviewer | 비고 |
 |---|---|---|---|
 | `data_loader/` | Owner A | Owner B | Dataset stream, annotation loader |
-| `npx_emulator/` | Owner A | Owner B | Rule-based gate, event map, ROI 생성 |
+| `roi_generator/` | Owner A | Owner B | Rule-based gate, event map, ROI 생성 |
 | `gpu_inference/` | Owner B | Owner A | YOLO full-frame, ROI YOLO, coordinate restore |
 | `evaluation/` | Owner B | Owner A | recall, containment, workload, latency metric |
 | `experiments/` | Owner B | Owner A | 실행 script, comparison report orchestration |
@@ -74,7 +74,7 @@ docs/tasks/phase{Phase번호}/task{번호}_{짧은_설명}.md
 
 ```text
 docs/tasks/phase1/task2_dataset_stream_loader.md
-docs/tasks/phase1/task3_rule_based_roi_gate.md
+docs/tasks/phase1/task3_rule_based_roi_generator.md
 ```
 
 각 Task 문서에는 최소한 다음 내용을 포함한다.
@@ -93,8 +93,8 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 |---|---|---|---|
 | Task 1. 프로젝트 스캐폴딩 | Shared | Shared | `common/`, `configs/`, skeleton 전체 |
 | Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/datasets/default.yaml` |
-| Task 3. Rule-based ROI Gate Emulator | Owner A | Owner B | `npx_emulator/`, `configs/npx_gate/default.yaml` |
-| Task 4. ROI Metadata 저장 | Owner A | Owner B | `npx_emulator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
+| Task 3. Rule-based ROI generator Emulator | Owner A | Owner B | `roi_generator/`, `configs/roi_generator/default.yaml` |
+| Task 4. ROI Metadata 저장 | Owner A | Owner B | `roi_generator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
 | Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/models/yolo_default.yaml` |
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
 | Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
@@ -105,7 +105,7 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 
 체크박스는 실제 구현, 최소 동작 확인, `docs/tasks/phase*/` 구현 설명 문서 작성이 모두 끝났을 때 갱신한다. 단순 파일 생성만으로 완료 처리하지 않고, 해당 단계의 산출물이 생성되거나 다음 단계에서 사용할 수 있는 인터페이스가 준비되었을 때 완료로 본다.
 
-### Phase 1. Rule-based ROI Gate 검증
+### Phase 1. Rule-based ROI generator 검증
 
 - [x] Task 1. 프로젝트 스캐폴딩
   - [x] 기본 디렉터리 생성
@@ -117,7 +117,7 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
   - [x] image sequence loader 구현
   - [x] `FramePacket` 생성
   - [x] annotation loader 확장 지점 준비
-- [x] Task 3. Rule-based ROI Gate Emulator
+- [x] Task 3. Rule-based ROI generator Emulator
   - [x] gray 변환 및 resize
   - [x] frame difference
   - [x] ON/OFF event-like map 생성
@@ -176,7 +176,7 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 
 ## 5. Phase 1 구현 범위 메모
 
-Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, evaluation, visualization을 연결하는 데 집중한다.
+Phase 1 구현은 full-frame baseline, rule-based ROI generator, ROI YOLO inference, evaluation, visualization을 연결하는 데 집중한다.
 
 비공개 검증 기준과 다음 단계 판단 메모는 `docs/idea/`에서 관리한다.
 
@@ -196,10 +196,10 @@ Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, 
 ```text
 configs/
 ├── datasets/
-├── npx_gate/
+├── roi_generator/
 └── models/
 data_loader/
-npx_emulator/
+roi_generator/
 gpu_inference/
 evaluation/
 experiments/
@@ -217,7 +217,7 @@ outputs/
 
 초기 입력 데이터 준비 방법은 `docs/sample_data.md`를 따른다.
 
-### [x] Task 3. Rule-based ROI Gate Emulator
+### [x] Task 3. Rule-based ROI generator Emulator
 
 목표:
 
@@ -265,7 +265,7 @@ outputs/roi_metadata/gate_decisions.jsonl
   "analysis_frame_size": [256, 144],
   "roi_xywh": [640, 320, 420, 560],
   "score": 0.82,
-  "source": "rule_based_roi_gate",
+  "source": "rule_based_roi_generator",
   "trigger_type": "roi"
 }
 ```
@@ -354,7 +354,7 @@ vision-frontend-simulator/
 │   └── tasks/
 │       └── phase1/
 │           ├── task2_dataset_stream_loader.md
-│           ├── task3_rule_based_roi_gate.md
+│           ├── task3_rule_based_roi_generator.md
 │           ├── task4_roi_metadata.md
 │           ├── task5_full_frame_yolo_baseline.md
 │           ├── task6_roi_yolo_inference.md
@@ -366,7 +366,7 @@ vision-frontend-simulator/
 │   ├── datasets/
 │   │   ├── default.yaml
 │   │   └── smoke.yaml
-│   ├── npx_gate/
+│   ├── roi_generator/
 │   │   ├── default.yaml
 │   │   └── smoke.yaml
 │   └── models/
@@ -376,7 +376,7 @@ vision-frontend-simulator/
 ├── data_loader/
 │   ├── dataset_stream.py
 │   └── annotation_loader.py
-├── npx_emulator/
+├── roi_generator/
 │   ├── preprocess.py
 │   ├── event_encoder.py
 │   ├── motion_detector.py
@@ -405,7 +405,7 @@ vision-frontend-simulator/
 │   └── compare_results.py
 ├── tests/
 │   ├── test_dataset_stream.py
-│   ├── test_npx_gate.py
+│   ├── test_roi_generator.py
 │   ├── test_roi_metadata.py
 │   ├── test_yolo_full_frame.py
 │   ├── test_yolo_roi.py
@@ -434,10 +434,10 @@ dataset:
   frame_limit: null
 ```
 
-### NPX Gate
+### ROI Generator
 
 ```yaml
-npx_gate:
+roi_generator:
   analysis_width: 256
   analysis_height: 144
   threshold_motion: 25

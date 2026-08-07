@@ -4,7 +4,7 @@
 
 Task 2의 목적은 Phase 1 실험에서 사용할 입력 데이터를 공통 형태로 추상화하는 것이다.
 
-Video 파일을 사용하든 image sequence를 사용하든, 이후 단계인 ROI Gate, YOLO inference, evaluation은 입력 형식을 직접 알 필요 없이 `FramePacket`만 받도록 만든다.
+Video 파일을 사용하든 image sequence를 사용하든, 이후 단계인 ROI generator, YOLO inference, evaluation은 입력 형식을 직접 알 필요 없이 `FramePacket`만 받도록 만든다.
 
 ```text
 video / image sequence
@@ -13,7 +13,7 @@ DatasetStream
         ↓
 FramePacket
         ↓
-ROI Gate / YOLO / Evaluation
+ROI generator / YOLO / Evaluation
 ```
 
 ## 핵심 데이터 구조
@@ -133,7 +133,7 @@ python experiments/inspect_dataset_stream.py --config configs/datasets/default.y
 {'camera_id': 'cam_01', 'frame_id': 0, 'timestamp': 0.0, 'original_size': [1920, 1080]}
 ```
 
-이 출력이 정상이어야 Task 3의 ROI Gate 입력으로 사용할 수 있다.
+이 출력이 정상이어야 Task 3의 ROI generator 입력으로 사용할 수 있다.
 
 ## 의존성
 
@@ -172,7 +172,7 @@ python3 -m unittest tests.test_dataset_stream
 
 ## 후속 Task와의 연결
 
-Task 3에서는 `DatasetStream`에서 생성한 `FramePacket`을 입력으로 받아 rule-based ROI Gate를 구현한다.
+Task 3에서는 `DatasetStream`에서 생성한 `FramePacket`을 입력으로 받아 rule-based ROI generator를 구현한다.
 
 Task 5 이후 Owner B는 같은 `FramePacket` 구조를 사용해 full-frame YOLO baseline과 ROI YOLO pipeline을 연결할 수 있다.
 

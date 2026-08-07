@@ -4,12 +4,12 @@
 
 Task 4의 목적은 Task 3의 `GateDecision` 결과를 후속 YOLO/evaluation 단계에서 재사용할 수 있는 JSONL 산출물로 저장하는 것이다.
 
-Task 4 이후에는 ROI Gate를 다시 실행하지 않아도 `rule_roi.jsonl`을 읽어서 ROI crop YOLO, workload 계산, visualization을 반복할 수 있다.
+Task 4 이후에는 ROI generator를 다시 실행하지 않아도 `rule_roi.jsonl`을 읽어서 ROI crop YOLO, workload 계산, visualization을 반복할 수 있다.
 
 ## 구현 파일
 
 - `common/schemas.py`
-- `npx_emulator/metadata.py`
+- `roi_generator/metadata.py`
 - `experiments/run_rule_roi_baseline.py`
 - `tests/test_roi_metadata.py`
 
@@ -36,7 +36,7 @@ ROI crop inference를 위한 ROI 단위 작업 목록이다. 한 줄은 하나�
   "analysis_frame_size": [256, 144],
   "roi_xywh": [640, 320, 420, 560],
   "score": 0.82,
-  "source": "rule_based_roi_gate",
+  "source": "rule_based_roi_generator",
   "trigger_type": "roi"
 }
 ```
@@ -56,7 +56,7 @@ Frame 단위 gate decision log다. ROI가 없는 frame도 기록되므로 trigge
   "gate_latency_ms": 0.52,
   "original_frame_size": [1920, 1080],
   "analysis_frame_size": [256, 144],
-  "source": "rule_based_roi_gate"
+  "source": "rule_based_roi_generator"
 }
 ```
 
@@ -92,7 +92,7 @@ cam_01_f000042_roi_001
 ```bash
 python experiments/run_rule_roi_baseline.py \
   --dataset-config configs/datasets/default.yaml \
-  --gate-config configs/npx_gate/default.yaml \
+  --roi-generator-config configs/roi_generator/default.yaml \
   --roi-output outputs/roi_metadata/rule_roi.jsonl \
   --frame-output outputs/roi_metadata/gate_decisions.jsonl
 ```
@@ -106,8 +106,8 @@ python experiments/run_rule_roi_baseline.py --limit 100
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator experiments tests
-python3 -m unittest tests.test_dataset_stream tests.test_npx_gate tests.test_roi_metadata
+python3 -m compileall common data_loader roi_generator experiments tests
+python3 -m unittest tests.test_dataset_stream tests.test_roi_generator tests.test_roi_metadata
 ```
 
 검증 항목:
