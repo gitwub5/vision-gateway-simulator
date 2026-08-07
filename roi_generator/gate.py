@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Protocol
 
 from common import FramePacket, FrameSize, ROI, TriggerType
 from common.io import load_yaml_config
@@ -39,6 +39,9 @@ class RoiGeneratorConfig:
     full_frame_interval: int = 60
     max_roi_per_frame: int = 5
     max_total_roi_area_ratio: float = 0.5
+    debug_enabled: bool = False
+    debug_max_frames: int | None = None
+    debug_stride: int = 1
 
     @property
     def analysis_size(self) -> FrameSize:
@@ -67,6 +70,7 @@ class RoiGeneratorConfig:
     def from_mapping(cls, config: dict[str, Any]) -> "RoiGeneratorConfig":
         roi_generator = config.get("roi_generator", config.get("npx_gate", config))
         processing = roi_generator.get("processing", {}) or {}
+        debug = roi_generator.get("debug", {}) or {}
         return cls(
             analysis_width=int(roi_generator.get("analysis_width", cls.analysis_width)),
             analysis_height=int(roi_generator.get("analysis_height", cls.analysis_height)),
@@ -91,6 +95,9 @@ class RoiGeneratorConfig:
             max_total_roi_area_ratio=float(
                 roi_generator.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
             ),
+            debug_enabled=bool(debug.get("enabled", cls.debug_enabled)),
+            debug_max_frames=_optional_int(debug.get("max_frames")),
+            debug_stride=max(1, int(debug.get("stride", cls.debug_stride))),
         )
 
 
@@ -114,11 +121,37 @@ class BudgetFallbackDecision:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class RoiGenerationTrace:
+    filtered_motion_map: Any | None
+    candidate_analysis_rois: list[ROI]
+    merged_analysis_rois: list[ROI]
+    final_rois: list[ROI]
+
+
+@dataclass(frozen=True)
+class RoiDebugSnapshot:
+    packet: FramePacket
+    config: RoiGeneratorConfig
+    analysis_gray: Any
+    previous_analysis_gray: Any | None
+    event_maps: EventMaps | None
+    generation_trace: RoiGenerationTrace
+    decision: GateDecision
+    budget_fallback: BudgetFallbackDecision
+
+
+class RoiDebugSink(Protocol):
+    def write(self, snapshot: RoiDebugSnapshot) -> None:
+        raise NotImplementedError
+
+
 class RuleBasedRoiGenerator:
     """Converts FramePacket input into ROI or full-frame trigger decisions."""
 
-    def __init__(self, config: RoiGeneratorConfig) -> None:
+    def __init__(self, config: RoiGeneratorConfig, debug_sink: RoiDebugSink | None = None) -> None:
         self.config = config
+        self.debug_sink = debug_sink
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None
         self._previous_analysis_size: FrameSize | None = None
@@ -127,36 +160,64 @@ class RuleBasedRoiGenerator:
         started = perf_counter()
         analysis_size = self.config.analysis_size_for_frame(packet.original_size)
         analysis_gray = resize_for_analysis(to_gray(packet.frame), analysis_size)
+        previous_analysis_gray = self._previous_analysis_gray
+        empty_trace = RoiGenerationTrace(
+            filtered_motion_map=None,
+            candidate_analysis_rois=[],
+            merged_analysis_rois=[],
+            final_rois=[],
+        )
 
         if self._previous_analysis_gray is None:
             self._remember_analysis_frame(analysis_gray, analysis_size)
-            return self._full_frame_decision(
+            decision = self._full_frame_decision(
                 packet=packet,
                 rois=[],
                 started=started,
                 event_maps=None,
                 analysis_size=analysis_size,
             )
+            self._emit_debug_snapshot(
+                packet=packet,
+                analysis_gray=analysis_gray,
+                previous_analysis_gray=previous_analysis_gray,
+                event_maps=None,
+                generation_trace=empty_trace,
+                decision=decision,
+                budget_fallback=BudgetFallbackDecision(False),
+            )
+            return decision
 
         if self._previous_analysis_size != analysis_size:
             self._remember_analysis_frame(analysis_gray, analysis_size)
             self._temporal_hold.clear()
-            return self._full_frame_decision(
+            decision = self._full_frame_decision(
                 packet=packet,
                 rois=[],
                 started=started,
                 event_maps=None,
                 analysis_size=analysis_size,
             )
+            self._emit_debug_snapshot(
+                packet=packet,
+                analysis_gray=analysis_gray,
+                previous_analysis_gray=previous_analysis_gray,
+                event_maps=None,
+                generation_trace=empty_trace,
+                decision=decision,
+                budget_fallback=BudgetFallbackDecision(False),
+            )
+            return decision
 
         event_maps = self._encode_event_maps(analysis_gray)
         self._remember_analysis_frame(analysis_gray, analysis_size)
 
-        current_rois = self._generate_current_rois(event_maps, analysis_size, packet.original_size)
-        fallback_decision = evaluate_budget_fallback(current_rois, packet.original_size, self.config)
-        if fallback_decision.should_fallback:
+        generation_trace = self._generate_roi_trace(event_maps, analysis_size, packet.original_size)
+        current_rois = generation_trace.final_rois
+        budget_fallback = evaluate_budget_fallback(current_rois, packet.original_size, self.config)
+        if budget_fallback.should_fallback:
             self._temporal_hold.clear()
-            return self._decision(
+            decision = self._decision(
                 packet=packet,
                 trigger_type=TriggerType.FALLBACK_FULL_FRAME,
                 rois=[],
@@ -165,20 +226,40 @@ class RuleBasedRoiGenerator:
                 event_maps=event_maps,
                 analysis_size=analysis_size,
             )
+            self._emit_debug_snapshot(
+                packet=packet,
+                analysis_gray=analysis_gray,
+                previous_analysis_gray=previous_analysis_gray,
+                event_maps=event_maps,
+                generation_trace=generation_trace,
+                decision=decision,
+                budget_fallback=budget_fallback,
+            )
+            return decision
 
         held_rois = self._temporal_hold.update(current_rois)
         trigger_type, rois = self._roi_or_hold_decision(current_rois, held_rois)
 
         if is_periodic_full_frame(packet.frame_id, self.config.full_frame_interval):
-            return self._full_frame_decision(
+            decision = self._full_frame_decision(
                 packet=packet,
                 rois=rois,
                 started=started,
                 event_maps=event_maps,
                 analysis_size=analysis_size,
             )
+            self._emit_debug_snapshot(
+                packet=packet,
+                analysis_gray=analysis_gray,
+                previous_analysis_gray=previous_analysis_gray,
+                event_maps=event_maps,
+                generation_trace=generation_trace,
+                decision=decision,
+                budget_fallback=budget_fallback,
+            )
+            return decision
 
-        return self._decision(
+        decision = self._decision(
             packet=packet,
             trigger_type=trigger_type,
             rois=rois,
@@ -187,6 +268,16 @@ class RuleBasedRoiGenerator:
             event_maps=event_maps,
             analysis_size=analysis_size,
         )
+        self._emit_debug_snapshot(
+            packet=packet,
+            analysis_gray=analysis_gray,
+            previous_analysis_gray=previous_analysis_gray,
+            event_maps=event_maps,
+            generation_trace=generation_trace,
+            decision=decision,
+            budget_fallback=budget_fallback,
+        )
+        return decision
 
     def _remember_analysis_frame(self, analysis_gray, analysis_size: FrameSize) -> None:
         self._previous_analysis_gray = analysis_gray
@@ -201,12 +292,12 @@ class RuleBasedRoiGenerator:
             threshold_motion=self.config.threshold_motion,
         )
 
-    def _generate_current_rois(
+    def _generate_roi_trace(
         self,
         event_maps: EventMaps,
         analysis_size: FrameSize,
         original_size: FrameSize,
-    ) -> list[ROI]:
+    ) -> RoiGenerationTrace:
         filtered_motion = filter_motion_map(event_maps.motion_map, self.config.morphology_kernel_size)
         analysis_rois = generate_roi_candidates(filtered_motion, self.config.min_area_ratio)
         merged_analysis_rois = merge_rois(
@@ -222,7 +313,12 @@ class RuleBasedRoiGenerator:
             )
             for roi in merged_analysis_rois
         ]
-        return sort_rois_by_area(current_rois)
+        return RoiGenerationTrace(
+            filtered_motion_map=filtered_motion,
+            candidate_analysis_rois=analysis_rois,
+            merged_analysis_rois=merged_analysis_rois,
+            final_rois=sort_rois_by_area(current_rois),
+        )
 
     def _roi_or_hold_decision(self, current_rois: list[ROI], held_rois: list[ROI]) -> tuple[TriggerType, list[ROI]]:
         if current_rois:
@@ -272,6 +368,31 @@ class RuleBasedRoiGenerator:
             gate_latency_ms=(perf_counter() - started) * 1000.0,
             should_run_full_frame=should_run_full_frame,
             event_maps=event_maps,
+        )
+
+    def _emit_debug_snapshot(
+        self,
+        packet: FramePacket,
+        analysis_gray: Any,
+        previous_analysis_gray: Any | None,
+        event_maps: EventMaps | None,
+        generation_trace: RoiGenerationTrace,
+        decision: GateDecision,
+        budget_fallback: BudgetFallbackDecision,
+    ) -> None:
+        if self.debug_sink is None:
+            return
+        self.debug_sink.write(
+            RoiDebugSnapshot(
+                packet=packet,
+                config=self.config,
+                analysis_gray=analysis_gray,
+                previous_analysis_gray=previous_analysis_gray,
+                event_maps=event_maps,
+                generation_trace=generation_trace,
+                decision=decision,
+                budget_fallback=budget_fallback,
+            )
         )
 
 

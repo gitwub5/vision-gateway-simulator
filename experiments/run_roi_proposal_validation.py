@@ -34,6 +34,7 @@ from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_meta
 from roi_generator import load_roi_generator_config
 from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
 from experiments.validation_common import load_validation_config, run_roi_generator_metadata
+from visualization.roi_debug_renderer import RoiDebugRenderer
 from visualization.roi_proposal_renderer import render_roi_failure_visualizations
 
 
@@ -49,6 +50,7 @@ class RoiProposalPaths:
         self.reports_dir = root / "reports"
         self.visualizations_dir = root / "visualizations"
         self.failures_dir = self.visualizations_dir / "failures"
+        self.roi_debug_dir = self.visualizations_dir / "roi_debug"
         self.cache = root / "cache"
         self.manifest = root / "manifest.json"
         self.roi_metadata = self.roi_metadata_dir / "rule_roi.jsonl"
@@ -81,6 +83,7 @@ class RoiProposalPaths:
             "report_json": str(self.report_json),
             "report_markdown": str(self.report_markdown),
             "visualizations": str(self.visualizations_dir),
+            "roi_debug": str(self.roi_debug_dir),
         }
 
 
@@ -116,6 +119,20 @@ def main() -> None:
             output_path=paths.ground_truth,
         ),
     )
+    render_roi_debug = args.render_roi_debug_all or roi_generator_config.debug_enabled
+    roi_debug_limit = args.render_roi_debug_limit
+    if roi_debug_limit is None:
+        roi_debug_limit = roi_generator_config.debug_max_frames
+    roi_debug_stride = args.render_roi_debug_stride or roi_generator_config.debug_stride
+    roi_debug_renderer = None
+    if render_roi_debug:
+        roi_debug_renderer = RoiDebugRenderer(
+            output_dir=paths.roi_debug_dir,
+            ground_truth=read_ground_truth_jsonl(paths.ground_truth),
+            target_classes=target_classes,
+            stride=roi_debug_stride,
+            max_frames=roi_debug_limit,
+        )
     roi_generator_summary = stage_timer.run(
         "roi_generator_metadata",
         lambda: run_roi_generator_metadata(
@@ -123,6 +140,7 @@ def main() -> None:
             roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
+            debug_sink=roi_debug_renderer,
         ),
     )
     report_summary = stage_timer.run(
@@ -162,6 +180,9 @@ def main() -> None:
             "roi_generator_config": args.roi_generator_config,
             "limit": args.limit,
             "render_limit": args.render_limit,
+            "render_roi_debug_all": render_roi_debug,
+            "render_roi_debug_limit": roi_debug_limit,
+            "render_roi_debug_stride": roi_debug_stride,
             "target_classes": list(target_classes),
             "roi_too_large_ratio": args.roi_too_large_ratio,
         },
@@ -234,6 +255,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--render-limit", type=int, default=30)
+    parser.add_argument("--render-roi-debug-all", action="store_true")
+    parser.add_argument("--render-roi-debug-limit", type=int, default=None)
+    parser.add_argument("--render-roi-debug-stride", type=int, default=None)
     parser.add_argument("--roi-too-large-ratio", type=float, default=0.30)
     parser.add_argument("--skip-visualization", action="store_true")
     return parser.parse_args()

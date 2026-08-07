@@ -3,6 +3,8 @@
 from roi_generator.gate import (
     BudgetFallbackDecision,
     GateDecision,
+    RoiDebugSnapshot,
+    RoiGenerationTrace,
     RoiGeneratorConfig,
     RuleBasedRoiGenerator,
     evaluate_budget_fallback,
@@ -21,6 +23,8 @@ from roi_generator.metadata import (
 __all__ = [
     "GateDecision",
     "BudgetFallbackDecision",
+    "RoiDebugSnapshot",
+    "RoiGenerationTrace",
     "RoiGeneratorConfig",
     "RuleBasedRoiGenerator",
     "evaluate_budget_fallback",

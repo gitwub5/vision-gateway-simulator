@@ -27,9 +27,10 @@ def run_roi_generator_metadata(
     roi_generator_config,
     roi_output: Path,
     frame_output: Path,
+    debug_sink=None,
 ) -> dict[str, Any]:
     stream = create_dataset_stream(dataset_config)
-    generator = RuleBasedRoiGenerator(roi_generator_config)
+    generator = RuleBasedRoiGenerator(roi_generator_config, debug_sink=debug_sink)
     roi_writer = ROIMetadataWriter(roi_output)
     frame_writer = GateFrameMetadataWriter(frame_output)
     processed_frames = 0
@@ -47,9 +48,9 @@ def run_roi_generator_metadata(
     return {
         "processed_frames": processed_frames,
         "roi_records": roi_records_count,
+        "debug": debug_sink.summary() if debug_sink and hasattr(debug_sink, "summary") else None,
     }
 
 
 def run_gate_metadata(dataset_config, gate_config, roi_output: Path, frame_output: Path) -> dict[str, Any]:
     return run_roi_generator_metadata(dataset_config, gate_config, roi_output, frame_output)
-

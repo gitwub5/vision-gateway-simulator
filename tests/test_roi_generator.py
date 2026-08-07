@@ -39,6 +39,15 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.processing_width, 960)
         self.assertIsNone(config.processing_height)
 
+    def test_config_loads_debug_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {"roi_generator": {"debug": {"enabled": True, "max_frames": 120, "stride": 5}}}
+        )
+
+        self.assertTrue(config.debug_enabled)
+        self.assertEqual(config.debug_max_frames, 120)
+        self.assertEqual(config.debug_stride, 5)
+
     def test_decision_records_dynamic_analysis_size(self) -> None:
         gate = RuleBasedRoiGenerator(RoiGeneratorConfig(processing_width=1280, full_frame_interval=60))
         packet = _packet(frame_id=0, original_size=FrameSize(width=3840, height=2160))
@@ -114,6 +123,20 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertTrue(decision.should_run_full_frame)
         self.assertEqual(decision.rois, [])
 
+    def test_debug_sink_receives_per_frame_generation_trace(self) -> None:
+        sink = FakeDebugSink()
+        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=60), debug_sink=sink)
+
+        with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
+            gate.process(_packet(frame_id=0))
+            decision = gate.process(_packet(frame_id=1))
+
+        self.assertEqual(len(sink.snapshots), 2)
+        self.assertEqual(sink.snapshots[0].decision.trigger_type, TriggerType.FULL_FRAME)
+        self.assertEqual(sink.snapshots[1].decision, decision)
+        self.assertEqual(len(sink.snapshots[1].generation_trace.candidate_analysis_rois), 1)
+        self.assertEqual(len(sink.snapshots[1].generation_trace.final_rois), 1)
+
 
 class GatePolicyTest(unittest.TestCase):
     def test_should_fallback_when_roi_count_exceeds_limit(self) -> None:
@@ -140,6 +163,14 @@ class GatePolicyTest(unittest.TestCase):
         self.assertEqual(hold.update([roi]), [roi])
         self.assertEqual(hold.update([]), [roi])
         self.assertEqual(hold.update([]), [])
+
+
+class FakeDebugSink:
+    def __init__(self) -> None:
+        self.snapshots = []
+
+    def write(self, snapshot) -> None:
+        self.snapshots.append(snapshot)
 
 
 def _packet(frame_id: int, original_size: FrameSize | None = None) -> FramePacket:
