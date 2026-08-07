@@ -14,8 +14,15 @@ from evaluation.comparison_report import (
     write_report_markdown,
 )
 from evaluation.detection_metrics import bbox_iou, match_detections_by_iou
-from evaluation.gt_report import AnnotationQuality, summarize_detector_gt, summarize_gt_roi_containment
+from evaluation.gt_report import (
+    AnnotationQuality,
+    GtReportInputs,
+    build_gt_report,
+    summarize_detector_gt,
+    summarize_gt_roi_containment,
+)
 from evaluation.roi_containment import summarize_roi_containment
+from evaluation.roi_proposal_report import RoiProposalInputs, build_roi_proposal_report
 from evaluation.workload_metrics import reduction_ratio
 
 
@@ -83,6 +90,75 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertFalse(quality.expected_exhaustive)
         self.assertEqual(quality.notes, ("visible objects may be unlabeled",))
         self.assertEqual(quality.unreliable_metrics, ("false_roi_rate",))
+
+    def test_gt_report_filters_to_target_classes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            inputs = GtReportInputs(
+                ground_truth=root / "ground_truth.jsonl",
+                full_frame_detections=root / "full_frame.jsonl",
+                roi_detections=root / "roi_yolo.jsonl",
+                roi_metadata=root / "rule_roi.jsonl",
+                report_json=root / "gt_report.json",
+                report_markdown=root / "gt_report.md",
+            )
+            _write_jsonl(inputs.roi_metadata, [_roi_record(ROI(0, 0, 12, 12))])
+
+            report = build_gt_report(
+                inputs=inputs,
+                ground_truth=[
+                    _gt_annotation("person", [0, 0, 10, 10]),
+                    _gt_annotation("car", [30, 30, 50, 50], annotation_id=2),
+                ],
+                full_frame_detections=[
+                    _detection("full_frame_yolo", [0, 0, 10, 10]),
+                    _detection("full_frame_yolo", [30, 30, 50, 50], class_name="car"),
+                ],
+                roi_detections=[_detection("roi_yolo", [0, 0, 10, 10], roi_id="roi_001")],
+                target_classes=["person"],
+            )
+
+        self.assertEqual(report.target_classes, ("person",))
+        self.assertEqual(report.full_frame.gt_object_count, 1)
+        self.assertEqual(report.full_frame.detection_count, 1)
+        self.assertEqual(report.roi.gt_object_count, 1)
+        self.assertEqual(report.roi.gt_roi_containment, 1.0)
+
+    def test_roi_proposal_report_focuses_on_target_gt_and_effective_area(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            inputs = RoiProposalInputs(
+                ground_truth=root / "ground_truth.jsonl",
+                roi_metadata=root / "rule_roi.jsonl",
+                frame_metadata=root / "gate_decisions.jsonl",
+                report_json=root / "roi_proposal_report.json",
+                report_markdown=root / "roi_proposal_report.md",
+            )
+            frames = [
+                _frame_record(should_run_full_frame=False),
+                _frame_record(frame_id=2, should_run_full_frame=True),
+            ]
+            rois = [_roi_record(ROI(0, 0, 12, 12)), _roi_record(ROI(0, 0, 12, 12), frame_id=2)]
+
+            report = build_roi_proposal_report(
+                inputs=inputs,
+                ground_truth=[
+                    _gt_annotation("person", [1, 1, 10, 10]),
+                    _gt_annotation("car", [70, 70, 90, 90], annotation_id=2),
+                ],
+                roi_records=rois,
+                frame_records=frames,
+                target_classes=["person"],
+            )
+
+        self.assertEqual(report.target_classes, ("person",))
+        self.assertEqual(report.target_gt_count, 1)
+        self.assertEqual(report.contained_gt_count, 1)
+        self.assertEqual(report.false_roi_count, 1)
+        self.assertEqual(report.full_frame_check_frame_count, 1)
+        self.assertEqual(report.full_frame_input_pixel_area, 20000)
+        self.assertEqual(report.roi_only_input_pixel_area, 288)
+        self.assertEqual(report.effective_input_pixel_area, 10288)
 
 
 class ComparisonReportTest(unittest.TestCase):
@@ -152,12 +228,17 @@ def _write_jsonl(path: Path, records: list) -> None:
             file.write(json.dumps(record.to_json_dict()) + "\n")
 
 
-def _detection(source: str, bbox_xyxy: list[float], roi_id: str | None = None) -> Detection:
+def _detection(
+    source: str,
+    bbox_xyxy: list[float],
+    roi_id: str | None = None,
+    class_name: str = "person",
+) -> Detection:
     return Detection(
         camera_id="cam_test",
         frame_id=1,
         class_id=0,
-        class_name="person",
+        class_name=class_name,
         confidence=0.9,
         bbox_xyxy=bbox_xyxy,
         source=source,
@@ -182,10 +263,10 @@ def _gt_annotation(
     )
 
 
-def _roi_record(roi: ROI) -> ROIMetadata:
+def _roi_record(roi: ROI, frame_id: int = 1) -> ROIMetadata:
     return ROIMetadata(
         camera_id="cam_test",
-        frame_id=1,
+        frame_id=frame_id,
         timestamp=1 / 30.0,
         roi_id="roi_001",
         original_frame_size=FrameSize(width=100, height=100),
@@ -195,14 +276,14 @@ def _roi_record(roi: ROI) -> ROIMetadata:
     )
 
 
-def _frame_record() -> GateFrameMetadata:
+def _frame_record(frame_id: int = 1, should_run_full_frame: bool = False) -> GateFrameMetadata:
     return GateFrameMetadata(
         camera_id="cam_test",
-        frame_id=1,
+        frame_id=frame_id,
         timestamp=1 / 30.0,
         trigger_type=TriggerType.ROI,
         roi_count=1,
-        should_run_full_frame=False,
+        should_run_full_frame=should_run_full_frame,
         gate_latency_ms=0.5,
         original_frame_size=FrameSize(width=100, height=100),
         analysis_frame_size=FrameSize(width=10, height=10),

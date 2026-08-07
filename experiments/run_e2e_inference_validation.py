@@ -48,14 +48,8 @@ from gpu_inference.yolo_roi import (
     read_roi_metadata_jsonl,
     write_roi_metrics_json,
 )
-from npx_emulator import (
-    GateFrameMetadataWriter,
-    ROIMetadataWriter,
-    RuleBasedNpxGate,
-    frame_metadata_from_gate_decision,
-    load_npx_gate_config,
-    roi_metadata_from_gate_decision,
-)
+from npx_emulator import load_npx_gate_config
+from experiments.validation_common import load_validation_config, run_gate_metadata, write_json
 from visualization import render_visualizations
 
 
@@ -82,6 +76,8 @@ def main() -> None:
     if args.limit is not None:
         dataset_config = replace(dataset_config, frame_limit=args.limit)
     annotation_config = load_annotation_config(args.dataset_config)
+    validation_config = load_validation_config(args.dataset_config)
+    target_classes = tuple(str(item) for item in validation_config.get("target_classes", []) if item is not None)
     annotation_type = str((annotation_config or {}).get("type", "")).lower()
     gt_validation_enabled = bool(
         annotation_config
@@ -151,6 +147,7 @@ def main() -> None:
                 annotation_config=annotation_config,
                 paths=paths,
                 iou_threshold=args.iou_threshold,
+                target_classes=target_classes,
             ),
         )
 
@@ -188,6 +185,7 @@ def main() -> None:
             "iou_threshold": args.iou_threshold,
             "include_full_frame_checks": not args.disable_full_frame_checks,
             "gt_validation_enabled": gt_validation_enabled,
+            "target_classes": list(target_classes),
         },
         "hardware": collect_hardware_snapshot(),
         "outputs": paths.to_json_dict(),
@@ -270,29 +268,6 @@ class ExperimentPaths:
         }
 
 
-def run_gate_metadata(dataset_config, gate_config, roi_output: Path, frame_output: Path) -> dict[str, Any]:
-    stream = create_dataset_stream(dataset_config)
-    gate = RuleBasedNpxGate(gate_config)
-    roi_writer = ROIMetadataWriter(roi_output)
-    frame_writer = GateFrameMetadataWriter(frame_output)
-    processed_frames = 0
-    roi_records_count = 0
-
-    for packet in stream:
-        decision = gate.process(packet)
-        roi_records = roi_metadata_from_gate_decision(decision)
-        frame_record = frame_metadata_from_gate_decision(decision)
-        roi_writer.write_many(roi_records)
-        frame_writer.write(frame_record)
-        processed_frames += 1
-        roi_records_count += len(roi_records)
-
-    return {
-        "processed_frames": processed_frames,
-        "roi_records": roi_records_count,
-    }
-
-
 def run_full_frame_yolo(dataset_config, yolo_config, detections_output: Path, metrics_output: Path) -> dict[str, Any]:
     runner = FullFrameYoloRunner.from_config(yolo_config)
     detections = runner.run(create_dataset_stream(dataset_config))
@@ -346,7 +321,13 @@ def run_comparison(paths: ExperimentPaths, iou_threshold: float) -> dict[str, An
     return report.to_json_dict()
 
 
-def run_gt_validation(dataset_config, annotation_config, paths: ExperimentPaths, iou_threshold: float) -> dict[str, Any]:
+def run_gt_validation(
+    dataset_config,
+    annotation_config,
+    paths: ExperimentPaths,
+    iou_threshold: float,
+    target_classes: tuple[str, ...] = (),
+) -> dict[str, Any]:
     loader = create_annotation_loader(annotation_config, dataset_config)
     if loader is None:
         return {"enabled": False}
@@ -367,6 +348,7 @@ def run_gt_validation(dataset_config, annotation_config, paths: ExperimentPaths,
         roi_detections=read_detection_jsonl(paths.roi_detections),
         iou_threshold=iou_threshold,
         annotation_quality=AnnotationQuality.from_mapping(annotation_config.get("quality")),
+        target_classes=target_classes,
     )
     write_gt_report_json(report, paths.gt_report_json)
     write_gt_report_markdown(report, paths.gt_report_markdown)
@@ -406,13 +388,6 @@ def resolve_experiment_name(args: argparse.Namespace) -> str:
     if args.dataset_name:
         return args.dataset_name
     return "e2e_sample"
-
-
-def write_json(data: dict[str, Any], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=2)
-        file.write("\n")
 
 
 def parse_args() -> argparse.Namespace:

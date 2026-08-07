@@ -1,7 +1,7 @@
 dataset:
   type: image_sequence
-  input_path: data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031
-  camera_id: MVI_39031
+  input_path: data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39051
+  camera_id: MVI_39051
   fps_override: 25
   frame_limit: 120
   start_frame: 0
@@ -14,13 +14,13 @@ dataset:
 annotations:
   enabled: true
   type: ua_detrac_xml
-  input_path: data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml
+  input_path: data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39051.xml
   quality:
     completeness: exhaustive
     expected_exhaustive: true
     unreliable_metrics: []
     notes:
-      - UA-DETRAC provides frame-level vehicle bounding boxes and is used as the primary public temporal GT dataset for ROI proposal validation.
+      - UA-DETRAC MVI_39051 is a stable-camera sunny sequence used for primary ROI proposal quick validation.
       - UA-DETRAC classes are mapped to COCO-compatible YOLOv8 names where possible: car->car, bus->bus, van->car, others->truck.
 
 validation:
@@ -31,5 +31,5 @@ validation:
   target_policy:
     mode: target_aware_roi
     notes:
-      - ROI quality is evaluated against vehicle GT classes for this traffic CCTV sample.
+      - ROI quality is evaluated against vehicle GT classes for this stable traffic CCTV sample.
       - Non-vehicle motion is only a cost signal unless it affects vehicle recall or ROI budget.

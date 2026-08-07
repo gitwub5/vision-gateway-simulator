@@ -10,6 +10,7 @@
 - 약관 동의, 로그인, torrent, 사내 권한이 필요한 데이터는 자동 다운로드하지 않고 준비 방법만 안내한다.
 - 원본 데이터는 `data/` 아래에 저장하고 Git에는 포함하지 않는다.
 - 실험 결과는 `outputs/e2e_inference_validation/<run_id>/` 아래에 저장한다.
+- ROI 검증은 dataset config의 `validation.target_classes`를 기준으로 target-aware하게 해석한다.
 
 ## 사용법
 
@@ -36,6 +37,7 @@ python tools/download_sample_data.py --dataset opencv-vtest --force
 ```bash
 python tools/download_sample_data.py --dataset od-virat-tiny
 python tools/download_sample_data.py --dataset ua-detrac
+python tools/download_sample_data.py --dataset physicalai-smartspaces
 python tools/download_sample_data.py --dataset internal-cctv
 ```
 
@@ -45,7 +47,8 @@ python tools/download_sample_data.py --dataset internal-cctv
 |---|---|---|---|---|---|---|---|
 | `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/dataset.opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
 | `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/dataset.od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
-| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_39031.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
+| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_39051.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
+| `physicalai-smartspaces` | row 단위 선택 다운로드 | 합성 고정 산업/창고 카메라 | 산업 도메인 ROI proposal validation 후보 | `data/physicalai_smartspaces/row_<id>/` | `configs/dataset.physicalai_row<id>.yaml` | 높음 후보 | 전체 dataset은 TB급이므로 row 709/726/962 같은 소수 row만 선택 |
 | `internal-cctv` | 수동 준비 | 사내 고정 CCTV | 회사 환경 기준 최종 smoke/validation | `data/internal_cctv/` | `configs/dataset.internal_cctv_sample.yaml` | 높음 | 사내 보안 정책 준수 필요 |
 
 ## 권장 사용 순서
@@ -54,10 +57,23 @@ python tools/download_sample_data.py --dataset internal-cctv
 |---|---|---|
 | 1 | `opencv-vtest` | 자동 다운로드 가능한 고정 카메라 샘플로 전체 pipeline 동작 확인 |
 | 2 | `ua-detrac` | 연속 프레임과 bbox GT가 있는 primary ROI proposal validation |
-| 3 | `od-virat-tiny` | annotation 기반 보조 평가와 public validation |
-| 4 | `internal-cctv` | 사내 적용 환경 기준 최종 검증 |
+| 3 | `physicalai-smartspaces` | 산업/창고 synthetic fixed-camera GT로 ROI proposal 도메인 검증 |
+| 4 | `od-virat-tiny` | annotation 기반 보조 평가와 public validation |
+| 5 | `internal-cctv` | 사내 적용 환경 기준 최종 검증 |
 
 ## 공통 실행 방법
+
+Dataset config에는 산업/장면별 관심 객체를 명시할 수 있다.
+
+```yaml
+validation:
+  target_classes:
+    - person
+  target_policy:
+    mode: target_aware_roi
+```
+
+GT report는 `target_classes`가 있으면 해당 class만 대상으로 recall/ROI containment를 계산한다. Non-target motion은 ROI 비용 신호로 보되, target recall/ROI budget에 영향을 주지 않으면 hard failure로 해석하지 않는다.
 
 Dataset loader 확인:
 
@@ -144,26 +160,66 @@ https://detrac-db.rit.albany.edu/Data/DETRAC-Test-Annotations-XML.zip
 기본 준비 위치:
 
 ```text
-data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031/
-data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml
+data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39051/
+data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39051.xml
 ```
 
 기본 quick config:
 
 ```text
-configs/dataset.ua_detrac_mvi_39031.yaml
+configs/dataset.ua_detrac_mvi_39051.yaml
 ```
 
 실행 예:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39051.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_39031_balanced \
+  --experiment-name ua_detrac_mvi_39051_balanced \
   --limit 120
 ```
+
+### NVIDIA PhysicalAI Smart Spaces
+
+- 스마트팩토리/창고/실내 관제에 가까운 synthetic fixed-camera dataset
+- 전체 dataset은 TB급이므로 절대 전체 다운로드하지 않는다.
+- row 단위로 Hugging Face dataset viewer row를 해석해 해당 video와 같은 scene의 `ground_truth.json`만 받는다.
+- `ground_truth.json`은 scene-level multi-camera GT일 수 있으므로 loader가 `camera_id`로 필터링한다.
+- 기본 YOLOv8 COCO 모델은 `person`에는 적합하지만 `forklift`, `pallet_truck`, `robot` 같은 산업 객체에는 적합하지 않을 수 있다.
+- 따라서 우선순위는 E2E model recall이 아니라 GT 기반 ROI proposal quality 검증이다.
+
+row 해석만 확인:
+
+```bash
+python tools/download_physicalai_row.py --row-id 709 --dry-run
+python tools/download_physicalai_row.py --row-id 726 --dry-run
+python tools/download_physicalai_row.py --row-id 962 --dry-run
+```
+
+실제 다운로드:
+
+```bash
+python tools/download_physicalai_row.py --row-id 709
+python tools/download_physicalai_row.py --row-id 726
+python tools/download_physicalai_row.py --row-id 962
+```
+
+다운로드 후 생성되는 config 예:
+
+```text
+configs/dataset.physicalai_row0709.yaml
+configs/dataset.physicalai_row0726.yaml
+configs/dataset.physicalai_row0962.yaml
+```
+
+검증 전 확인 사항:
+
+- 생성된 config의 `dataset.input_path`가 실제 `Camera_XXXX.mp4`를 가리키는지 확인한다.
+- `annotations.input_path`가 같은 scene의 `ground_truth.json`을 가리키는지 확인한다.
+- 실제 `ground_truth.json` bbox format이 `xyxy`인지 확인한다. `xywh`이면 config의 `annotations.bbox_format`을 `xywh`로 바꾼다.
+- GT class가 기본 YOLOv8 COCO class와 다르면 E2E GT recall은 hard metric으로 쓰지 않는다.
 
 ### OD-VIRAT Tiny
 

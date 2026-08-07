@@ -8,6 +8,7 @@ from pathlib import Path
 from data_loader import DatasetConfig
 from data_loader.annotation_loader import (
     OdViratTinyAnnotationLoader,
+    PhysicalAiSmartSpacesAnnotationLoader,
     UaDetracAnnotationLoader,
     create_annotation_loader,
 )
@@ -101,6 +102,104 @@ class AnnotationLoaderTest(unittest.TestCase):
         self.assertEqual(annotations[0].frame_id, 1)
         self.assertEqual(annotations[0].class_name, "car")
         self.assertEqual(annotations[0].bbox_xyxy, [1.5, 2.5, 4.5, 6.5])
+
+    def test_physicalai_loader_filters_camera_and_frame_range(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            annotation_path = root / "ground_truth.json"
+            annotation_path.write_text(
+                json.dumps(
+                    {
+                        "frames": [
+                            {
+                                "frame_id": 4,
+                                "objects": [
+                                    {
+                                        "object_id": "ignored_before_start",
+                                        "class": "Human",
+                                        "cameras": {
+                                            "Camera_0002": {"bbox": [1, 2, 11, 22]},
+                                        },
+                                    }
+                                ],
+                            },
+                            {
+                                "frame_id": 5,
+                                "objects": [
+                                    {
+                                        "object_id": "person_1",
+                                        "class": "Human",
+                                        "cameras": {
+                                            "Camera_0002": {"bbox": [10, 20, 30, 40]},
+                                            "Camera_0003": {"bbox": [1, 2, 3, 4]},
+                                        },
+                                    },
+                                    {
+                                        "object_id": "forklift_1",
+                                        "type": "Forklift",
+                                        "camera_id": "Camera_0002",
+                                        "bbox": {"left": 5, "top": 6, "width": 7, "height": 8},
+                                    },
+                                ],
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = DatasetConfig(
+                type="video",
+                input_path=root / "Camera_0002.mp4",
+                camera_id="Camera_0002",
+                start_frame=5,
+                frame_limit=1,
+            )
+            annotations = PhysicalAiSmartSpacesAnnotationLoader(annotation_path, config).load()
+
+        self.assertEqual(len(annotations), 2)
+        self.assertEqual(annotations[0].frame_id, 5)
+        self.assertEqual(annotations[0].class_name, "person")
+        self.assertEqual(annotations[0].bbox_xyxy, [10.0, 20.0, 30.0, 40.0])
+        self.assertEqual(annotations[1].class_name, "forklift")
+        self.assertEqual(annotations[1].bbox_xyxy, [5.0, 6.0, 12.0, 14.0])
+
+    def test_physicalai_loader_reads_official_frame_keyed_visible_boxes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            annotation_path = root / "ground_truth.json"
+            annotation_path.write_text(
+                json.dumps(
+                    {
+                        "7": [
+                            {
+                                "object_type": "PalletTruck",
+                                "object_id": 42,
+                                "3d_location": [1, 2, 3],
+                                "2d_bounding_box_visible": {
+                                    "camera_0002": [10, 20, 30, 40],
+                                    "camera_0003": [1, 2, 3, 4],
+                                },
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = DatasetConfig(
+                type="video",
+                input_path=root / "Camera_0002.mp4",
+                camera_id="Camera_0002",
+                start_frame=7,
+                frame_limit=1,
+            )
+            annotations = PhysicalAiSmartSpacesAnnotationLoader(annotation_path, config).load()
+
+        self.assertEqual(len(annotations), 1)
+        self.assertEqual(annotations[0].frame_id, 7)
+        self.assertEqual(annotations[0].class_name, "pallet_truck")
+        self.assertEqual(annotations[0].bbox_xyxy, [10.0, 20.0, 30.0, 40.0])
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 이 문서는 Phase 1.1에서 ROI crop/gate policy를 개선하기 위한 공유 구현 계획이다.
 
-Phase 1.1의 목표는 ROI crop 면적을 무조건 줄이는 것이 아니다. 객체 보존 성능을 유지하면서 detector 호출 비용, ROI 다중 호출 병목, full-frame refresh 비용을 줄일 수 있는지 검증한다.
+Phase 1.1의 목표는 ROI crop 면적을 무조건 줄이는 것이 아니다. 산업/장면별 target class에 필요한 ROI를 충분히 포함하면서 모델 입력 픽셀량, ROI 개수, full-frame refresh/fallback 비용을 줄일 수 있는지 검증한다.
 
 ## 1. 원칙
 
@@ -44,6 +44,9 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [x] GT bbox 포함 failure visualization 생성
 - [x] OD-VIRAT Tiny 120-frame quick run으로 annotation report 검증
 - [x] `docs/runs/`에 annotation 기반 run 결과 위치 기록
+- [x] target-aware ROI validation scope를 dataset config에 추가
+- [x] `experiments/run_roi_proposal_validation.py` 구현
+- [x] PhysicalAI row 709 120-frame ROI Proposal quick run으로 target GT 기준 report 검증
 
 ### 2.2 Stage A: ROI Budget / Fallback Policy
 
@@ -121,7 +124,13 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 
 ## 3. Baseline
 
-기본 baseline은 `UA-DETRAC MVI_39031 + balanced profile`로 둔다.
+기본 baseline은 목적별로 분리한다.
+
+| 목적 | Baseline |
+|---|---|
+| 산업/창고 target-aware ROI proposal | `PhysicalAI row 709 + person + balanced profile` |
+| 실사 temporal vehicle ROI proposal | `UA-DETRAC MVI_39051 + vehicle target classes + balanced profile` |
+| E2E inference compatibility | 각 dataset의 동일 gate profile + `run_e2e_inference_validation.py` |
 
 Construction Site Static Camera는 Phase 1.1 후보로 검토했지만 active baseline에서 제외했다. `IMG259`-`IMG457` 구간 high-res ROI generation 결과는 보존하되, official config는 거의 모든 frame에서 full-frame fallback으로 빠졌고 fallback을 끈 diagnostic run은 ROI가 거의 전체 프레임을 덮어 ROI proposal 품질 판단에 부적합했다.
 
@@ -143,7 +152,7 @@ Phase 1.1 policy 구현 전에 OD-VIRAT Tiny annotation loader를 구현한다.
 
 다만 OD-VIRAT Tiny annotation은 모든 visible object가 표시된 exhaustive GT로 보지 않는다. 일부 frame에서는 실제 차량/사람이 여러 개 있어도 annotation은 일부 객체만 포함할 수 있다.
 
-따라서 이 데이터의 annotation metric은 "실제 전체 객체 recall"이 아니라 annotated-object lower-bound check로 해석한다. Phase 1.1 Keep/Tune/Disable/Remove의 hard criterion은 primary dataset의 pseudo recall, ROI count latency, failure visualization을 우선한다.
+따라서 이 데이터의 annotation metric은 "실제 전체 객체 recall"이 아니라 annotated-object lower-bound check로 해석한다. Phase 1.1 Keep/Tune/Disable/Remove의 hard criterion은 primary dataset의 target GT ROI containment, missed target GT, ROI area/count, effective input area reduction, gate latency, ROI proposal failure visualization을 우선한다.
 
 ### 구현 항목
 
@@ -196,11 +205,12 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 
 ### Keep 기준
 
-- pseudo recall이 `baseline_balanced`보다 크게 낮아지지 않는다.
-- ROI count `2-3`, `4-5`, `6-8` bucket의 latency delta가 개선된다.
-- input area reduction이 `baseline_recall`보다 높다.
-- UA-DETRAC failure visualization에서 반복 miss pattern이 늘지 않는다.
-- OD-VIRAT Tiny annotated-object recall/containment가 악화되지 않는지 보조 확인한다.
+- target GT ROI containment가 `baseline_balanced`보다 개선되거나 동일하다.
+- missed target GT count와 no-ROI target frame count가 줄어든다.
+- effective input area reduction이 유지되거나 개선된다.
+- ROI count와 average total ROI area ratio가 ROI budget 안에 들어온다.
+- gate latency가 허용 범위 안에 있고, full-frame fallback/check 의존이 과도하게 늘지 않는다.
+- E2E pseudo recall은 downstream compatibility 보조 지표로 확인한다.
 
 ### Tune/Disable/Remove 기준
 
@@ -231,11 +241,11 @@ Full-frame refresh는 필요하지만 고정 주기일 필요는 없다. scene r
 
 ### Keep 기준
 
-- pseudo recall이 `baseline_balanced` 수준으로 유지된다.
-- full-frame check count가 `baseline_balanced`보다 줄어든다.
-- no-refresh 대비 miss case가 충분히 회복된다.
-- latency 또는 detector call count가 개선된다.
-- OD-VIRAT Tiny annotated-object recall/containment가 악화되지 않는지 보조 확인한다.
+- target GT ROI containment가 `baseline_balanced` 수준으로 유지된다.
+- full-frame check count와 effective input area가 `baseline_balanced`보다 줄어든다.
+- no-refresh 대비 target miss case가 충분히 회복된다.
+- gate latency 또는 estimated model input cost가 개선된다.
+- E2E pseudo recall은 downstream compatibility 보조 지표로 확인한다.
 
 ### Tune/Disable/Remove 기준
 
@@ -268,11 +278,11 @@ Motion-only ROI는 정지 객체와 느린 객체에 취약하다. 최근 detect
 
 ### Keep 기준
 
-- primary dataset의 pseudo-reference miss count가 줄어든다.
-- pseudo recall이 개선되거나 baseline과 동일하다.
-- ROI count 증가로 latency가 악화되지 않는다.
-- failure visualization에서 정지/느린 객체 miss가 줄어든다.
-- OD-VIRAT Tiny missed annotated object count가 줄어드는지 보조 확인한다.
+- primary dataset의 missed target GT count가 줄어든다.
+- target GT ROI containment가 개선되거나 baseline과 동일하다.
+- ROI count 증가로 gate latency와 effective input area가 악화되지 않는다.
+- ROI proposal failure visualization에서 정지/느린 target miss가 줄어든다.
+- E2E pseudo-reference miss count는 secondary compatibility 지표로 확인한다.
 
 ### Tune/Disable/Remove 기준
 
@@ -307,12 +317,11 @@ ROI budget, adaptive refresh, tracking-assisted ROI를 함께 적용하면 recal
 
 ### Keep 기준
 
-- pseudo recall이 유지된다.
-- ROI count latency benchmark에서 다중 ROI bucket의 latency가 개선된다.
-- full-frame check count가 `baseline_recall`보다 낮다.
-- input area reduction이 `baseline_recall`보다 높다.
-- failure visualization에서 반복 miss pattern이 줄어든다.
-- OD-VIRAT Tiny annotated-object recall/containment는 regression guard로만 확인한다.
+- target GT ROI containment가 유지되거나 개선된다.
+- missed target GT count와 ROI proposal failure pattern이 줄어든다.
+- ROI count/area budget과 gate latency가 허용 범위 안에 있다.
+- full-frame check count와 effective input area가 `baseline_recall`보다 낮다.
+- E2E pseudo recall은 regression guard로만 확인한다.
 
 ### Tune/Disable/Remove 기준
 
@@ -342,13 +351,13 @@ DeepStream과 겹치지 않는 장기 차별점은 pixel-domain ROI보다 bitstr
 
 각 stage는 동일한 절차로 검증한다.
 
-1. UA-DETRAC 120-frame quick run 실행
-2. pseudo-reference report 생성
+1. PhysicalAI 또는 UA-DETRAC 120-frame ROI Proposal quick run 실행
+2. target-aware ROI proposal report 생성
 3. profile summary 생성
 4. ROI count latency benchmark 생성
-5. failure visualization 수동 검토
-6. OD-VIRAT Tiny 120-frame annotated-object 보조 run 실행
-7. annotation report와 pseudo-reference report를 함께 확인
+5. ROI proposal failure visualization 수동 검토
+6. E2E Inference quick run으로 downstream compatibility 보조 확인
+7. OD-VIRAT Tiny 120-frame annotated-object 보조 run 실행
 8. 결과를 `docs/runs/phase1_validation_runs.md` 또는 별도 run log에 기록
 9. Keep/Tune/Disable/Remove 판정
 
@@ -358,15 +367,15 @@ Phase 1.1은 다음 중 하나로 종료한다.
 
 ### 성공 종료
 
-- `combined_balanced` 또는 단독 policy가 baseline balanced 대비 pseudo recall을 유지한다.
-- detector invocation cost 또는 ROI count latency가 개선된다.
-- failure visualization에서 반복 miss가 줄어든다.
+- `combined_balanced` 또는 단독 policy가 baseline balanced 대비 target GT ROI containment를 유지하거나 개선한다.
+- effective model input area, ROI count/area, gate latency 중 하나 이상이 개선된다.
+- ROI proposal failure visualization에서 반복 target miss가 줄어든다.
 - DeepStream과 겹치지 않는 frontend gate 방향성이 설명 가능하다.
 - OD-VIRAT Tiny annotated-object report에서 명확한 regression이 없다.
 
 ### 보류 종료
 
-- pseudo-reference와 annotated-object 보조 지표 간 해석이 충돌한다.
+- ROI proposal primary 지표와 E2E/annotated-object 보조 지표 간 해석이 충돌한다.
 - MacBook latency로는 판단이 어렵고 NVIDIA/Jetson 측정이 필요하다.
 - 구현 복잡도 대비 이득이 작다.
 

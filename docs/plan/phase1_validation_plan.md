@@ -10,8 +10,8 @@ Phase 1 검증은 두 단계로 나눈다.
 
 | 단계 | 기준 | 목적 | 현재 상태 |
 |---|---|---|---|
-| Pipeline Qualification | full-frame YOLO pseudo reference | end-to-end 실행, report 생성, profile 비교 가능성 확인 | 우선 진행 |
-| Annotation-aware Validation | dataset annotation | annotated object recall, ROI containment 보조 평가 | OD-VIRAT Tiny partial annotation loader 구현됨 |
+| Pipeline Qualification | full-frame YOLO pseudo reference | end-to-end 실행, report 생성, profile 비교 가능성 확인 | 완료/보조 |
+| Annotation-aware Validation | dataset annotation | annotated object recall, ROI containment 보조 평가 | OD-VIRAT Tiny, UA-DETRAC, PhysicalAI loader 구현됨 |
 
 Phase 1.1은 Pipeline Qualification이 끝난 뒤 진행한다. 현재 public annotation dataset은 exhaustive GT로 가정하지 않는다. 실제 object recall을 hard criterion으로 쓰려면 annotation completeness가 확인된 internal CCTV 또는 별도 curated validation set이 필요하다.
 
@@ -19,8 +19,8 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 
 | Pipeline | Script | Output root | 목적 |
 |---|---|---|---|
-| ROI Proposal Validation | `experiments/run_roi_proposal_validation.py` (planned) | `outputs/roi_proposal_validation/` | downstream model 없이 ROI 생성 품질 평가 |
-| E2E Inference Validation | `experiments/run_e2e_inference_validation.py` | `outputs/e2e_inference_validation/` | ROI 생성부터 GPU/model inference, workload, latency까지 평가 |
+| ROI Proposal Validation | `experiments/run_roi_proposal_validation.py` | `outputs/roi_proposal_validation/` | downstream model 없이 target-aware ROI 생성 품질과 모델 입력량 절감 추정 |
+| E2E Inference Validation | `experiments/run_e2e_inference_validation.py` | `outputs/e2e_inference_validation/` | ROI 생성부터 GPU/model inference까지 연결했을 때 비용/latency와 모델별 retention 보조 평가 |
 
 기존 `experiments/run_phase1_experiment.py`는 제거하고, E2E 검증은 `experiments/run_e2e_inference_validation.py`만 사용한다.
 
@@ -29,11 +29,12 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
 | Tier 0 | `opencv-vtest` | `configs/dataset.opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `ua-detrac` | `configs/dataset.ua_detrac_mvi_39031.yaml` | 연속 프레임과 bbox GT가 있는 ROI proposal primary validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
+| Tier 1 | `physicalai-smartspaces` | `configs/dataset.physicalai_row0709.yaml` | 산업/창고 synthetic fixed-camera target-aware ROI proposal validation | person GT ROI containment, ROI count/area, fallback/full-frame check, gate latency, ROI failure visualization |
+| Tier 1 | `ua-detrac` | `configs/dataset.ua_detrac_mvi_39051.yaml` | 실사 고정/준고정 교통 CCTV ROI proposal validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
 | Tier 2 | `od-virat-tiny` | `configs/dataset.od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
-우선순위는 Tier 0 smoke와 Tier 1 UA-DETRAC을 먼저 고정하는 것이다.
+우선순위는 Tier 0 smoke 이후, 산업 도메인 후보인 PhysicalAI row 단위 dataset과 실사 temporal GT인 UA-DETRAC을 함께 고정하는 것이다.
 
 Construction Site Static Camera는 검토 후 active validation dataset에서 제외했다. `IMG259`-`IMG457` 구간의 balanced/high-res ROI gate 결과는 `outputs/`에 보존하되, 단일 연속 영상이 아니고 raw ROI가 거의 전체 프레임으로 확장되어 ROI proposal primary 검증에 부적합하다고 기록한다.
 
@@ -51,6 +52,8 @@ Construction Site Static Camera는 검토 후 active validation dataset에서 �
 | `roi_dataset_specific` | dataset-specific config | on | dataset별 tuned config 비교 |
 
 Full-frame baseline은 각 run 내부에서 동일하게 생성된다.
+
+ROI Proposal Validation에서는 full-frame YOLO baseline을 생성하지 않는다. 대신 target GT bbox가 ROI에 포함되는지, ROI 면적/개수/latency가 얼마인지, full-frame check나 fallback까지 포함했을 때 모델 입력 픽셀량이 얼마나 줄어드는지를 계산한다.
 
 ## 4. 실행 단위
 
@@ -70,7 +73,7 @@ Run id 규칙:
 
 ```text
 opencv_vtest_f0000_0120_balanced_20260729
-ua_detrac_mvi_39031_f0000_0120_recall_20260805
+ua_detrac_mvi_39051_f0000_0120_recall_20260805
 ```
 
 ## 5. 기본 실행 명령
@@ -91,22 +94,33 @@ UA-DETRAC balanced review:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39051.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_39031_balanced \
+  --experiment-name ua_detrac_mvi_39051_balanced \
   --limit 1000 \
   --render-limit 100
+```
+
+PhysicalAI row 709 ROI proposal quick:
+
+```bash
+python3 experiments/run_roi_proposal_validation.py \
+  --dataset-config configs/dataset.physicalai_row0709.yaml \
+  --gate-config configs/npx_gate.profile_balanced.yaml \
+  --experiment-name physicalai_row0709_balanced \
+  --limit 120 \
+  --render-limit 30
 ```
 
 UA-DETRAC high-res ROI analysis review:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39051.yaml \
   --gate-config configs/npx_gate.profile_balanced_highres.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_39031_balanced_highres \
+  --experiment-name ua_detrac_mvi_39051_balanced_highres \
   --limit 1000 \
   --render-limit 100
 ```
@@ -115,10 +129,10 @@ UA-DETRAC no-refresh ablation:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_39031.yaml \
+  --dataset-config configs/dataset.ua_detrac_mvi_39051.yaml \
   --gate-config configs/npx_gate.profile_balanced.yaml \
   --yolo-config configs/yolo.yaml \
-  --experiment-name ua_detrac_mvi_39031_balanced_no_refresh \
+  --experiment-name ua_detrac_mvi_39051_balanced_no_refresh \
   --limit 1000 \
   --render-limit 100 \
   --disable-full-frame-checks
@@ -126,7 +140,7 @@ python3 experiments/run_e2e_inference_validation.py \
 
 ## 6. 필수 산출물
 
-각 run은 `outputs/e2e_inference_validation/<run_id>/` 아래에 생성된다.
+E2E run은 `outputs/e2e_inference_validation/<run_id>/` 아래에 생성된다.
 
 ```text
 manifest.json
@@ -140,6 +154,18 @@ reports/comparison_report.json
 reports/comparison_report.md
 visualizations/roi_overlay/
 visualizations/comparison/
+visualizations/failures/
+```
+
+ROI Proposal Validation run은 `outputs/roi_proposal_validation/<run_id>/` 아래에 생성된다.
+
+```text
+manifest.json
+roi_metadata/rule_roi.jsonl
+roi_metadata/gate_decisions.jsonl
+annotations/ground_truth.jsonl
+reports/roi_proposal_report.json
+reports/roi_proposal_report.md
 visualizations/failures/
 ```
 
@@ -168,12 +194,28 @@ Annotation-aware Validation에서 추가할 지표:
 - missed annotated-object case taxonomy
 - detection duplicate rate
 
+ROI Proposal Validation에서 확인할 primary 지표:
+
+- target GT ROI containment
+- missed target GT count
+- no-ROI target frame count
+- missed target frame count
+- ROI-only input area reduction
+- effective input area reduction including full-frame checks
+- average ROI count per frame
+- average total ROI area ratio per frame
+- false ROI rate against target GT
+- full-frame check/fallback rate
+- gate average/max latency
+- ROI proposal failure case count
+
 Annotation metric 해석 기준:
 
 - 새 annotation dataset을 추가할 때는 `annotations.quality.completeness`와 `expected_exhaustive`를 config에 명시한다.
 - `expected_exhaustive: false` 또는 `completeness: unknown/partial`이면 recall과 ROI containment는 annotated-object lower-bound check로만 사용한다.
 - visible object가 annotation에 누락될 수 있는 dataset에서는 false ROI rate, precision, false positive count를 hard criterion으로 쓰지 않는다.
-- Phase 1.1 Keep/Tune 판단은 baseline balanced 대비 pseudo recall, ROI count latency, failure visualization을 우선하고, annotation metric은 annotation 품질 범위 안에서 보조 기준으로 사용한다.
+- Phase 1.1 Keep/Tune 판단은 baseline balanced 대비 target GT ROI containment, missed target GT, ROI 면적/개수, effective input area reduction, gate latency, ROI proposal failure visualization을 우선한다.
+- E2E pseudo recall은 downstream model이 ROI 입력에서도 같은 판단을 유지하는지 보는 secondary 지표로 사용한다. 기본 YOLO가 target class를 충분히 탐지하지 못하는 dataset에서는 hard criterion으로 쓰지 않는다.
 
 ## 8. Profile별 결과 정리
 
@@ -181,6 +223,9 @@ Phase 1.1 시작 전에는 같은 dataset/segment 기준으로 profile 결과를
 
 | 항목 | aggressive | balanced | recall | no-refresh | dataset-specific |
 |---|---:|---:|---:|---:|---:|
+| target GT ROI containment | | | | | |
+| missed target GT count | | | | | |
+| effective input area reduction | | | | | |
 | pseudo recall retention | | | | | |
 | ROI containment | | | | | |
 | input pixel area reduction | | | | | |
@@ -225,6 +270,8 @@ Bucket:
 - full-frame baseline latency
 - latency delta vs full-frame
 - pseudo recall retention
+- target GT ROI containment
+- effective input area reduction
 - failure case count
 
 필요 작업:
@@ -237,11 +284,12 @@ Bucket:
 아래 조건을 만족하면 Phase 1.1 ROI crop/gate policy 개선으로 넘어간다.
 
 - [x] `opencv-vtest` quick run이 end-to-end로 성공한다.
-- [ ] `ua-detrac` quick run이 end-to-end로 성공한다.
+- [x] `ua-detrac` quick run이 end-to-end로 성공한다.
+- [x] `physicalai-smartspaces` row 709 ROI Proposal quick run이 성공한다.
 - [x] `od-virat-tiny` quick run이 end-to-end로 성공한다.
 - [x] aggressive/balanced/recall profile 3개 결과가 같은 형식으로 비교 가능하다.
 - [x] no-refresh ablation으로 periodic full-frame check 효과를 분리할 수 있다.
-- [ ] failure visualization으로 missed pseudo-reference case를 수동 검토할 수 있다.
+- [x] E2E failure visualization과 ROI proposal failure visualization을 분리해서 수동 검토할 수 있다.
 - [x] ROI 개수 증가가 latency/call overhead에 미치는 영향을 report로 확인할 수 있다.
 - [x] OD-VIRAT Tiny annotation 품질 한계와 loader 구현 범위가 문서화되어 있다.
 
@@ -263,6 +311,9 @@ Bucket:
 - [x] Hardware/backend snapshot 기록
   - `manifest.json`에 platform, PyTorch CUDA/MPS, `nvidia-smi` availability를 기록
   - NVIDIA GPU utilization sampling은 추후 `nvidia-smi dmon` 또는 Jetson `tegrastats` 연동으로 확장
+- [x] ROI Proposal Validation script 추가
+  - `experiments/run_roi_proposal_validation.py`
+  - target GT ROI containment, ROI area/count, full-frame check/fallback 포함 effective input area reduction, ROI proposal failure visualization 생성
 
 ## 12. 다음 단계 연결
 

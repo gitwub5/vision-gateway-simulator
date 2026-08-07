@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from common import Detection, GroundTruthAnnotation, ROIMetadata
+from evaluation.class_filter import (
+    filter_detections_by_target_classes,
+    filter_gt_by_target_classes,
+    normalize_class_name,
+    normalize_target_classes,
+)
 from evaluation.detection_metrics import bbox_iou
 from evaluation.roi_containment import contains_bbox
 from gpu_inference.yolo_roi import read_roi_metadata_jsonl
@@ -129,12 +135,14 @@ class GtReport:
     roi_yolo: DetectorGtSummary
     roi: GtRoiSummary
     annotation_quality: AnnotationQuality = AnnotationQuality()
+    target_classes: tuple[str, ...] = ()
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
             "schema_version": 1,
             "inputs": self.inputs.to_json_dict(),
             "annotation_quality": self.annotation_quality.to_json_dict(),
+            "target_classes": list(self.target_classes),
             "full_frame": self.full_frame.to_json_dict(),
             "roi_yolo": self.roi_yolo.to_json_dict(),
             "roi": self.roi.to_json_dict(),
@@ -152,6 +160,10 @@ class GtReport:
             f"- Missed GT objects, ROI-gated: {self.roi_yolo.missed_gt_count}",
             f"- False ROI rate: {_format_ratio(self.roi.false_roi_rate)}",
             f"- ROI-gated duplicate detection rate: {_format_ratio(self.roi_yolo.duplicate_detection_rate)}",
+            "",
+            "## Target Scope",
+            "",
+            f"- Target classes: `{', '.join(self.target_classes) if self.target_classes else 'all'}`",
             "",
             "## Annotation Quality",
             "",
@@ -194,25 +206,30 @@ def build_gt_report(
     roi_detections: Iterable[Detection],
     iou_threshold: float = 0.5,
     annotation_quality: AnnotationQuality | None = None,
+    target_classes: Iterable[str] | None = None,
 ) -> GtReport:
-    gt_records = list(ground_truth)
+    normalized_target_classes = normalize_target_classes(target_classes)
+    gt_records = filter_gt_by_target_classes(ground_truth, normalized_target_classes)
+    full_detection_records = filter_detections_by_target_classes(full_frame_detections, normalized_target_classes)
+    roi_detection_records = filter_detections_by_target_classes(roi_detections, normalized_target_classes)
     roi_records = read_roi_metadata_jsonl(inputs.roi_metadata)
     return GtReport(
         inputs=inputs,
         full_frame=summarize_detector_gt(
             "full_frame_yolo",
             gt_records,
-            full_frame_detections,
+            full_detection_records,
             iou_threshold,
         ),
         roi_yolo=summarize_detector_gt(
             "roi_yolo",
             gt_records,
-            roi_detections,
+            roi_detection_records,
             iou_threshold,
         ),
         roi=summarize_gt_roi_containment(gt_records, roi_records),
         annotation_quality=annotation_quality or AnnotationQuality(),
+        target_classes=tuple(target_classes or ()),
     )
 
 
@@ -230,7 +247,7 @@ def summarize_detector_gt(
 
     for detection in detection_records:
         candidates = gt_by_key.get(
-            (detection.camera_id, detection.frame_id, _normalize_class_name(detection.class_name)),
+            (detection.camera_id, detection.frame_id, normalize_class_name(detection.class_name)),
             [],
         )
         best_index = None
@@ -312,7 +329,7 @@ def _group_gt_by_key(
 ) -> dict[tuple[str, int, str], list[tuple[int, GroundTruthAnnotation]]]:
     grouped: dict[tuple[str, int, str], list[tuple[int, GroundTruthAnnotation]]] = defaultdict(list)
     for index, gt in enumerate(gt_records):
-        grouped[(gt.camera_id, gt.frame_id, _normalize_class_name(gt.class_name))].append((index, gt))
+        grouped[(gt.camera_id, gt.frame_id, normalize_class_name(gt.class_name))].append((index, gt))
     return grouped
 
 
@@ -332,17 +349,3 @@ def _class_recall(gt_records: list[GroundTruthAnnotation], matched_gt_indexes: s
 def _format_ratio(value: float) -> str:
     return f"{value:.3f} ({value * 100:.1f}%)"
 
-
-def _normalize_class_name(class_name: str) -> str:
-    normalized = class_name.strip().lower()
-    aliases = {
-        "bike/bicycle": "bicycle",
-        "bike": "bicycle",
-        "person": "person",
-        "car": "car",
-        "truck": "vehicle",
-        "bus": "vehicle",
-        "vehicle": "vehicle",
-        "carrying_object": "carrying_object",
-    }
-    return aliases.get(normalized, normalized)

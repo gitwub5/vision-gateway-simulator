@@ -53,7 +53,17 @@ python experiments/run_rule_roi_baseline.py \
   --limit 60
 ```
 
-전체 Phase 1 실험 실행:
+ROI Proposal Validation 실행:
+
+```bash
+python experiments/run_roi_proposal_validation.py \
+  --dataset-config configs/dataset.physicalai_row0709.yaml \
+  --gate-config configs/npx_gate.profile_balanced.yaml \
+  --experiment-name physicalai_row0709_balanced \
+  --limit 120
+```
+
+E2E Inference Validation 실행:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
@@ -64,8 +74,8 @@ python experiments/run_e2e_inference_validation.py \
   --limit 120
 ```
 
-실험 결과는 `outputs/e2e_inference_validation/<timestamp>_<experiment_name>/` 아래에 묶어서 저장됩니다.
-Phase 1.1 public validation은 `ua-detrac`을 primary temporal GT dataset으로 사용하고, `od-virat-tiny`는 partial annotation 보조 검증으로 사용합니다.
+ROI proposal 결과는 `outputs/roi_proposal_validation/<run_id>/`, E2E inference 결과는 `outputs/e2e_inference_validation/<run_id>/` 아래에 묶어서 저장됩니다.
+Phase 1.1 public validation은 target-aware ROI 기준으로 판단합니다. `physicalai-smartspaces` row 단위 dataset은 산업/창고 person ROI proposal 후보로, `ua-detrac`은 실사 vehicle ROI proposal 후보로, `od-virat-tiny`는 partial annotation 보조 검증으로 사용합니다.
 
 테스트:
 
@@ -94,7 +104,7 @@ python -m unittest discover -s tests
 | `experiments/` | 각 모듈을 연결해서 산출물을 생성하는 실행 스크립트 |
 | `tools/` | sample data 다운로드, smoke video 생성 등 보조 도구 |
 | `tests/` | 단위 테스트 |
-| `outputs/` | 실험 결과 저장 위치. E2E inference 결과는 `outputs/e2e_inference_validation/` 아래에 저장 |
+| `outputs/` | 실험 결과 저장 위치. ROI proposal은 `outputs/roi_proposal_validation/`, E2E inference는 `outputs/e2e_inference_validation/` 아래에 저장 |
 | `data/` | dataset 저장 위치. Git 제외 |
 
 ## 주요 문서

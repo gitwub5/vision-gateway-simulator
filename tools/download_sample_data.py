@@ -71,7 +71,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="ua-detrac",
         description="UA-DETRAC fixed traffic-camera vehicle detection/tracking dataset.",
         output_path=Path("data/ua_detrac/"),
-        config_path=Path("configs/dataset.ua_detrac_mvi_39031.yaml"),
+        config_path=Path("configs/dataset.ua_detrac_mvi_39051.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -80,8 +80,25 @@ SAMPLES: dict[str, SampleDataset] = {
             "Download and extract the image and annotation XML archives under "
             "data/ua_detrac/. The current default quick config matches the zip-expanded "
             "layout where images are under "
-            "data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39031 and annotations are "
-            "under data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39031.xml."
+            "data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39051 and annotations are "
+            "under data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39051.xml."
+        ),
+        auto_download=False,
+    ),
+    "physicalai-smartspaces": SampleDataset(
+        key="physicalai-smartspaces",
+        description="NVIDIA PhysicalAI Smart Spaces synthetic fixed-camera industrial dataset.",
+        output_path=Path("data/physicalai_smartspaces/"),
+        config_path=Path("configs/dataset.physicalai_row0709.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Use row-level selective download only; the full dataset is several TB. "
+            "Resolve and download one row video plus its scene ground_truth.json with "
+            "`python tools/download_physicalai_row.py --row-id 709 --dry-run`, then run "
+            "without `--dry-run` when the resolved paths look correct. Repeat for rows "
+            "726 and 962. The helper writes configs/dataset.physicalai_row<row>.yaml "
+            "after download."
         ),
         auto_download=False,
     ),
