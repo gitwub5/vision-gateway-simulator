@@ -46,7 +46,7 @@ FramePacket(
 
 - `data_loader/dataset_stream.py`
 - `data_loader/__init__.py`
-- `configs/dataset.yaml`
+- `configs/datasets/default.yaml`
 - `experiments/inspect_dataset_stream.py`
 - `tests/test_dataset_stream.py`
 - `requirements.txt`
@@ -74,7 +74,7 @@ VIRAT/OD-VIRAT처럼 frame dump 형태로 실험하거나, 디버깅용 sample f
 
 ### `DatasetConfig`
 
-`configs/dataset.yaml`의 내용을 Python 객체로 옮기는 설정 구조다.
+`configs/datasets/default.yaml`의 내용을 Python 객체로 옮기는 설정 구조다.
 
 ```yaml
 dataset:
@@ -113,7 +113,7 @@ stream = create_dataset_stream(config)
 YAML config 파일을 읽어서 `DatasetConfig`로 변환한다.
 
 ```python
-config = load_dataset_config("configs/dataset.yaml")
+config = load_dataset_config("configs/datasets/default.yaml")
 stream = create_dataset_stream(config)
 ```
 
@@ -124,7 +124,7 @@ stream = create_dataset_stream(config)
 사용 예:
 
 ```bash
-python experiments/inspect_dataset_stream.py --config configs/dataset.yaml --limit 5
+python experiments/inspect_dataset_stream.py --config configs/datasets/default.yaml --limit 5
 ```
 
 출력 예:

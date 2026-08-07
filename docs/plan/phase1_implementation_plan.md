@@ -31,7 +31,7 @@ Phase 1에서는 다음을 구현한다.
 |---|---|---|
 | Owner A | 데이터 입력 + ROI Gate pipeline | dataset loader, frame schema 사용, rule-based ROI 생성, ROI metadata 생성 |
 | Owner B | GPU inference + evaluation pipeline | YOLO baseline, ROI YOLO, 좌표 복원, metric 계산, report/visualization |
-| Shared | 공통 계약 + 실험 설정 | `common/schemas.py`, `configs/*.yaml`, `docs/plan/phase1_implementation_plan.md`, README, 문서 |
+| Shared | 공통 계약 + 실험 설정 | `common/schemas.py`, `configs/**/*.yaml`, `docs/plan/phase1_implementation_plan.md`, README, 문서 |
 
 ### 파일 Ownership
 
@@ -54,7 +54,7 @@ Phase 1에서는 다음을 구현한다.
 
 - 각자 Primary Owner인 디렉터리를 우선 수정한다.
 - `common/schemas.py` 변경은 두 사람 모두에게 영향을 주므로, 변경 전에 필요한 필드와 호환성을 먼저 합의한다.
-- `configs/*.yaml` 변경은 실험 결과에 영향을 주므로, 변경 이유와 기본값을 `docs/plan/phase1_implementation_plan.md` 또는 report에 남긴다.
+- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로, 변경 이유와 기본값을 `docs/plan/phase1_implementation_plan.md` 또는 report에 남긴다.
 - 한 Task가 여러 ownership을 건드리면 PR 또는 커밋 설명에 변경 범위를 명확히 적는다.
 - 같은 파일을 동시에 수정해야 하면 먼저 작은 interface 변경 커밋을 만든 뒤 각자 구현을 이어간다.
 - 체크박스는 해당 Task의 Primary Owner가 갱신하고, Secondary Reviewer가 결과를 확인한다.
@@ -92,14 +92,14 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 | Task | Primary Owner | Secondary Reviewer | 주요 파일 |
 |---|---|---|---|
 | Task 1. 프로젝트 스캐폴딩 | Shared | Shared | `common/`, `configs/`, skeleton 전체 |
-| Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/dataset.yaml` |
-| Task 3. Rule-based ROI Gate Emulator | Owner A | Owner B | `npx_emulator/`, `configs/npx_gate.yaml` |
+| Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/datasets/default.yaml` |
+| Task 3. Rule-based ROI Gate Emulator | Owner A | Owner B | `npx_emulator/`, `configs/npx_gate/default.yaml` |
 | Task 4. ROI Metadata 저장 | Owner A | Owner B | `npx_emulator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
-| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/yolo.yaml` |
+| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/models/yolo_default.yaml` |
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
 | Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
 | Task 8. Visualization | Owner B | Owner A | `outputs/visualizations/`, visualization helper modules |
-| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/sample_data.md`, `configs/dataset.*.yaml` |
+| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/sample_data.md`, `configs/datasets/*.yaml` |
 
 ## 4. 구현 체크리스트
 
@@ -195,6 +195,9 @@ Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, 
 
 ```text
 configs/
+├── datasets/
+├── npx_gate/
+└── models/
 data_loader/
 npx_emulator/
 gpu_inference/
@@ -360,11 +363,14 @@ vision-frontend-simulator/
 ├── .agents/
 │   └── project_context.md
 ├── configs/
-│   ├── dataset.yaml
-│   ├── dataset.smoke.yaml
-│   ├── npx_gate.yaml
-│   ├── npx_gate.smoke.yaml
-│   └── yolo.yaml
+│   ├── datasets/
+│   │   ├── default.yaml
+│   │   └── smoke.yaml
+│   ├── npx_gate/
+│   │   ├── default.yaml
+│   │   └── smoke.yaml
+│   └── models/
+│       └── yolo_default.yaml
 ├── common/
 │   └── schemas.py
 ├── data_loader/

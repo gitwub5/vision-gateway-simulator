@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data_loader import create_dataset_stream, load_dataset_config
-from gpu_inference.yolo_full_frame import load_yolo_config, write_detection_jsonl
+from gpu_inference.yolo_full_frame import load_model_config, write_detection_jsonl
 from gpu_inference.yolo_roi import (
     RoiYoloRunner,
     read_gate_frame_metadata_jsonl,
@@ -28,9 +28,9 @@ def main() -> None:
     if args.limit is not None:
         dataset_config = replace(dataset_config, frame_limit=args.limit)
 
-    yolo_config, output_paths = load_yolo_config(args.yolo_config)
+    model_config, output_paths = load_model_config(args.model_config)
     if args.model is not None:
-        yolo_config = replace(yolo_config, model=args.model)
+        model_config = replace(model_config, model=args.model)
 
     roi_records = read_roi_metadata_jsonl(args.roi_metadata)
     frame_records = (
@@ -40,7 +40,7 @@ def main() -> None:
     )
 
     stream = create_dataset_stream(dataset_config)
-    runner = RoiYoloRunner.from_config(yolo_config)
+    runner = RoiYoloRunner.from_config(model_config)
     detections = runner.run(
         frames=stream,
         roi_records=roi_records,
@@ -59,8 +59,9 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run YOLOv8 inference on saved ROI crops.")
-    parser.add_argument("--dataset-config", default="configs/dataset.yaml")
-    parser.add_argument("--yolo-config", default="configs/yolo.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
+    parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
+    parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)
     parser.add_argument("--roi-metadata", default="outputs/roi_metadata/rule_roi.jsonl")
     parser.add_argument("--frame-metadata", default="outputs/roi_metadata/gate_decisions.jsonl")
     parser.add_argument("--limit", type=int, default=None)

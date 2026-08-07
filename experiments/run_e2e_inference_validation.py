@@ -38,7 +38,7 @@ from evaluation import (
 )
 from gpu_inference.yolo_full_frame import (
     FullFrameYoloRunner,
-    load_yolo_config,
+    load_model_config,
     write_detection_jsonl,
     write_metrics_json,
 )
@@ -87,9 +87,9 @@ def main() -> None:
     if args.disable_gt_validation:
         gt_validation_enabled = False
     gate_config = load_npx_gate_config(args.gate_config)
-    yolo_config, _ = load_yolo_config(args.yolo_config)
+    model_config, _ = load_model_config(args.model_config)
     if args.model is not None:
-        yolo_config = replace(yolo_config, model=args.model)
+        model_config = replace(model_config, model=args.model)
 
     def timed(stage_name: str, func):
         started = perf_counter()
@@ -111,7 +111,7 @@ def main() -> None:
         "full_frame_yolo",
         lambda: run_full_frame_yolo(
             dataset_config=dataset_config,
-            yolo_config=yolo_config,
+            model_config=model_config,
             detections_output=paths.full_frame_detections,
             metrics_output=paths.full_frame_metrics,
         ),
@@ -121,7 +121,7 @@ def main() -> None:
         "roi_yolo",
         lambda: run_roi_yolo(
             dataset_config=dataset_config,
-            yolo_config=yolo_config,
+            model_config=model_config,
             roi_metadata=paths.roi_metadata,
             frame_metadata=paths.frame_metadata,
             detections_output=paths.roi_detections,
@@ -179,7 +179,7 @@ def main() -> None:
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
             "gate_config": args.gate_config,
-            "yolo_config": args.yolo_config,
+            "model_config": args.model_config,
             "limit": args.limit,
             "render_limit": args.render_limit,
             "iou_threshold": args.iou_threshold,
@@ -268,8 +268,8 @@ class ExperimentPaths:
         }
 
 
-def run_full_frame_yolo(dataset_config, yolo_config, detections_output: Path, metrics_output: Path) -> dict[str, Any]:
-    runner = FullFrameYoloRunner.from_config(yolo_config)
+def run_full_frame_yolo(dataset_config, model_config, detections_output: Path, metrics_output: Path) -> dict[str, Any]:
+    runner = FullFrameYoloRunner.from_config(model_config)
     detections = runner.run(create_dataset_stream(dataset_config))
     write_detection_jsonl(detections, detections_output)
     write_metrics_json(runner.last_metrics, metrics_output)
@@ -281,14 +281,14 @@ def run_full_frame_yolo(dataset_config, yolo_config, detections_output: Path, me
 
 def run_roi_yolo(
     dataset_config,
-    yolo_config,
+    model_config,
     roi_metadata: Path,
     frame_metadata: Path,
     detections_output: Path,
     metrics_output: Path,
     include_full_frame_checks: bool,
 ) -> dict[str, Any]:
-    runner = RoiYoloRunner.from_config(yolo_config)
+    runner = RoiYoloRunner.from_config(model_config)
     frame_records = read_gate_frame_metadata_jsonl(frame_metadata) if include_full_frame_checks else []
     detections = runner.run(
         frames=create_dataset_stream(dataset_config),
@@ -392,9 +392,10 @@ def resolve_experiment_name(args: argparse.Namespace) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ROI-gated end-to-end inference validation.")
-    parser.add_argument("--dataset-config", default="configs/dataset.yaml")
-    parser.add_argument("--gate-config", default="configs/npx_gate.yaml")
-    parser.add_argument("--yolo-config", default="configs/yolo.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
+    parser.add_argument("--gate-config", default="configs/npx_gate/default.yaml")
+    parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
+    parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--dataset-name", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)

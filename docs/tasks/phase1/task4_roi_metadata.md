@@ -91,8 +91,8 @@ cam_01_f000042_roi_001
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/dataset.yaml \
-  --gate-config configs/npx_gate.yaml \
+  --dataset-config configs/datasets/default.yaml \
+  --gate-config configs/npx_gate/default.yaml \
   --roi-output outputs/roi_metadata/rule_roi.jsonl \
   --frame-output outputs/roi_metadata/gate_decisions.jsonl
 ```

@@ -32,7 +32,7 @@ def main() -> None:
     output_dir = args.output_root / f"row_{args.row_id:04d}"
     video_local_path = output_dir / selection.video_repo_path
     gt_local_path = output_dir / selection.ground_truth_repo_path
-    config_path = args.config_output or Path(f"configs/dataset.physicalai_row{args.row_id:04d}.yaml")
+    config_path = args.config_output or Path(f"configs/datasets/physicalai_row{args.row_id:04d}.yaml")
 
     print(
         json.dumps(

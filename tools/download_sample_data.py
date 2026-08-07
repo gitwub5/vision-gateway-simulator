@@ -34,7 +34,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="opencv-vtest",
         description="OpenCV fixed-camera pedestrian sample video.",
         output_path=Path("data/opencv_vtest/vtest.avi"),
-        config_path=Path("configs/dataset.opencv_vtest.yaml"),
+        config_path=Path("configs/datasets/opencv_vtest.yaml"),
         url="https://raw.githubusercontent.com/opencv/opencv/master/samples/data/vtest.avi",
         expected_size_bytes=None,
         usage_note=(
@@ -47,7 +47,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="od-virat-tiny",
         description="OD-VIRAT Tiny or a small OD-VIRAT subset.",
         output_path=Path("data/od_virat_tiny/"),
-        config_path=Path("configs/dataset.od_virat_tiny.yaml"),
+        config_path=Path("configs/datasets/od_virat_tiny.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -71,7 +71,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="ua-detrac",
         description="UA-DETRAC fixed traffic-camera vehicle detection/tracking dataset.",
         output_path=Path("data/ua_detrac/"),
-        config_path=Path("configs/dataset.ua_detrac_mvi_39051.yaml"),
+        config_path=Path("configs/datasets/ua_detrac_mvi_39051.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -89,7 +89,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="physicalai-smartspaces",
         description="NVIDIA PhysicalAI Smart Spaces synthetic fixed-camera industrial dataset.",
         output_path=Path("data/physicalai_smartspaces/"),
-        config_path=Path("configs/dataset.physicalai_row0709.yaml"),
+        config_path=Path("configs/datasets/physicalai_row0709.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -97,7 +97,7 @@ SAMPLES: dict[str, SampleDataset] = {
             "Resolve and download one row video plus its scene ground_truth.json with "
             "`python tools/download_physicalai_row.py --row-id 709 --dry-run`, then run "
             "without `--dry-run` when the resolved paths look correct. Repeat for rows "
-            "726 and 962. The helper writes configs/dataset.physicalai_row<row>.yaml "
+            "726 and 962. The helper writes configs/datasets/physicalai_row<row>.yaml "
             "after download."
         ),
         auto_download=False,
@@ -106,7 +106,7 @@ SAMPLES: dict[str, SampleDataset] = {
         key="internal-cctv",
         description="Internal fixed-camera CCTV sample.",
         output_path=Path("data/internal_cctv/"),
-        config_path=Path("configs/dataset.internal_cctv_sample.yaml"),
+        config_path=Path("configs/datasets/internal_cctv_sample.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -200,7 +200,7 @@ def print_next_steps(sample: SampleDataset) -> None:
     print(
         "Run ROI metadata smoke test:\n"
         f"  python experiments/run_rule_roi_baseline.py --dataset-config {sample.config_path} "
-        "--gate-config configs/npx_gate.yaml --limit 30"
+        "--gate-config configs/npx_gate/default.yaml --limit 30"
     )
 
 

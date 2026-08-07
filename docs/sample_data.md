@@ -45,11 +45,11 @@ python tools/download_sample_data.py --dataset internal-cctv
 
 | Dataset key | 준비 방식 | 카메라 특성 | Phase 1 용도 | 데이터 위치 | Config | 현재 권장도 | 비고 |
 |---|---|---|---|---|---|---|---|
-| `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/dataset.opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
-| `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/dataset.od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
-| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/dataset.ua_detrac_mvi_39051.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
-| `physicalai-smartspaces` | row 단위 선택 다운로드 | 합성 고정 산업/창고 카메라 | 산업 도메인 ROI proposal validation 후보 | `data/physicalai_smartspaces/row_<id>/` | `configs/dataset.physicalai_row<id>.yaml` | 높음 후보 | 전체 dataset은 TB급이므로 row 709/726/962 같은 소수 row만 선택 |
-| `internal-cctv` | 수동 준비 | 사내 고정 CCTV | 회사 환경 기준 최종 smoke/validation | `data/internal_cctv/` | `configs/dataset.internal_cctv_sample.yaml` | 높음 | 사내 보안 정책 준수 필요 |
+| `opencv-vtest` | 자동 다운로드 | 고정 카메라 | 초기 pipeline 검증, 보행자 ROI gate smoke test | `data/opencv_vtest/vtest.avi` | `configs/datasets/opencv_vtest.yaml` | 높음 | 작고 빠르게 실행 가능 |
+| `od-virat-tiny` | 수동 준비 | 고정 감시 카메라 중심 | partial annotation 보조 검증 | `data/od_virat_tiny/` | `configs/datasets/od_virat_tiny.yaml` | 중간 | exhaustive GT가 아니므로 hard criterion 제외 |
+| `ua-detrac` | 수동 준비 | 고정/준고정 교통 CCTV | ROI proposal primary validation | `data/ua_detrac/` | `configs/datasets/ua_detrac_mvi_39051.yaml` | 높음 | 연속 프레임, vehicle bbox GT, YOLOv8 class 적합 |
+| `physicalai-smartspaces` | row 단위 선택 다운로드 | 합성 고정 산업/창고 카메라 | 산업 도메인 ROI proposal validation 후보 | `data/physicalai_smartspaces/row_<id>/` | `configs/datasets/physicalai_row<id>.yaml` | 높음 후보 | 전체 dataset은 TB급이므로 row 709/726/962 같은 소수 row만 선택 |
+| `internal-cctv` | 수동 준비 | 사내 고정 CCTV | 회사 환경 기준 최종 smoke/validation | `data/internal_cctv/` | `configs/datasets/internal_cctv_sample.yaml` | 높음 | 사내 보안 정책 준수 필요 |
 
 ## 권장 사용 순서
 
@@ -89,7 +89,7 @@ python experiments/inspect_dataset_stream.py \
 python experiments/run_e2e_inference_validation.py \
   --dataset-config <dataset_config> \
   --gate-config <gate_config> \
-  --yolo-config configs/yolo.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name <experiment_name> \
   --limit 120
 ```
@@ -98,9 +98,9 @@ python experiments/run_e2e_inference_validation.py \
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.opencv_vtest.yaml \
-  --gate-config configs/npx_gate.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/opencv_vtest.yaml \
+  --gate-config configs/npx_gate/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest \
   --limit 120
 ```
@@ -167,16 +167,16 @@ data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39051
 기본 quick config:
 
 ```text
-configs/dataset.ua_detrac_mvi_39051.yaml
+configs/datasets/ua_detrac_mvi_39051.yaml
 ```
 
 실행 예:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.ua_detrac_mvi_39051.yaml \
-  --gate-config configs/npx_gate.profile_balanced.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
+  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_39051_balanced \
   --limit 120
 ```
@@ -209,9 +209,9 @@ python tools/download_physicalai_row.py --row-id 962
 다운로드 후 생성되는 config 예:
 
 ```text
-configs/dataset.physicalai_row0709.yaml
-configs/dataset.physicalai_row0726.yaml
-configs/dataset.physicalai_row0962.yaml
+configs/datasets/physicalai_row0709.yaml
+configs/datasets/physicalai_row0726.yaml
+configs/datasets/physicalai_row0962.yaml
 ```
 
 검증 전 확인 사항:
@@ -230,7 +230,7 @@ configs/dataset.physicalai_row0962.yaml
   - https://github.com/hayatkhan8660-maker/OD-VIRAT
   - https://github.com/hayatkhan8660-maker/OD-VIRAT/blob/main/DATA.md
   - OD-VIRAT Tiny Google Drive folder: https://drive.google.com/drive/folders/1MqVKIfS_RimUVVin1UHk_uwPmex5vid7?usp=drive_link
-- 현재 placeholder config는 `configs/dataset.od_virat_tiny.yaml`
+- 현재 placeholder config는 `configs/datasets/od_virat_tiny.yaml`
 - Google Drive에서 받은 Tiny zip 파일들을 `data/od_virat_tiny/` 아래에 그대로 해제한다.
 - 해제 후 package 폴더명은 upstream 그대로 둔다. 현재 config는 기본적으로 `data/od_virat_tiny/data/test`와 `data/od_virat_tiny/json_anntations/test_annotations.json`을 사용한다.
 - annotation loader를 확장하면 GT 기반 recall/mAP 평가로 이어갈 수 있음

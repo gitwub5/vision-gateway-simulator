@@ -235,7 +235,7 @@ def make_run_id(started_at: datetime, experiment_name: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run target-aware ROI proposal validation.")
     parser.add_argument("--dataset-config", required=True)
-    parser.add_argument("--gate-config", default="configs/npx_gate.profile_balanced.yaml")
+    parser.add_argument("--gate-config", default="configs/npx_gate/profile_balanced.yaml")
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=None)

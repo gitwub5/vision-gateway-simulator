@@ -49,7 +49,7 @@ python tools/create_smoke_video.py
 
 ```bash
 python experiments/inspect_dataset_stream.py \
-  --config configs/dataset.smoke.yaml \
+  --config configs/datasets/smoke.yaml \
   --limit 3
 ```
 
@@ -57,8 +57,8 @@ python experiments/inspect_dataset_stream.py \
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/dataset.smoke.yaml \
-  --gate-config configs/npx_gate.smoke.yaml \
+  --dataset-config configs/datasets/smoke.yaml \
+  --gate-config configs/npx_gate/smoke.yaml \
   --roi-output outputs/roi_metadata/smoke_rule_roi.jsonl \
   --frame-output outputs/roi_metadata/smoke_gate_decisions.jsonl \
   --limit 60

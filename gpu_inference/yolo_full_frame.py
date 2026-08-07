@@ -186,11 +186,15 @@ class FullFrameYoloRunner:
         return detections
 
 
-def load_yolo_config(config_path: str | Path) -> tuple[YoloConfig, YoloOutputPaths]:
+def load_model_config(config_path: str | Path) -> tuple[YoloConfig, YoloOutputPaths]:
     yaml = _require_yaml()
     with Path(config_path).open("r", encoding="utf-8") as file:
         config = yaml.safe_load(file) or {}
     return YoloConfig.from_mapping(config), YoloOutputPaths.from_mapping(config)
+
+
+def load_yolo_config(config_path: str | Path) -> tuple[YoloConfig, YoloOutputPaths]:
+    return load_model_config(config_path)
 
 
 def write_detection_jsonl(detections: Iterable[Detection], output_path: str | Path) -> None:

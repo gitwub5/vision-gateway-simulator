@@ -29,7 +29,7 @@ Detection JSONL + full-frame metrics
 `FullFrameYoloRunner`는 `FramePacket` iterable을 받아 YOLOv8 inference를 수행하고 `Detection` 목록으로 변환한다.
 
 ```python
-runner = FullFrameYoloRunner.from_config(yolo_config)
+runner = FullFrameYoloRunner.from_config(model_config)
 detections = runner.run(stream)
 ```
 
@@ -37,7 +37,7 @@ detections = runner.run(stream)
 
 ### Config 기반 실행
 
-YOLO 모델, 입력 크기, confidence threshold, IoU threshold, class filter는 `configs/yolo.yaml`에서 읽는다.
+YOLO 모델, 입력 크기, confidence threshold, IoU threshold, class filter는 `configs/models/yolo_default.yaml`에서 읽는다.
 
 실험 결과에 영향을 주는 값은 문서 규칙에 따라 코드에 고정하지 않고 config로 관리한다.
 
@@ -53,7 +53,7 @@ Task 5의 workload 기준은 full-frame baseline이다.
 - frame별 `latency_ms`
 - `average_latency_ms`
 - `detection_count`
-- 사용한 YOLO config snapshot
+- 사용한 Model config snapshot
 
 ROI-gated workload reduction은 Task 7에서 이 full-frame metric과 ROI metric을 비교해 계산한다.
 
@@ -79,16 +79,16 @@ pip install -r requirements.txt
 
 ```bash
 python experiments/run_full_frame_baseline.py \
-  --dataset-config configs/dataset.yaml \
-  --yolo-config configs/yolo.yaml
+  --dataset-config configs/datasets/default.yaml \
+  --model-config configs/models/yolo_default.yaml
 ```
 
 짧은 구간만 실행:
 
 ```bash
 python experiments/run_full_frame_baseline.py \
-  --dataset-config configs/dataset.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --limit 10
 ```
 

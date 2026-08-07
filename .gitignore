@@ -28,7 +28,7 @@ outputs/reports/*
 !outputs/reports/
 !outputs/reports/.gitkeep
 data/
-datasets/
+/datasets/
 runs/
 *.mp4
 *.avi

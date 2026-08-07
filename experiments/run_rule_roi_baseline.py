@@ -23,8 +23,8 @@ from npx_emulator import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run rule-based ROI Gate metadata generation.")
-    parser.add_argument("--dataset-config", default="configs/dataset.yaml", help="Path to dataset YAML config.")
-    parser.add_argument("--gate-config", default="configs/npx_gate.yaml", help="Path to NPX gate YAML config.")
+    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml", help="Path to dataset YAML config.")
+    parser.add_argument("--gate-config", default="configs/npx_gate/default.yaml", help="Path to NPX gate YAML config.")
     parser.add_argument(
         "--roi-output",
         default="outputs/roi_metadata/rule_roi.jsonl",

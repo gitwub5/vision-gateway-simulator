@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from data_loader import create_dataset_stream, load_dataset_config
 from gpu_inference.yolo_full_frame import (
     FullFrameYoloRunner,
-    load_yolo_config,
+    load_model_config,
     write_detection_jsonl,
     write_metrics_json,
 )
@@ -27,15 +27,15 @@ def main() -> None:
     if args.limit is not None:
         dataset_config = replace(dataset_config, frame_limit=args.limit)
 
-    yolo_config, output_paths = load_yolo_config(args.yolo_config)
+    model_config, output_paths = load_model_config(args.model_config)
     if args.model is not None:
-        yolo_config = replace(yolo_config, model=args.model)
+        model_config = replace(model_config, model=args.model)
 
     detection_path = args.detections_output or output_paths.full_frame_detections
     metrics_path = args.metrics_output or output_paths.full_frame_metrics
 
     stream = create_dataset_stream(dataset_config)
-    runner = FullFrameYoloRunner.from_config(yolo_config)
+    runner = FullFrameYoloRunner.from_config(model_config)
     detections = runner.run(stream)
 
     write_detection_jsonl(detections, detection_path)
@@ -47,8 +47,9 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run YOLOv8 full-frame baseline.")
-    parser.add_argument("--dataset-config", default="configs/dataset.yaml")
-    parser.add_argument("--yolo-config", default="configs/yolo.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
+    parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
+    parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--model", default=None)
     parser.add_argument("--detections-output", default=None)

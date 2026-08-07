@@ -15,7 +15,7 @@ from data_loader import create_dataset_stream, load_dataset_config
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inspect FramePacket output from dataset loader.")
-    parser.add_argument("--config", default="configs/dataset.yaml", help="Path to dataset YAML config.")
+    parser.add_argument("--config", default="configs/datasets/default.yaml", help="Path to dataset YAML config.")
     parser.add_argument("--limit", type=int, default=5, help="Number of packets to print.")
     return parser.parse_args()
 

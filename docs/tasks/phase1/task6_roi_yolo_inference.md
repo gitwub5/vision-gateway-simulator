@@ -77,7 +77,7 @@ Task 6 metric은 ROI-gated inference 자체의 workload를 기록한다.
 - `average_latency_ms`
 - `average_roi_count`
 - `detection_count`
-- 사용한 YOLO config snapshot
+- 사용한 Model config snapshot
 
 Task 7에서는 이 값을 Task 5의 full-frame baseline과 비교해 workload reduction을 계산한다.
 
@@ -87,8 +87,8 @@ Task 7에서는 이 값을 Task 5의 full-frame baseline과 비교해 workload r
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/dataset.yaml \
-  --gate-config configs/npx_gate.yaml \
+  --dataset-config configs/datasets/default.yaml \
+  --gate-config configs/npx_gate/default.yaml \
   --roi-output outputs/roi_metadata/rule_roi.jsonl \
   --frame-output outputs/roi_metadata/gate_decisions.jsonl
 ```
@@ -97,8 +97,8 @@ python experiments/run_rule_roi_baseline.py \
 
 ```bash
 python experiments/run_roi_yolo_inference.py \
-  --dataset-config configs/dataset.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
   --frame-metadata outputs/roi_metadata/gate_decisions.jsonl
 ```
@@ -107,8 +107,8 @@ python experiments/run_roi_yolo_inference.py \
 
 ```bash
 python experiments/run_roi_yolo_inference.py \
-  --dataset-config configs/dataset.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --limit 10
 ```
 

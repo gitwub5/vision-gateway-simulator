@@ -48,8 +48,8 @@ Rule-based ROI Gate smoke 실행:
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/dataset.smoke.yaml \
-  --gate-config configs/npx_gate.smoke.yaml \
+  --dataset-config configs/datasets/smoke.yaml \
+  --gate-config configs/npx_gate/smoke.yaml \
   --limit 60
 ```
 
@@ -57,8 +57,8 @@ ROI Proposal Validation 실행:
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/dataset.physicalai_row0709.yaml \
-  --gate-config configs/npx_gate.profile_balanced.yaml \
+  --dataset-config configs/datasets/physicalai_row0709.yaml \
+  --gate-config configs/npx_gate/profile_balanced.yaml \
   --experiment-name physicalai_row0709_balanced \
   --limit 120
 ```
@@ -67,9 +67,9 @@ E2E Inference Validation 실행:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.opencv_vtest.yaml \
-  --gate-config configs/npx_gate.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/opencv_vtest.yaml \
+  --gate-config configs/npx_gate/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest \
   --limit 120
 ```
@@ -94,7 +94,7 @@ python -m unittest discover -s tests
 | `docs/runs/` | 공유 가능한 검증 실행 기록과 report 위치 |
 | `docs/idea/` | 개인 기술 고민, 전략 메모, 의사결정 초안. Git 제외 |
 | `docs/assets/` | 문서에서 사용하는 대표 이미지와 시각화 예시 |
-| `configs/` | dataset, gate, YOLO 실험 설정 |
+| `configs/` | `datasets/`, `npx_gate/`, `models/`로 분리된 실험 설정 |
 | `common/` | loader, gate, inference, evaluation이 공유하는 schema |
 | `data_loader/` | video/image sequence 입력을 `FramePacket`으로 변환 |
 | `npx_emulator/` | rule-based ROI Gate emulator |
@@ -122,6 +122,6 @@ python -m unittest discover -s tests
 ## 협업 메모
 
 - `common/schemas.py` 변경은 전체 pipeline에 영향을 주므로 사전에 공유합니다.
-- `configs/*.yaml` 변경은 실험 결과에 영향을 주므로 report 또는 plan 문서에 이유를 남깁니다.
+- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로 report 또는 plan 문서에 이유를 남깁니다.
 - ROI metadata schema는 inference, evaluation, visualization이 공유하는 계약으로 취급합니다.
 - Phase 1에서는 SNN, 실제 NPX 하드웨어, RTSP, DeepStream, TensorRT를 직접 구현하지 않습니다.

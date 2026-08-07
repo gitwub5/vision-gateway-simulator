@@ -27,9 +27,9 @@ Disable options:
 
 ```bash
 python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.od_virat_tiny.yaml \
-  --gate-config configs/npx_gate.profile_balanced.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/od_virat_tiny.yaml \
+  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --disable-gt-validation
 ```
 
@@ -63,9 +63,9 @@ OD-VIRAT Tiny quick run:
 
 ```bash
 .venv/bin/python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/dataset.od_virat_tiny.yaml \
-  --gate-config configs/npx_gate.profile_balanced.yaml \
-  --yolo-config configs/yolo.yaml \
+  --dataset-config configs/datasets/od_virat_tiny.yaml \
+  --gate-config configs/npx_gate/profile_balanced.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name odvirat_test_gt_balanced_natural_sort \
   --run-id odvirat_test_f0000_0120_gt_balanced_natural_sort_20260730 \
   --limit 120 \

@@ -41,7 +41,7 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render ROI and detection visualization images.")
-    parser.add_argument("--dataset-config", default="configs/dataset.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
     parser.add_argument("--roi-metadata", default="outputs/roi_metadata/rule_roi.jsonl")
     parser.add_argument("--full-frame-detections", default="outputs/detections/full_frame.jsonl")
     parser.add_argument("--roi-detections", default="outputs/detections/roi_yolo.jsonl")

@@ -74,7 +74,7 @@ python experiments/compare_results.py
 
 ```bash
 python experiments/render_visualizations.py \
-  --dataset-config configs/dataset.yaml \
+  --dataset-config configs/datasets/default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
   --full-frame-detections outputs/detections/full_frame.jsonl \
   --roi-detections outputs/detections/roi_yolo.jsonl \
