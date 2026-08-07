@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-import json
 from pathlib import Path
 from typing import Any
 
 from common import Detection, GroundTruthAnnotation, ROIMetadata
+from common.io import write_json, write_text
+from common.records import format_ratio
 from evaluation.class_filter import (
     filter_detections_by_target_classes,
     filter_gt_by_target_classes,
@@ -154,12 +155,12 @@ class GtReport:
             "",
             "## Summary",
             "",
-            f"- Full-frame GT object recall: {_format_ratio(self.full_frame.object_recall)}",
-            f"- ROI-gated GT object recall: {_format_ratio(self.roi_yolo.object_recall)}",
-            f"- GT ROI containment: {_format_ratio(self.roi.gt_roi_containment)}",
+            f"- Full-frame GT object recall: {format_ratio(self.full_frame.object_recall)}",
+            f"- ROI-gated GT object recall: {format_ratio(self.roi_yolo.object_recall)}",
+            f"- GT ROI containment: {format_ratio(self.roi.gt_roi_containment)}",
             f"- Missed GT objects, ROI-gated: {self.roi_yolo.missed_gt_count}",
-            f"- False ROI rate: {_format_ratio(self.roi.false_roi_rate)}",
-            f"- ROI-gated duplicate detection rate: {_format_ratio(self.roi_yolo.duplicate_detection_rate)}",
+            f"- False ROI rate: {format_ratio(self.roi.false_roi_rate)}",
+            f"- ROI-gated duplicate detection rate: {format_ratio(self.roi_yolo.duplicate_detection_rate)}",
             "",
             "## Target Scope",
             "",
@@ -189,8 +190,8 @@ class GtReport:
         )
         for class_name in sorted(set(self.full_frame.class_recall) | set(self.roi_yolo.class_recall)):
             lines.append(
-                f"| {class_name} | {_format_ratio(self.full_frame.class_recall.get(class_name, 0.0))} "
-                f"| {_format_ratio(self.roi_yolo.class_recall.get(class_name, 0.0))} |"
+                f"| {class_name} | {format_ratio(self.full_frame.class_recall.get(class_name, 0.0))} "
+                f"| {format_ratio(self.roi_yolo.class_recall.get(class_name, 0.0))} |"
             )
         lines.extend(["", "## Inputs", ""])
         for key, value in self.inputs.to_json_dict().items():
@@ -311,17 +312,11 @@ def summarize_gt_roi_containment(
 
 
 def write_gt_report_json(report: GtReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(report.to_json_dict(), file, ensure_ascii=False, indent=2)
-        file.write("\n")
+    write_json(report.to_json_dict(), output_path)
 
 
 def write_gt_report_markdown(report: GtReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(report.to_markdown(), encoding="utf-8")
+    write_text(report.to_markdown(), output_path)
 
 
 def _group_gt_by_key(
@@ -344,8 +339,4 @@ def _class_recall(gt_records: list[GroundTruthAnnotation], matched_gt_indexes: s
         class_name: matched[class_name] / total if total else 0.0
         for class_name, total in totals.items()
     }
-
-
-def _format_ratio(value: float) -> str:
-    return f"{value:.3f} ({value * 100:.1f}%)"
 

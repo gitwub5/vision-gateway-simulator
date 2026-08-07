@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-import json
 from pathlib import Path
 from typing import Any
 
 from common import GateFrameMetadata, GroundTruthAnnotation, ROIMetadata, TriggerType
+from common.io import write_json, write_text
+from common.records import format_ratio, group_by_frame
 from evaluation.class_filter import filter_gt_by_target_classes, normalize_target_classes
 from evaluation.roi_containment import contains_bbox
 
@@ -116,18 +116,18 @@ class RoiProposalReport:
             "",
             "## Summary",
             "",
-            f"- Target GT ROI containment: {_format_ratio(self.target_gt_roi_containment)}",
+            f"- Target GT ROI containment: {format_ratio(self.target_gt_roi_containment)}",
             f"- Missed target GT objects: {self.missed_gt_count}",
             f"- No-ROI target frames: {self.no_roi_target_frame_count}",
             f"- Missed target frames: {self.missed_target_frame_count}",
-            f"- ROI-only input area reduction: {_format_ratio(self.roi_only_input_area_reduction)}",
-            f"- Effective input area reduction including full-frame checks: {_format_ratio(self.effective_input_area_reduction)}",
+            f"- ROI-only input area reduction: {format_ratio(self.roi_only_input_area_reduction)}",
+            f"- Effective input area reduction including full-frame checks: {format_ratio(self.effective_input_area_reduction)}",
             f"- Average ROI count per frame: {self.average_roi_count_per_frame:.3f}",
-            f"- Average total ROI area ratio per frame: {_format_ratio(self.average_total_roi_area_ratio_per_frame)}",
-            f"- Max total ROI area ratio per frame: {_format_ratio(self.max_total_roi_area_ratio_per_frame)}",
-            f"- Full-frame check rate: {_format_ratio(self.full_frame_check_rate)}",
-            f"- Fallback frame rate: {_format_ratio(self.fallback_frame_rate)}",
-            f"- False ROI rate against target GT: {_format_ratio(self.false_roi_rate)}",
+            f"- Average total ROI area ratio per frame: {format_ratio(self.average_total_roi_area_ratio_per_frame)}",
+            f"- Max total ROI area ratio per frame: {format_ratio(self.max_total_roi_area_ratio_per_frame)}",
+            f"- Full-frame check rate: {format_ratio(self.full_frame_check_rate)}",
+            f"- Fallback frame rate: {format_ratio(self.fallback_frame_rate)}",
+            f"- False ROI rate against target GT: {format_ratio(self.false_roi_rate)}",
             f"- Gate average latency: {self.gate_average_latency_ms:.3f} ms",
             f"- Gate max latency: {self.gate_max_latency_ms:.3f} ms",
             "",
@@ -162,8 +162,8 @@ def build_roi_proposal_report(
     gt_records = filter_gt_by_target_classes(ground_truth, normalized_targets)
     rois = list(roi_records)
     frames = list(frame_records)
-    rois_by_frame = _group_by_frame(rois)
-    gt_by_frame = _group_by_frame(gt_records)
+    rois_by_frame = group_by_frame(rois)
+    gt_by_frame = group_by_frame(gt_records)
 
     contained_gt_count = 0
     missed_target_frames: set[tuple[str, int]] = set()
@@ -229,31 +229,14 @@ def build_roi_proposal_report(
 
 
 def write_roi_proposal_report_json(report: RoiProposalReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(report.to_json_dict(), file, ensure_ascii=False, indent=2)
-        file.write("\n")
+    write_json(report.to_json_dict(), output_path)
 
 
 def write_roi_proposal_report_markdown(report: RoiProposalReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(report.to_markdown(), encoding="utf-8")
-
-
-def _group_by_frame(records):
-    grouped = defaultdict(list)
-    for record in records:
-        grouped[(record.camera_id, record.frame_id)].append(record)
-    return dict(grouped)
+    write_text(report.to_markdown(), output_path)
 
 
 def _reduction_ratio(baseline: int, current: int) -> float:
     if baseline == 0:
         return 0.0
     return (baseline - current) / baseline
-
-
-def _format_ratio(value: float) -> str:
-    return f"{value:.3f} ({value * 100:.1f}%)"

@@ -7,6 +7,7 @@ from common import FramePacket, FrameSize, ROI, TriggerType
 from roi_generator.gate import (
     RoiGeneratorConfig,
     RuleBasedRoiGenerator,
+    evaluate_budget_fallback,
     is_periodic_full_frame,
     should_fallback_to_full_frame,
 )
@@ -119,11 +120,13 @@ class GatePolicyTest(unittest.TestCase):
         config = RoiGeneratorConfig(max_roi_per_frame=1)
         rois = [ROI(0, 0, 10, 10), ROI(20, 20, 10, 10)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
+        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "max_roi_per_frame")
 
     def test_should_fallback_when_roi_area_exceeds_limit(self) -> None:
         config = RoiGeneratorConfig(max_total_roi_area_ratio=0.25)
         rois = [ROI(0, 0, 60, 60)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
+        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "max_total_roi_area_ratio")
 
     def test_periodic_full_frame_skips_first_frame_policy(self) -> None:
         self.assertFalse(is_periodic_full_frame(frame_id=0, interval=30))

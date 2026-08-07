@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any
 
 from common import FramePacket, FrameSize, ROI, TriggerType
+from common.io import load_yaml_config
 from roi_generator.event_encoder import EventMaps, encode_event_maps
 from roi_generator.motion_detector import filter_motion_map
 from roi_generator.preprocess import resize_for_analysis, to_gray
@@ -107,6 +108,12 @@ class GateDecision:
     event_maps: EventMaps | None = field(default=None, repr=False, compare=False)
 
 
+@dataclass(frozen=True)
+class BudgetFallbackDecision:
+    should_fallback: bool
+    reason: str | None = None
+
+
 class RuleBasedRoiGenerator:
     """Converts FramePacket input into ROI or full-frame trigger decisions."""
 
@@ -122,60 +129,32 @@ class RuleBasedRoiGenerator:
         analysis_gray = resize_for_analysis(to_gray(packet.frame), analysis_size)
 
         if self._previous_analysis_gray is None:
-            self._previous_analysis_gray = analysis_gray
-            self._previous_analysis_size = analysis_size
-            return self._decision(
+            self._remember_analysis_frame(analysis_gray, analysis_size)
+            return self._full_frame_decision(
                 packet=packet,
-                trigger_type=TriggerType.FULL_FRAME,
                 rois=[],
                 started=started,
-                should_run_full_frame=True,
                 event_maps=None,
                 analysis_size=analysis_size,
             )
 
         if self._previous_analysis_size != analysis_size:
-            self._previous_analysis_gray = analysis_gray
-            self._previous_analysis_size = analysis_size
+            self._remember_analysis_frame(analysis_gray, analysis_size)
             self._temporal_hold.clear()
-            return self._decision(
+            return self._full_frame_decision(
                 packet=packet,
-                trigger_type=TriggerType.FULL_FRAME,
                 rois=[],
                 started=started,
-                should_run_full_frame=True,
                 event_maps=None,
                 analysis_size=analysis_size,
             )
 
-        event_maps = encode_event_maps(
-            current_gray=analysis_gray,
-            previous_gray=self._previous_analysis_gray,
-            threshold_on=self.config.threshold_on,
-            threshold_off=self.config.threshold_off,
-            threshold_motion=self.config.threshold_motion,
-        )
-        self._previous_analysis_gray = analysis_gray
-        self._previous_analysis_size = analysis_size
+        event_maps = self._encode_event_maps(analysis_gray)
+        self._remember_analysis_frame(analysis_gray, analysis_size)
 
-        filtered_motion = filter_motion_map(event_maps.motion_map, self.config.morphology_kernel_size)
-        analysis_rois = generate_roi_candidates(filtered_motion, self.config.min_area_ratio)
-        merged_analysis_rois = merge_rois(
-            analysis_rois,
-            distance_ratio=self.config.merge_distance_ratio,
-            frame_size=analysis_size,
-        )
-        current_rois = [
-            add_margin_and_clip(
-                scale_roi_to_original(roi, analysis_size, packet.original_size),
-                packet.original_size,
-                self.config.margin_ratio,
-            )
-            for roi in merged_analysis_rois
-        ]
-        current_rois = sort_rois_by_area(current_rois)
-
-        if should_fallback_to_full_frame(current_rois, packet.original_size, self.config):
+        current_rois = self._generate_current_rois(event_maps, analysis_size, packet.original_size)
+        fallback_decision = evaluate_budget_fallback(current_rois, packet.original_size, self.config)
+        if fallback_decision.should_fallback:
             self._temporal_hold.clear()
             return self._decision(
                 packet=packet,
@@ -188,23 +167,13 @@ class RuleBasedRoiGenerator:
             )
 
         held_rois = self._temporal_hold.update(current_rois)
-        if current_rois:
-            trigger_type = TriggerType.ROI
-            rois = current_rois
-        elif held_rois:
-            trigger_type = TriggerType.HOLD
-            rois = held_rois
-        else:
-            trigger_type = TriggerType.NONE
-            rois = []
+        trigger_type, rois = self._roi_or_hold_decision(current_rois, held_rois)
 
         if is_periodic_full_frame(packet.frame_id, self.config.full_frame_interval):
-            return self._decision(
+            return self._full_frame_decision(
                 packet=packet,
-                trigger_type=TriggerType.FULL_FRAME,
                 rois=rois,
                 started=started,
-                should_run_full_frame=True,
                 event_maps=event_maps,
                 analysis_size=analysis_size,
             )
@@ -215,6 +184,67 @@ class RuleBasedRoiGenerator:
             rois=rois,
             started=started,
             should_run_full_frame=False,
+            event_maps=event_maps,
+            analysis_size=analysis_size,
+        )
+
+    def _remember_analysis_frame(self, analysis_gray, analysis_size: FrameSize) -> None:
+        self._previous_analysis_gray = analysis_gray
+        self._previous_analysis_size = analysis_size
+
+    def _encode_event_maps(self, analysis_gray) -> EventMaps:
+        return encode_event_maps(
+            current_gray=analysis_gray,
+            previous_gray=self._previous_analysis_gray,
+            threshold_on=self.config.threshold_on,
+            threshold_off=self.config.threshold_off,
+            threshold_motion=self.config.threshold_motion,
+        )
+
+    def _generate_current_rois(
+        self,
+        event_maps: EventMaps,
+        analysis_size: FrameSize,
+        original_size: FrameSize,
+    ) -> list[ROI]:
+        filtered_motion = filter_motion_map(event_maps.motion_map, self.config.morphology_kernel_size)
+        analysis_rois = generate_roi_candidates(filtered_motion, self.config.min_area_ratio)
+        merged_analysis_rois = merge_rois(
+            analysis_rois,
+            distance_ratio=self.config.merge_distance_ratio,
+            frame_size=analysis_size,
+        )
+        current_rois = [
+            add_margin_and_clip(
+                scale_roi_to_original(roi, analysis_size, original_size),
+                original_size,
+                self.config.margin_ratio,
+            )
+            for roi in merged_analysis_rois
+        ]
+        return sort_rois_by_area(current_rois)
+
+    def _roi_or_hold_decision(self, current_rois: list[ROI], held_rois: list[ROI]) -> tuple[TriggerType, list[ROI]]:
+        if current_rois:
+            return TriggerType.ROI, current_rois
+        if held_rois:
+            return TriggerType.HOLD, held_rois
+        return TriggerType.NONE, []
+
+    def _full_frame_decision(
+        self,
+        packet: FramePacket,
+        rois: list[ROI],
+        started: float,
+        event_maps: EventMaps | None,
+        analysis_size: FrameSize,
+    ) -> GateDecision:
+        return self._decision(
+            packet=packet,
+            trigger_type=TriggerType.FULL_FRAME,
+            rois=rois,
+            started=started,
+            should_run_full_frame=True,
             event_maps=event_maps,
             analysis_size=analysis_size,
         )
@@ -245,17 +275,23 @@ class RuleBasedRoiGenerator:
         )
 
 
-def should_fallback_to_full_frame(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> bool:
+def evaluate_budget_fallback(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> BudgetFallbackDecision:
     if not rois:
-        return False
+        return BudgetFallbackDecision(False)
     if len(rois) > config.max_roi_per_frame:
-        return True
+        return BudgetFallbackDecision(True, "max_roi_per_frame")
 
     total_roi_area = sum(roi.area() for roi in rois)
     frame_area = frame_size.area()
     if frame_area <= 0:
-        return True
-    return total_roi_area / frame_area > config.max_total_roi_area_ratio
+        return BudgetFallbackDecision(True, "invalid_frame_area")
+    if total_roi_area / frame_area > config.max_total_roi_area_ratio:
+        return BudgetFallbackDecision(True, "max_total_roi_area_ratio")
+    return BudgetFallbackDecision(False)
+
+
+def should_fallback_to_full_frame(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> bool:
+    return evaluate_budget_fallback(rois, frame_size, config).should_fallback
 
 
 def is_periodic_full_frame(frame_id: int, interval: int) -> bool:
@@ -273,18 +309,5 @@ def _optional_int(value: Any) -> int | None:
 
 
 def load_roi_generator_config(config_path: str | Path) -> RoiGeneratorConfig:
-    yaml = _require_yaml()
-    with Path(config_path).open("r", encoding="utf-8") as file:
-        config = yaml.safe_load(file) or {}
+    config = load_yaml_config(config_path)
     return RoiGeneratorConfig.from_mapping(config)
-
-
-def _require_yaml():
-    try:
-        import yaml
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "PyYAML is required for loading YAML config files. Install project dependencies with "
-            "`pip install -r requirements.txt`."
-        ) from exc
-    return yaml

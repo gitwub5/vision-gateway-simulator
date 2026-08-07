@@ -8,8 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from common import Detection, FramePacket, GroundTruthAnnotation, ROIMetadata
-from evaluation.class_filter import normalize_class_name
-from evaluation.detection_metrics import bbox_iou
+from common.records import frame_key, group_by_frame
+from visualization.matching import (
+    find_missed_ground_truth_annotations,
+    find_missed_reference_detections,
+)
 
 
 COLOR_ROI = (0, 220, 255)
@@ -67,14 +70,14 @@ def render_visualizations(
     output_dirs.mkdirs()
     _clear_visualization_outputs(output_dirs)
 
-    rois_by_frame = _group_by_frame(roi_records)
-    full_detections_by_frame = _group_by_frame(full_frame_detections)
-    roi_detections_by_frame = _group_by_frame(roi_detections)
-    gt_by_frame = _group_by_frame(ground_truth or [])
+    rois_by_frame = group_by_frame(roi_records)
+    full_detections_by_frame = group_by_frame(full_frame_detections)
+    roi_detections_by_frame = group_by_frame(roi_detections)
+    gt_by_frame = group_by_frame(ground_truth or [])
     summary = VisualizationSummary()
 
     for packet in frames:
-        key = _frame_key(packet.camera_id, packet.frame_id)
+        key = frame_key(packet.camera_id, packet.frame_id)
         frame_rois = rois_by_frame.get(key, [])
         frame_full_detections = full_detections_by_frame.get(key, [])
         frame_roi_detections = roi_detections_by_frame.get(key, [])
@@ -349,66 +352,6 @@ def _clear_visualization_outputs(output_dirs: VisualizationOutputDirs) -> None:
                 path.unlink()
 
 
-def find_missed_ground_truth_annotations(
-    ground_truth: Iterable[GroundTruthAnnotation],
-    candidate_detections: Iterable[Detection],
-    iou_threshold: float = 0.5,
-) -> list[GroundTruthAnnotation]:
-    candidates = list(candidate_detections)
-    used_candidate_indexes: set[int] = set()
-    missed: list[GroundTruthAnnotation] = []
-
-    for gt in ground_truth:
-        best_index = None
-        best_iou = 0.0
-        for index, candidate in enumerate(candidates):
-            if index in used_candidate_indexes:
-                continue
-            if not _is_gt_match_candidate(gt, candidate):
-                continue
-            iou = bbox_iou(gt.bbox_xyxy, candidate.bbox_xyxy)
-            if iou > best_iou:
-                best_iou = iou
-                best_index = index
-
-        if best_index is None or best_iou < iou_threshold:
-            missed.append(gt)
-        else:
-            used_candidate_indexes.add(best_index)
-
-    return missed
-
-
-def find_missed_reference_detections(
-    reference_detections: Iterable[Detection],
-    candidate_detections: Iterable[Detection],
-    iou_threshold: float = 0.5,
-) -> list[Detection]:
-    candidates = list(candidate_detections)
-    used_candidate_indexes: set[int] = set()
-    missed: list[Detection] = []
-
-    for reference in reference_detections:
-        best_index = None
-        best_iou = 0.0
-        for index, candidate in enumerate(candidates):
-            if index in used_candidate_indexes:
-                continue
-            if not _is_match_candidate(reference, candidate):
-                continue
-            iou = bbox_iou(reference.bbox_xyxy, candidate.bbox_xyxy)
-            if iou > best_iou:
-                best_iou = iou
-                best_index = index
-
-        if best_index is None or best_iou < iou_threshold:
-            missed.append(reference)
-        else:
-            used_candidate_indexes.add(best_index)
-
-    return missed
-
-
 def _draw_roi(cv2: Any, canvas: Any, roi_record: ROIMetadata) -> None:
     roi = roi_record.roi
     x1, y1, x2, y2 = roi.x, roi.y, roi.x + roi.w, roi.y + roi.h
@@ -458,36 +401,9 @@ def _draw_panel_title(cv2: Any, canvas: Any, title: str) -> None:
     cv2.putText(canvas, title, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (240, 240, 240), 1, cv2.LINE_AA)
 
 
-def _group_by_frame(records: Iterable[Any]) -> dict[tuple[str, int], list[Any]]:
-    grouped: dict[tuple[str, int], list[Any]] = {}
-    for record in records:
-        grouped.setdefault(_frame_key(record.camera_id, record.frame_id), []).append(record)
-    return grouped
-
-
-def _frame_key(camera_id: str, frame_id: int) -> tuple[str, int]:
-    return camera_id, frame_id
-
-
 def _frame_stem(camera_id: str, frame_id: int) -> str:
     safe_camera_id = camera_id.replace("/", "_").replace(" ", "_")
     return f"{safe_camera_id}_f{frame_id:06d}"
-
-
-def _is_match_candidate(reference: Detection, candidate: Detection) -> bool:
-    return (
-        reference.camera_id == candidate.camera_id
-        and reference.frame_id == candidate.frame_id
-        and reference.class_name == candidate.class_name
-    )
-
-
-def _is_gt_match_candidate(gt: GroundTruthAnnotation, candidate: Detection) -> bool:
-    return (
-        gt.camera_id == candidate.camera_id
-        and gt.frame_id == candidate.frame_id
-            and normalize_class_name(gt.class_name) == normalize_class_name(candidate.class_name)
-    )
 
 
 def _load_dependencies():

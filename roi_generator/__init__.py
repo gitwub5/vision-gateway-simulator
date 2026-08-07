@@ -1,9 +1,11 @@
 """Rule-based ROI generator emulator."""
 
 from roi_generator.gate import (
+    BudgetFallbackDecision,
     GateDecision,
     RoiGeneratorConfig,
     RuleBasedRoiGenerator,
+    evaluate_budget_fallback,
     is_periodic_full_frame,
     load_roi_generator_config,
     should_fallback_to_full_frame,
@@ -18,8 +20,10 @@ from roi_generator.metadata import (
 
 __all__ = [
     "GateDecision",
+    "BudgetFallbackDecision",
     "RoiGeneratorConfig",
     "RuleBasedRoiGenerator",
+    "evaluate_budget_fallback",
     "is_periodic_full_frame",
     "load_roi_generator_config",
     "should_fallback_to_full_frame",

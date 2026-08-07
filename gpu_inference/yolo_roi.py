@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-import json
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
 from common import Detection, FramePacket, FrameSize, GateFrameMetadata, ROI, ROIMetadata, TriggerType
+from common.io import read_jsonl, write_json
+from common.records import frame_key
 from gpu_inference.coordinate_restore import restore_xyxy_from_crop
 from gpu_inference.yolo_full_frame import YoloConfig
 
@@ -111,7 +112,7 @@ class RoiYoloRunner:
         )
 
         for packet in frames:
-            key = _frame_key(packet.camera_id, packet.frame_id)
+            key = frame_key(packet.camera_id, packet.frame_id)
             frame_rois = roi_by_frame.get(key, [])
             frame_decision = frame_decision_by_frame.get(key)
             metrics.frame_count += 1
@@ -250,7 +251,7 @@ def clipped_roi_area(packet: FramePacket, roi: ROI) -> int:
 
 def read_roi_metadata_jsonl(input_path: str | Path) -> list[ROIMetadata]:
     records: list[ROIMetadata] = []
-    for data in _read_jsonl(input_path):
+    for data in read_jsonl(input_path):
         original_width, original_height = data["original_frame_size"]
         analysis_width, analysis_height = data["analysis_frame_size"]
         x, y, w, h = data["roi_xywh"]
@@ -279,7 +280,7 @@ def read_roi_metadata_jsonl(input_path: str | Path) -> list[ROIMetadata]:
 
 def read_gate_frame_metadata_jsonl(input_path: str | Path) -> list[GateFrameMetadata]:
     records: list[GateFrameMetadata] = []
-    for data in _read_jsonl(input_path):
+    for data in read_jsonl(input_path):
         original_width, original_height = data["original_frame_size"]
         analysis_width, analysis_height = data["analysis_frame_size"]
         records.append(
@@ -300,37 +301,18 @@ def read_gate_frame_metadata_jsonl(input_path: str | Path) -> list[GateFrameMeta
 
 
 def write_roi_metrics_json(metrics: RoiYoloMetrics, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(metrics.to_json_dict(), file, ensure_ascii=False, indent=2)
-        file.write("\n")
-
-
-def _read_jsonl(input_path: str | Path) -> list[dict[str, Any]]:
-    path = Path(input_path)
-    records: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as file:
-        for line in file:
-            stripped = line.strip()
-            if stripped:
-                records.append(json.loads(stripped))
-    return records
+    write_json(metrics.to_json_dict(), output_path)
 
 
 def _group_roi_records(records: Iterable[ROIMetadata]) -> dict[tuple[str, int], list[ROIMetadata]]:
     grouped: dict[tuple[str, int], list[ROIMetadata]] = {}
     for record in records:
-        grouped.setdefault(_frame_key(record.camera_id, record.frame_id), []).append(record)
+        grouped.setdefault(frame_key(record.camera_id, record.frame_id), []).append(record)
     return grouped
 
 
 def _index_frame_records(records: Iterable[GateFrameMetadata]) -> dict[tuple[str, int], GateFrameMetadata]:
-    return {_frame_key(record.camera_id, record.frame_id): record for record in records}
-
-
-def _frame_key(camera_id: str, frame_id: int) -> tuple[str, int]:
-    return camera_id, frame_id
+    return {frame_key(record.camera_id, record.frame_id): record for record in records}
 
 
 def _to_list(value: Any) -> list[Any]:

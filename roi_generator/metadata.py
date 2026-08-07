@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from common import GateFrameMetadata, ROIMetadata
+from common.io import write_jsonl
 from roi_generator.gate import GateDecision
 
 
 class JsonSerializable(Protocol):
-    def to_json_dict(self) -> dict:
+    def to_json_dict(self) -> dict[str, Any]:
         raise NotImplementedError
 
 
@@ -62,10 +62,7 @@ class JsonlWriter:
         self.write_many([record])
 
     def write_many(self, records: list[JsonSerializable]) -> None:
-        mode = "a" if self.append else "w"
-        with self.output_path.open(mode, encoding="utf-8") as file:
-            for record in records:
-                file.write(json.dumps(record.to_json_dict(), ensure_ascii=False) + "\n")
+        write_jsonl(records, self.output_path, append=self.append)
         self.append = True
 
 

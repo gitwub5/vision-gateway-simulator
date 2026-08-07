@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
+from common.io import load_yaml_config, write_json
 from data_loader import create_dataset_stream
 from roi_generator import (
     GateFrameMetadataWriter,
@@ -17,15 +17,7 @@ from roi_generator import (
 
 
 def load_validation_config(config_path: str | Path) -> dict[str, Any]:
-    try:
-        import yaml
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "PyYAML is required for loading YAML config files. Install project dependencies with "
-            "`pip install -r requirements.txt`."
-        ) from exc
-    with Path(config_path).open("r", encoding="utf-8") as file:
-        config = yaml.safe_load(file) or {}
+    config = load_yaml_config(config_path)
     validation = config.get("validation")
     return dict(validation) if validation else {}
 
@@ -61,10 +53,3 @@ def run_roi_generator_metadata(
 def run_gate_metadata(dataset_config, gate_config, roi_output: Path, frame_output: Path) -> dict[str, Any]:
     return run_roi_generator_metadata(dataset_config, gate_config, roi_output, frame_output)
 
-
-def write_json(data: dict[str, Any], output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=2)
-        file.write("\n")

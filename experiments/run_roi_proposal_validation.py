@@ -32,7 +32,8 @@ from evaluation.roi_proposal_report import (
 )
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
 from roi_generator import load_roi_generator_config
-from experiments.validation_common import load_validation_config, run_roi_generator_metadata, write_json
+from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
+from experiments.validation_common import load_validation_config, run_roi_generator_metadata
 from visualization.roi_proposal_renderer import render_roi_failure_visualizations
 
 
@@ -95,7 +96,7 @@ def main() -> None:
     os.environ.setdefault("MPLCONFIGDIR", str(paths.cache / "matplotlib"))
 
     total_started = perf_counter()
-    stage_timings: dict[str, float] = {}
+    stage_timer = StageTimer()
 
     dataset_config = load_dataset_config(args.dataset_config)
     if args.limit is not None:
@@ -107,13 +108,7 @@ def main() -> None:
     target_classes = tuple(str(item) for item in validation_config.get("target_classes", []) if item is not None)
     roi_generator_config = load_roi_generator_config(args.roi_generator_config)
 
-    def timed(stage_name: str, func):
-        started = perf_counter()
-        result = func()
-        stage_timings[stage_name] = perf_counter() - started
-        return result
-
-    gt_summary = timed(
+    gt_summary = stage_timer.run(
         "ground_truth",
         lambda: run_ground_truth(
             annotation_config=annotation_config,
@@ -121,7 +116,7 @@ def main() -> None:
             output_path=paths.ground_truth,
         ),
     )
-    roi_generator_summary = timed(
+    roi_generator_summary = stage_timer.run(
         "roi_generator_metadata",
         lambda: run_roi_generator_metadata(
             dataset_config=dataset_config,
@@ -130,13 +125,13 @@ def main() -> None:
             frame_output=paths.frame_metadata,
         ),
     )
-    report_summary = timed(
+    report_summary = stage_timer.run(
         "roi_proposal_report",
         lambda: run_report(paths=paths, target_classes=target_classes),
     )
     visualization_summary = None
     if not args.skip_visualization:
-        visualization_summary = timed(
+        visualization_summary = stage_timer.run(
             "visualization",
             lambda: render_roi_failure_visualizations(
                 frames=create_dataset_stream(dataset_config),
@@ -160,7 +155,7 @@ def main() -> None:
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
         "total_seconds": total_seconds,
-        "stage_seconds": stage_timings,
+        "stage_seconds": stage_timer.stage_seconds,
         "inputs": {
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
@@ -179,7 +174,7 @@ def main() -> None:
             "visualization": visualization_summary,
         },
     }
-    write_json(manifest, paths.manifest)
+    write_manifest(manifest, paths.manifest)
     print(
         json.dumps(
             {
@@ -226,10 +221,7 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
 
 
 def make_run_id(started_at: datetime, experiment_name: str) -> str:
-    safe_name = experiment_name.replace("/", "_").replace(" ", "_")
-    if not safe_name.startswith("roi_proposal_"):
-        safe_name = f"roi_proposal_{safe_name}"
-    return f"{started_at.strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+    return make_prefixed_run_id(started_at, experiment_name, prefix="roi_proposal")
 
 
 def parse_args() -> argparse.Namespace:

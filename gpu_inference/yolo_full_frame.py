@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-import json
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
 from common import Detection, FramePacket
+from common.io import load_yaml_config, write_json, write_jsonl
 
 
 @dataclass(frozen=True)
@@ -187,9 +187,7 @@ class FullFrameYoloRunner:
 
 
 def load_model_config(config_path: str | Path) -> tuple[YoloConfig, YoloOutputPaths]:
-    yaml = _require_yaml()
-    with Path(config_path).open("r", encoding="utf-8") as file:
-        config = yaml.safe_load(file) or {}
+    config = load_yaml_config(config_path)
     return YoloConfig.from_mapping(config), YoloOutputPaths.from_mapping(config)
 
 
@@ -198,19 +196,11 @@ def load_yolo_config(config_path: str | Path) -> tuple[YoloConfig, YoloOutputPat
 
 
 def write_detection_jsonl(detections: Iterable[Detection], output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        for detection in detections:
-            file.write(json.dumps(detection.to_json_dict(), ensure_ascii=False) + "\n")
+    write_jsonl(detections, output_path)
 
 
 def write_metrics_json(metrics: FullFrameYoloMetrics, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(metrics.to_json_dict(), file, ensure_ascii=False, indent=2)
-        file.write("\n")
+    write_json(metrics.to_json_dict(), output_path)
 
 
 def _to_list(value: Any) -> list[Any]:
@@ -221,14 +211,3 @@ def _to_list(value: Any) -> list[Any]:
     if hasattr(value, "tolist"):
         value = value.tolist()
     return list(value)
-
-
-def _require_yaml():
-    try:
-        import yaml
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "PyYAML is required for loading YAML config files. Install project dependencies with "
-            "`pip install -r requirements.txt`."
-        ) from exc
-    return yaml

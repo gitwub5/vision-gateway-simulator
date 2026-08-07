@@ -10,6 +10,7 @@ from time import time
 from typing import Any
 
 from common import FramePacket, FrameSize
+from common.io import load_yaml_config
 
 
 DEFAULT_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
@@ -184,9 +185,7 @@ def list_image_sequence_paths(
 
 
 def load_dataset_config(config_path: str | Path) -> DatasetConfig:
-    yaml = _require_yaml()
-    with Path(config_path).open("r", encoding="utf-8") as file:
-        config = yaml.safe_load(file) or {}
+    config = load_yaml_config(config_path)
     return DatasetConfig.from_mapping(config)
 
 
@@ -199,17 +198,6 @@ def _require_cv2():
             "`pip install -r requirements.txt`."
         ) from exc
     return cv2
-
-
-def _require_yaml():
-    try:
-        import yaml
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "PyYAML is required for loading YAML config files. Install project dependencies with "
-            "`pip install -r requirements.txt`."
-        ) from exc
-    return yaml
 
 
 def _natural_path_sort_key(path: Path) -> tuple:

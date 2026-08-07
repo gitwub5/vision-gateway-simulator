@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from dataclasses import asdict, replace
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -49,7 +49,13 @@ from gpu_inference.yolo_roi import (
     write_roi_metrics_json,
 )
 from roi_generator import load_roi_generator_config
-from experiments.validation_common import load_validation_config, run_roi_generator_metadata, write_json
+from experiments.runner_common import (
+    StageTimer,
+    make_prefixed_run_id,
+    resolve_experiment_name as resolve_name,
+    write_manifest,
+)
+from experiments.validation_common import load_validation_config, run_roi_generator_metadata
 from visualization import render_visualizations
 
 
@@ -69,7 +75,7 @@ def main() -> None:
     os.environ.setdefault("YOLO_CONFIG_DIR", str(paths.cache / "ultralytics"))
     os.environ.setdefault("MPLCONFIGDIR", str(paths.cache / "matplotlib"))
 
-    stage_timings: dict[str, float] = {}
+    stage_timer = StageTimer()
     total_started = perf_counter()
 
     dataset_config = load_dataset_config(args.dataset_config)
@@ -91,13 +97,7 @@ def main() -> None:
     if args.model is not None:
         model_config = replace(model_config, model=args.model)
 
-    def timed(stage_name: str, func):
-        started = perf_counter()
-        result = func()
-        stage_timings[stage_name] = perf_counter() - started
-        return result
-
-    roi_generator_summary = timed(
+    roi_generator_summary = stage_timer.run(
         "roi_generator_metadata",
         lambda: run_roi_generator_metadata(
             dataset_config=dataset_config,
@@ -107,7 +107,7 @@ def main() -> None:
         ),
     )
 
-    full_summary = timed(
+    full_summary = stage_timer.run(
         "full_frame_yolo",
         lambda: run_full_frame_yolo(
             dataset_config=dataset_config,
@@ -117,7 +117,7 @@ def main() -> None:
         ),
     )
 
-    roi_summary = timed(
+    roi_summary = stage_timer.run(
         "roi_yolo",
         lambda: run_roi_yolo(
             dataset_config=dataset_config,
@@ -130,7 +130,7 @@ def main() -> None:
         ),
     )
 
-    comparison_summary = timed(
+    comparison_summary = stage_timer.run(
         "comparison_report",
         lambda: run_comparison(
             paths=paths,
@@ -140,7 +140,7 @@ def main() -> None:
 
     gt_summary = None
     if gt_validation_enabled:
-        gt_summary = timed(
+        gt_summary = stage_timer.run(
             "gt_validation",
             lambda: run_gt_validation(
                 dataset_config=dataset_config,
@@ -153,7 +153,7 @@ def main() -> None:
 
     visualization_summary = None
     if not args.skip_visualization:
-        visualization_summary = timed(
+        visualization_summary = stage_timer.run(
             "visualization",
             lambda: run_visualization(
                 dataset_config=dataset_config,
@@ -174,7 +174,7 @@ def main() -> None:
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
         "total_seconds": total_seconds,
-        "stage_seconds": stage_timings,
+        "stage_seconds": stage_timer.stage_seconds,
         "inputs": {
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
@@ -198,7 +198,7 @@ def main() -> None:
             "visualization": visualization_summary,
         },
     }
-    write_json(manifest, paths.manifest)
+    write_manifest(manifest, paths.manifest)
     print(
         json.dumps(
             {
@@ -376,18 +376,11 @@ def run_visualization(
 
 
 def make_run_id(started_at: datetime, experiment_name: str) -> str:
-    safe_name = experiment_name.replace("/", "_").replace(" ", "_")
-    if not safe_name.startswith("e2e_"):
-        safe_name = f"e2e_{safe_name}"
-    return f"{started_at.strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+    return make_prefixed_run_id(started_at, experiment_name, prefix="e2e")
 
 
 def resolve_experiment_name(args: argparse.Namespace) -> str:
-    if args.experiment_name:
-        return args.experiment_name
-    if args.dataset_name:
-        return args.dataset_name
-    return "e2e_sample"
+    return resolve_name(args.experiment_name, args.dataset_name, "e2e_sample")
 
 
 def parse_args() -> argparse.Namespace:

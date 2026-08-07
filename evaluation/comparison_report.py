@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
 from typing import Any
 
 from common import Detection
+from common.io import read_json, read_jsonl, write_json, write_text
+from common.records import format_ratio
 from evaluation.detection_metrics import DetectionMatchSummary, match_detections_by_iou
 from evaluation.latency_metrics import LatencySummary, summarize_latency
 from evaluation.roi_containment import RoiContainmentSummary, summarize_roi_containment
@@ -73,12 +74,12 @@ class ComparisonReport:
             "",
             "## Summary",
             "",
-            f"- Pseudo recall retention: {_format_ratio(self.detection.pseudo_recall)}",
-            f"- ROI containment rate: {_format_ratio(self.roi.containment_rate)}",
-            f"- YOLO call reduction: {_format_ratio(self.workload.yolo_call_reduction)}",
-            f"- YOLO input pixel area reduction: {_format_ratio(self.workload.input_pixel_area_reduction)}",
+            f"- Pseudo recall retention: {format_ratio(self.detection.pseudo_recall)}",
+            f"- ROI containment rate: {format_ratio(self.roi.containment_rate)}",
+            f"- YOLO call reduction: {format_ratio(self.workload.yolo_call_reduction)}",
+            f"- YOLO input pixel area reduction: {format_ratio(self.workload.input_pixel_area_reduction)}",
             f"- Average ROI count: {self.roi.average_roi_count:.3f}",
-            f"- Average ROI area ratio: {_format_ratio(self.roi.average_roi_area_ratio)}",
+            f"- Average ROI area ratio: {format_ratio(self.roi.average_roi_area_ratio)}",
             f"- Gate average latency: {self.latency.gate_average_latency_ms:.3f} ms",
             "",
             "## Detection",
@@ -159,34 +160,9 @@ def read_detection_jsonl(input_path: str | Path) -> list[Detection]:
     return detections
 
 
-def read_json(input_path: str | Path) -> dict[str, Any]:
-    with Path(input_path).open("r", encoding="utf-8") as file:
-        return json.load(file)
-
-
-def read_jsonl(input_path: str | Path) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    with Path(input_path).open("r", encoding="utf-8") as file:
-        for line in file:
-            stripped = line.strip()
-            if stripped:
-                records.append(json.loads(stripped))
-    return records
-
-
 def write_report_json(report: ComparisonReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(report.to_json_dict(), file, ensure_ascii=False, indent=2)
-        file.write("\n")
+    write_json(report.to_json_dict(), output_path)
 
 
 def write_report_markdown(report: ComparisonReport, output_path: str | Path) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(report.to_markdown(), encoding="utf-8")
-
-
-def _format_ratio(value: float) -> str:
-    return f"{value:.3f} ({value * 100:.1f}%)"
+    write_text(report.to_markdown(), output_path)
