@@ -48,23 +48,41 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [x] `experiments/run_roi_proposal_validation.py` 구현
 - [x] PhysicalAI row 709 120-frame ROI Proposal quick run으로 target GT 기준 report 검증
 
-### 2.2 Stage A: ROI Budget / Fallback Policy
+### 2.2 Stage A0: ROI Candidate Quality / Noise Filtering
 
 - [x] ROI generator processing size를 config로 키울 수 있는 옵션 추가
 - [x] `balanced_highres` config 추가
+- [x] ROI generator debug trace 시각화 추가
+- [x] UA-DETRAC MVI_39051 / PhysicalAI row 709 120-frame ROI debug run으로 candidate 품질 문제 유형 확인
+- [ ] merge 전 noise component filtering feature flag 추가
+- [ ] connected component size/shape/density metadata를 debug summary에 기록
+- [ ] 너무 작은 component 제거 기준 추가
+- [ ] 너무 얇거나 긴 component 제거 기준 추가
+- [ ] motion density가 과도한 frame의 diagnostic reason 추가
+- [ ] filtering 이후 가까운 ROI merge 또는 기존 merge policy 확장
+- [ ] minimum padding / margin 보강으로 작은 target ROI 보존
+- [ ] `candidate_noise_filter_balanced` config 추가
+- [ ] `candidate_recall_balanced` config 추가
+- [ ] baseline balanced 대비 UA-DETRAC quick run 비교
+- [ ] PhysicalAI row 709 quick run 비교
+- [ ] OD-VIRAT Tiny annotated-object 보조 run 비교
+- [ ] A0 Keep/Tune/Disable/Remove 판정 기록
+
+### 2.3 Stage A: ROI Budget / Fallback Policy
+
+- [ ] Stage A0 candidate quality 개선안 확정
 - [ ] `roi_budget.enabled` feature flag 추가
-- [ ] `max_roi_per_frame` 초과 시 full-frame fallback 구현
-- [ ] `max_total_roi_area_ratio` 초과 시 full-frame fallback 구현
-- [ ] 가까운 ROI merge 구현 또는 기존 merge policy 확장
-- [ ] 너무 작은 ROI 제거 또는 minimum padding 처리
+- [ ] `max_roi_per_frame` 초과 시 full-frame fallback policy를 feature flag 뒤로 이동
+- [ ] `max_total_roi_area_ratio` 초과 시 full-frame fallback policy를 feature flag 뒤로 이동
 - [ ] budget decision reason을 `gate_decisions.jsonl`에 기록
 - [ ] `budget_balanced` config 추가
-- [ ] baseline balanced 대비 UA-DETRAC quick run 비교
+- [ ] A0 확정 profile 대비 UA-DETRAC quick run 비교
+- [ ] PhysicalAI row 709 quick run 비교
 - [ ] OD-VIRAT Tiny annotated-object 보조 run 비교
 - [ ] ROI count latency benchmark 생성
-- [ ] Keep/Tune/Disable/Remove 판정 기록
+- [ ] Stage A Keep/Tune/Disable/Remove 판정 기록
 
-### 2.3 Stage B: Adaptive Full-frame Refresh
+### 2.4 Stage B: Adaptive Full-frame Refresh
 
 - [ ] `adaptive_refresh.enabled` feature flag 추가
 - [ ] base/min/max refresh interval config 추가
@@ -77,7 +95,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [ ] OD-VIRAT Tiny annotated-object 보조 run 비교
 - [ ] Keep/Tune/Disable/Remove 판정 기록
 
-### 2.4 Stage C: Tracking-assisted ROI
+### 2.5 Stage C: Tracking-assisted ROI
 
 - [ ] `tracking_roi.enabled` feature flag 추가
 - [ ] IoU/centroid 기반 lightweight track memory 구현
@@ -89,15 +107,17 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [ ] failure visualization에서 정지/느린 객체 miss 감소 여부 확인
 - [ ] Keep/Tune/Disable/Remove 판정 기록
 
-### 2.5 Stage D: Combined Policy
+### 2.6 Stage D: Combined Policy
 
 - [ ] `combined_balanced` config 추가
+- [ ] candidate quality / budget / refresh / tracking profile을 scene state에 따라 선택하는 controller 후보 정리
 - [ ] budget, adaptive refresh, tracking ROI 간 decision priority 정리
 - [ ] decision reason을 report에 요약
 - [ ] profile summary에 policy label 추가
 - [ ] ROI count latency benchmark에 policy label 추가
 - [ ] full matrix 실행
   - [ ] `baseline_balanced`
+  - [ ] `candidate_quality_baseline`
   - [ ] `budget_balanced`
   - [ ] `adaptive_refresh_balanced`
   - [ ] `tracking_balanced`
@@ -106,7 +126,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
   - [ ] `balanced_no_refresh`
 - [ ] Phase 1.1 최종 Keep/Tune/Disable/Remove 판정
 
-### 2.6 Stage E: Compressed-domain Probe
+### 2.7 Stage E: Compressed-domain Probe
 
 - [ ] FFmpeg 또는 PyAV로 motion vector 접근 가능성 확인
 - [ ] motion vector 기반 ROI prototype 작성 여부 결정
@@ -114,7 +134,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다.
 - [ ] Jetson/DeepStream pipeline metadata 전달 가능성 조사
 - [ ] Phase 1.2 후보 승격 또는 research 보류 판정
 
-### 2.7 문서화
+### 2.8 문서화
 
 - [ ] 구현 결과를 `docs/tasks/phase1_1/` 아래에 task 문서로 정리
 - [ ] 실행 결과 위치를 `docs/runs/`에 기록
@@ -178,21 +198,29 @@ Phase 1.1 policy 구현 전에 OD-VIRAT Tiny annotation loader를 구현한다.
 - failure visualization에서 full-frame detection, ROI detection, annotation bbox를 함께 볼 수 있다.
 - report와 config에 `expected_exhaustive: false`가 명시되어 있다.
 
-## 5. Stage A: ROI Budget / Fallback Policy
+## 5. Stage A0: ROI Candidate Quality / Noise Filtering
 
 ### 가설
 
-ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detector 호출 비용이 full-frame보다 커질 수 있다. ROI 개수와 총 ROI 면적을 기준으로 full-frame fallback 또는 ROI merge를 적용하면 latency 병목을 줄일 수 있다.
+Phase 1.1의 다음 policy 실험은 후보 ROI 품질이 일정 수준 이상일 때만 유효하다. 현재 debug run 결과, primary 문제는 budget/fallback 자체보다 **merge 전 후보 ROI 품질**이다.
+
+UA-DETRAC MVI_39051에서는 나무, 그림자, 미세 배경 변화가 작은 connected component를 대량 생성하고, 이 component들이 merge 단계에서 거의 전체 프레임 ROI로 합쳐진 뒤 `max_total_roi_area_ratio` fallback으로 빠진다. 따라서 noise component를 merge 전에 제거하고, motion density가 과도한 frame을 diagnostic reason으로 분리하면 full-frame fallback 의존을 줄일 수 있다.
+
+PhysicalAI row 709에서는 반대로 motion map이 희박하고 ROI 면적이 작아 target person을 충분히 포함하지 못한다. 따라서 Stage A0는 noise 억제만이 아니라 작은 target을 보존하기 위한 minimum padding/margin 보강을 함께 검증한다.
+
+Stage A0가 해결되지 않으면 Stage A-D의 budget, refresh, tracking 결과는 candidate 품질 문제를 함께 측정하게 되므로 의사결정 근거로 쓰기 어렵다. 따라서 Stage A0는 이후 Stage A-D의 선행 조건으로 둔다.
 
 ### 구현 항목
 
-- `roi_budget.enabled` feature flag 추가
+- `component_filter.enabled` feature flag 추가
+- merge 전 connected component filtering 추가
+  - 너무 작은 component 제거
+  - 너무 얇거나 긴 component 제거
+  - frame 전체 motion density가 과도한 경우 diagnostic reason 기록
+- filtering 전/후 candidate count, merged ROI count, ROI area ratio를 ROI debug summary에 표시
+- filtering 이후 가까운 ROI merge 또는 기존 merge policy 확장
+- minimum padding 또는 margin 보강으로 작은 target ROI 보존
 - ROI generator processing size config를 이용한 high-res analysis profile 비교
-- `max_roi_per_frame` 초과 시 full-frame fallback
-- `max_total_roi_area_ratio` 초과 시 full-frame fallback
-- 가까운 ROI merge
-- 너무 작은 ROI 제거 또는 minimum padding 적용
-- ROI budget decision을 `gate_decisions.jsonl`에 기록
 
 ### 비교 run
 
@@ -200,15 +228,59 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 |---|---|
 | `baseline_balanced` | 기존 balanced |
 | `baseline_balanced_highres` | ROI generator high-res analysis 적용 |
-| `budget_balanced` | ROI budget/fallback 적용 |
+| `candidate_noise_filter_balanced` | merge 전 noise component filtering 적용 |
+| `candidate_recall_balanced` | 작은 target 보존을 위한 padding/margin 강화 |
 | `baseline_recall` | recall upper bound |
 
 ### Keep 기준
 
-- target GT ROI containment가 `baseline_balanced`보다 개선되거나 동일하다.
+- UA-DETRAC에서 candidate ROI count와 large merged ROI/fallback frame rate가 감소한다.
+- UA-DETRAC target GT ROI containment가 `baseline_balanced`보다 개선된다.
+- PhysicalAI에서 target GT ROI containment가 `baseline_balanced`보다 악화되지 않고 가능하면 개선된다.
 - missed target GT count와 no-ROI target frame count가 줄어든다.
+- effective input area reduction이 fallback 때문에 0으로 무너지는 상황이 해소되거나, Stage A budget 실험이 가능한 후보 ROI 분포가 만들어진다.
+- ROI count와 average total ROI area ratio가 baseline보다 안정화된다.
+- gate latency가 허용 범위 안에 있다.
+
+### Tune/Disable/Remove 기준
+
+- UA-DETRAC noise는 줄지만 PhysicalAI 작은 target miss가 늘면 Tune 또는 dataset별 profile 분리
+- UA-DETRAC large merged ROI는 줄지만 target GT containment가 개선되지 않으면 Tune
+- 특정 dataset에서만 유효하면 Disable 가능 상태로 유지
+- latency가 개선되지 않고 복잡도만 늘면 Remove
+
+## 6. Stage A: ROI Budget / Fallback Policy
+
+### 선행 조건
+
+Stage A0에서 candidate ROI 품질 개선안을 Keep 또는 Tune 가능한 상태로 확정한다. Budget policy는 정리된 candidate ROI를 입력으로 받을 때만 실험한다.
+
+### 가설
+
+ROI 후보 품질이 안정화된 뒤에도 ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detector 호출 비용이 full-frame보다 커질 수 있다. ROI 개수와 총 ROI 면적을 기준으로 full-frame fallback을 명시적으로 제어하고 decision reason을 기록하면 latency 병목과 fallback 의존을 해석 가능하게 줄일 수 있다.
+
+### 구현 항목
+
+- `roi_budget.enabled` feature flag 추가
+- `max_roi_per_frame` 초과 시 full-frame fallback policy를 feature flag 뒤로 이동
+- `max_total_roi_area_ratio` 초과 시 full-frame fallback policy를 feature flag 뒤로 이동
+- budget decision reason을 `gate_decisions.jsonl`에 기록
+- `budget_balanced` config 추가
+
+### 비교 run
+
+| Run | 설명 |
+|---|---|
+| `candidate_quality_baseline` | Stage A0 확정 profile |
+| `budget_balanced` | Stage A0 확정 profile + ROI budget/fallback 적용 |
+| `baseline_recall` | recall upper bound |
+
+### Keep 기준
+
+- target GT ROI containment가 Stage A0 확정 profile보다 악화되지 않는다.
+- missed target GT count와 no-ROI target frame count가 늘지 않는다.
 - effective input area reduction이 유지되거나 개선된다.
-- ROI count와 average total ROI area ratio가 ROI budget 안에 들어온다.
+- ROI count와 average total ROI area ratio가 budget 안에 들어온다.
 - gate latency가 허용 범위 안에 있고, full-frame fallback/check 의존이 과도하게 늘지 않는다.
 - E2E pseudo recall은 downstream compatibility 보조 지표로 확인한다.
 
@@ -218,11 +290,11 @@ ROI가 여러 개로 늘어나는 구간에서는 crop 면적이 줄어도 detec
 - 특정 dataset에서만 유효하면 Disable 가능 상태로 유지
 - latency가 개선되지 않고 복잡도만 늘면 Remove
 
-## 6. Stage B: Adaptive Full-frame Refresh
+## 7. Stage B: Adaptive Full-frame Refresh
 
 ### 가설
 
-Full-frame refresh는 필요하지만 고정 주기일 필요는 없다. scene risk 기반 adaptive refresh를 적용하면 recall은 유지하면서 full-frame check count를 줄일 수 있다.
+Full-frame refresh는 필요하지만 고정 주기일 필요는 없다. Stage A0/A로 candidate quality와 budget policy가 정리된 뒤 scene risk 기반 adaptive refresh를 적용하면 recall은 유지하면서 full-frame check count를 줄일 수 있다.
 
 ### 구현 항목
 
@@ -253,7 +325,7 @@ Full-frame refresh는 필요하지만 고정 주기일 필요는 없다. scene r
 - 특정 scene에서만 안정적이면 Disable 가능 상태로 유지
 - fixed refresh보다 recall과 비용이 모두 나쁘면 Remove
 
-## 7. Stage C: Tracking-assisted ROI
+## 8. Stage C: Tracking-assisted ROI
 
 ### 가설
 
@@ -290,15 +362,21 @@ Motion-only ROI는 정지 객체와 느린 객체에 취약하다. 최근 detect
 - latency 악화가 크면 tracking ROI를 restricted class/scene에만 Enable
 - miss 감소 없이 ROI count만 늘면 Remove
 
-## 8. Stage D: Combined Policy
+## 9. Stage D: Combined Policy / ROI Policy Controller
 
 ### 가설
 
-ROI budget, adaptive refresh, tracking-assisted ROI를 함께 적용하면 recall과 비용의 균형이 가장 좋을 수 있다.
+Stage A0의 candidate quality 개선, ROI budget, adaptive refresh, tracking-assisted ROI를 함께 적용하면 recall과 비용의 균형이 가장 좋을 수 있다. 다만 고정 config 하나로 모든 scene을 처리하기보다, frame별 ROI 수, 총 ROI 면적, motion density, 최근 miss/fallback pattern을 기준으로 profile 또는 policy branch를 선택하는 controller가 필요할 수 있다.
 
 ### 구현 항목
 
 - `combined_balanced` config 추가
+- scene state 기반 profile/controller 후보 정리
+  - ROI count bucket
+  - total ROI area ratio
+  - motion density
+  - recent fallback/check streak
+  - recent miss/failure pattern
 - budget, adaptive refresh, tracking ROI 간 decision priority 정리
 - decision reason을 report에 요약
 - profile summary와 ROI count latency benchmark에 policy label 추가
@@ -308,6 +386,7 @@ ROI budget, adaptive refresh, tracking-assisted ROI를 함께 적용하면 recal
 | Run | 설명 |
 |---|---|
 | `baseline_balanced` | 기본 기준 |
+| `candidate_quality_baseline` | Stage A0 확정 profile |
 | `budget_balanced` | budget 단독 |
 | `adaptive_refresh_balanced` | adaptive refresh 단독 |
 | `tracking_balanced` | tracking 단독 |
@@ -329,7 +408,7 @@ ROI budget, adaptive refresh, tracking-assisted ROI를 함께 적용하면 recal
 - 일부 feature가 조합에서만 악화되면 해당 feature만 Disable
 - 전체 조합이 baseline 대비 이득이 없으면 combined config는 Remove
 
-## 9. Stage E: Compressed-domain Probe
+## 10. Stage E: Compressed-domain Probe
 
 ### 가설
 
@@ -347,7 +426,7 @@ DeepStream과 겹치지 않는 장기 차별점은 pixel-domain ROI보다 bitstr
 - simulator에서 안정적으로 motion vector를 읽을 수 있으면 Phase 1.2 후보로 승격
 - 로컬 구현 복잡도가 크거나 dataset 지원이 불안정하면 research note로 보류
 
-## 10. 공통 검증 절차
+## 11. 공통 검증 절차
 
 각 stage는 동일한 절차로 검증한다.
 
@@ -355,13 +434,13 @@ DeepStream과 겹치지 않는 장기 차별점은 pixel-domain ROI보다 bitstr
 2. target-aware ROI proposal report 생성
 3. profile summary 생성
 4. ROI count latency benchmark 생성
-5. ROI proposal failure visualization 수동 검토
+5. ROI proposal failure visualization과 ROI debug trace 수동 검토
 6. E2E Inference quick run으로 downstream compatibility 보조 확인
 7. OD-VIRAT Tiny 120-frame annotated-object 보조 run 실행
 8. 결과를 `docs/runs/phase1_validation_runs.md` 또는 별도 run log에 기록
 9. Keep/Tune/Disable/Remove 판정
 
-## 11. Phase 1.1 완료 조건
+## 12. Phase 1.1 완료 조건
 
 Phase 1.1은 다음 중 하나로 종료한다.
 
