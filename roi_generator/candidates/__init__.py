@@ -1,6 +1,4 @@
-"""Backward-compatible ROI candidate helper imports."""
-
-from __future__ import annotations
+"""ROI candidate generation primitives."""
 
 from roi_generator.candidates.components import (
     add_margin_and_clip,

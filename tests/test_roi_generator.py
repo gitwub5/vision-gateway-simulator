@@ -71,9 +71,12 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(decision.rois, [])
 
     def test_motion_roi_triggers_roi_decision(self) -> None:
-        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=60),
+            policy=FakePolicy([ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]),
+        )
 
-        with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
+        with _patched_gate_helpers():
             gate.process(_packet(frame_id=0))
             decision = gate.process(_packet(frame_id=1))
 
@@ -85,13 +88,17 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertGreater(decision.rois[0].h, 0)
 
     def test_temporal_hold_triggers_when_motion_disappears(self) -> None:
-        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(hold_frames=2, full_frame_interval=60))
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(hold_frames=2, full_frame_interval=60),
+            policy=FakePolicy([ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]),
+        )
 
-        with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
+        with _patched_gate_helpers():
             gate.process(_packet(frame_id=0))
             first_motion = gate.process(_packet(frame_id=1))
 
-        with _patched_gate_helpers(rois=[]):
+        gate.policy = FakePolicy([])
+        with _patched_gate_helpers():
             held = gate.process(_packet(frame_id=2))
 
         self.assertEqual(first_motion.trigger_type, TriggerType.ROI)
@@ -99,9 +106,12 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(len(held.rois), 1)
 
     def test_periodic_full_frame_preserves_rois(self) -> None:
-        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=2))
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=2),
+            policy=FakePolicy([ROI(x=5, y=5, w=8, h=8, coord_system="analysis_frame")]),
+        )
 
-        with _patched_gate_helpers(rois=[ROI(x=5, y=5, w=8, h=8, coord_system="analysis_frame")]):
+        with _patched_gate_helpers():
             gate.process(_packet(frame_id=0))
             gate.process(_packet(frame_id=1))
             decision = gate.process(_packet(frame_id=2))
@@ -112,10 +122,11 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
 
     def test_excessive_roi_area_falls_back_to_full_frame(self) -> None:
         gate = RuleBasedRoiGenerator(
-            RoiGeneratorConfig(full_frame_interval=60, max_total_roi_area_ratio=0.1, margin_ratio=0.0)
+            RoiGeneratorConfig(full_frame_interval=60, max_total_roi_area_ratio=0.1, margin_ratio=0.0),
+            policy=FakePolicy([ROI(x=0, y=0, w=80, h=80, coord_system="analysis_frame")]),
         )
 
-        with _patched_gate_helpers(rois=[ROI(x=0, y=0, w=80, h=80, coord_system="analysis_frame")]):
+        with _patched_gate_helpers():
             gate.process(_packet(frame_id=0))
             decision = gate.process(_packet(frame_id=1))
 
@@ -125,9 +136,13 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
 
     def test_debug_sink_receives_per_frame_generation_trace(self) -> None:
         sink = FakeDebugSink()
-        gate = RuleBasedRoiGenerator(RoiGeneratorConfig(full_frame_interval=60), debug_sink=sink)
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=60),
+            debug_sink=sink,
+            policy=FakePolicy([ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]),
+        )
 
-        with _patched_gate_helpers(rois=[ROI(x=10, y=10, w=20, h=20, coord_system="analysis_frame")]):
+        with _patched_gate_helpers():
             gate.process(_packet(frame_id=0))
             decision = gate.process(_packet(frame_id=1))
 
@@ -173,6 +188,27 @@ class FakeDebugSink:
         self.snapshots.append(snapshot)
 
 
+class FakePolicy:
+    name = "fake_policy"
+
+    def __init__(self, final_rois: list[ROI]) -> None:
+        self.final_rois = final_rois
+
+    def generate(self, event_maps, analysis_size: FrameSize, original_size: FrameSize):
+        from roi_generator.trace import RoiGenerationTrace
+
+        final_rois = [
+            ROI(roi.x, roi.y, roi.w, roi.h, score=roi.score, coord_system="original_frame")
+            for roi in self.final_rois
+        ]
+        return RoiGenerationTrace(
+            filtered_motion_map=event_maps.motion_map,
+            candidate_analysis_rois=self.final_rois,
+            merged_analysis_rois=self.final_rois,
+            final_rois=final_rois,
+        )
+
+
 def _packet(frame_id: int, original_size: FrameSize | None = None) -> FramePacket:
     if original_size is None:
         original_size = FrameSize(width=100, height=100)
@@ -185,20 +221,20 @@ def _packet(frame_id: int, original_size: FrameSize | None = None) -> FramePacke
     )
 
 
-def _patched_gate_helpers(rois: list[ROI], seen_sizes: list[FrameSize] | None = None):
+def _patched_gate_helpers(rois: list[ROI] | None = None, seen_sizes: list[FrameSize] | None = None):
     def resize(gray, analysis_size):
         if seen_sizes is not None:
             seen_sizes.append(analysis_size)
         return FakeGrayFrame()
 
-    return patch.multiple(
-        "roi_generator.gate",
-        to_gray=lambda frame: FakeGrayFrame(),
-        resize_for_analysis=resize,
-        encode_event_maps=lambda **kwargs: FakeEventMaps(),
-        filter_motion_map=lambda motion_map, kernel_size: motion_map,
-        generate_roi_candidates=lambda motion_map, min_area_ratio: rois,
-    )
+    patches = {
+        "to_gray": lambda frame: FakeGrayFrame(),
+        "resize_for_analysis": resize,
+        "encode_event_maps": lambda **kwargs: FakeEventMaps(),
+    }
+    if rois is not None:
+        patches["ComponentBboxPolicy"] = lambda config: FakePolicy(rois)
+    return patch.multiple("roi_generator.gate", **patches)
 
 
 if __name__ == "__main__":

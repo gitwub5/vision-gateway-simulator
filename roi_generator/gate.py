@@ -2,155 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
 from time import perf_counter
-from typing import Any, Protocol
+from typing import Any
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from common.io import load_yaml_config
-from roi_generator.event_encoder import EventMaps, encode_event_maps
-from roi_generator.motion_detector import filter_motion_map
-from roi_generator.preprocess import resize_for_analysis, to_gray
-from roi_generator.roi_generator import (
-    add_margin_and_clip,
-    generate_roi_candidates,
-    merge_rois,
-    scale_roi_to_original,
-)
+from roi_generator.budget import BudgetFallbackDecision, evaluate_budget_fallback, should_fallback_to_full_frame
+from roi_generator.config import RoiGeneratorConfig, load_roi_generator_config
+from roi_generator.contract import GateDecision
+from roi_generator.signals.event_encoder import EventMaps, encode_event_maps
+from roi_generator.policies import ComponentBboxPolicy, RoiPolicy
+from roi_generator.signals.preprocess import resize_for_analysis, to_gray
 from roi_generator.temporal_hold import TemporalHold
-
-
-@dataclass(frozen=True)
-class RoiGeneratorConfig:
-    analysis_width: int = 256
-    analysis_height: int = 144
-    processing_width: int | None = None
-    processing_height: int | None = None
-    processing_allow_upscale: bool = False
-    threshold_motion: int = 25
-    threshold_on: int = 15
-    threshold_off: int = 15
-    morphology_kernel_size: int = 3
-    min_area_ratio: float = 0.001
-    merge_distance_ratio: float = 0.08
-    margin_ratio: float = 0.25
-    hold_frames: int = 15
-    full_frame_interval: int = 60
-    max_roi_per_frame: int = 5
-    max_total_roi_area_ratio: float = 0.5
-    debug_enabled: bool = False
-    debug_max_frames: int | None = None
-    debug_stride: int = 1
-
-    @property
-    def analysis_size(self) -> FrameSize:
-        return FrameSize(width=self.analysis_width, height=self.analysis_height)
-
-    def analysis_size_for_frame(self, original_size: FrameSize) -> FrameSize:
-        if self.processing_width is None and self.processing_height is None:
-            return self.analysis_size
-
-        width = self.processing_width
-        height = self.processing_height
-        if width is None:
-            width = round(original_size.width * (height / original_size.height))
-        if height is None:
-            height = round(original_size.height * (width / original_size.width))
-
-        width = max(1, int(width))
-        height = max(1, int(height))
-        if not self.processing_allow_upscale:
-            scale = min(1.0, original_size.width / width, original_size.height / height)
-            width = max(1, round(width * scale))
-            height = max(1, round(height * scale))
-        return FrameSize(width=width, height=height)
-
-    @classmethod
-    def from_mapping(cls, config: dict[str, Any]) -> "RoiGeneratorConfig":
-        roi_generator = config.get("roi_generator", config.get("npx_gate", config))
-        processing = roi_generator.get("processing", {}) or {}
-        debug = roi_generator.get("debug", {}) or {}
-        return cls(
-            analysis_width=int(roi_generator.get("analysis_width", cls.analysis_width)),
-            analysis_height=int(roi_generator.get("analysis_height", cls.analysis_height)),
-            processing_width=_optional_int(roi_generator.get("processing_width", processing.get("width"))),
-            processing_height=_optional_int(roi_generator.get("processing_height", processing.get("height"))),
-            processing_allow_upscale=bool(
-                roi_generator.get(
-                    "processing_allow_upscale",
-                    processing.get("allow_upscale", cls.processing_allow_upscale),
-                )
-            ),
-            threshold_motion=int(roi_generator.get("threshold_motion", cls.threshold_motion)),
-            threshold_on=int(roi_generator.get("threshold_on", cls.threshold_on)),
-            threshold_off=int(roi_generator.get("threshold_off", cls.threshold_off)),
-            morphology_kernel_size=int(roi_generator.get("morphology_kernel_size", cls.morphology_kernel_size)),
-            min_area_ratio=float(roi_generator.get("min_area_ratio", cls.min_area_ratio)),
-            merge_distance_ratio=float(roi_generator.get("merge_distance_ratio", cls.merge_distance_ratio)),
-            margin_ratio=float(roi_generator.get("margin_ratio", cls.margin_ratio)),
-            hold_frames=int(roi_generator.get("hold_frames", cls.hold_frames)),
-            full_frame_interval=int(roi_generator.get("full_frame_interval", cls.full_frame_interval)),
-            max_roi_per_frame=int(roi_generator.get("max_roi_per_frame", cls.max_roi_per_frame)),
-            max_total_roi_area_ratio=float(
-                roi_generator.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
-            ),
-            debug_enabled=bool(debug.get("enabled", cls.debug_enabled)),
-            debug_max_frames=_optional_int(debug.get("max_frames")),
-            debug_stride=max(1, int(debug.get("stride", cls.debug_stride))),
-        )
-
-
-@dataclass(frozen=True)
-class GateDecision:
-    camera_id: str
-    frame_id: int
-    timestamp: float
-    trigger_type: TriggerType
-    rois: list[ROI]
-    original_frame_size: FrameSize
-    analysis_frame_size: FrameSize
-    gate_latency_ms: float
-    should_run_full_frame: bool = False
-    event_maps: EventMaps | None = field(default=None, repr=False, compare=False)
-
-
-@dataclass(frozen=True)
-class BudgetFallbackDecision:
-    should_fallback: bool
-    reason: str | None = None
-
-
-@dataclass(frozen=True)
-class RoiGenerationTrace:
-    filtered_motion_map: Any | None
-    candidate_analysis_rois: list[ROI]
-    merged_analysis_rois: list[ROI]
-    final_rois: list[ROI]
-
-
-@dataclass(frozen=True)
-class RoiDebugSnapshot:
-    packet: FramePacket
-    config: RoiGeneratorConfig
-    analysis_gray: Any
-    previous_analysis_gray: Any | None
-    event_maps: EventMaps | None
-    generation_trace: RoiGenerationTrace
-    decision: GateDecision
-    budget_fallback: BudgetFallbackDecision
-
-
-class RoiDebugSink(Protocol):
-    def write(self, snapshot: RoiDebugSnapshot) -> None:
-        raise NotImplementedError
+from roi_generator.trace import RoiDebugSink, RoiDebugSnapshot, RoiGenerationTrace
 
 
 class RuleBasedRoiGenerator:
     """Converts FramePacket input into ROI or full-frame trigger decisions."""
 
-    def __init__(self, config: RoiGeneratorConfig, debug_sink: RoiDebugSink | None = None) -> None:
+    def __init__(
+        self,
+        config: RoiGeneratorConfig,
+        debug_sink: RoiDebugSink | None = None,
+        policy: RoiPolicy | None = None,
+    ) -> None:
         self.config = config
+        self.policy = policy or ComponentBboxPolicy(config)
         self.debug_sink = debug_sink
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None
@@ -298,27 +174,7 @@ class RuleBasedRoiGenerator:
         analysis_size: FrameSize,
         original_size: FrameSize,
     ) -> RoiGenerationTrace:
-        filtered_motion = filter_motion_map(event_maps.motion_map, self.config.morphology_kernel_size)
-        analysis_rois = generate_roi_candidates(filtered_motion, self.config.min_area_ratio)
-        merged_analysis_rois = merge_rois(
-            analysis_rois,
-            distance_ratio=self.config.merge_distance_ratio,
-            frame_size=analysis_size,
-        )
-        current_rois = [
-            add_margin_and_clip(
-                scale_roi_to_original(roi, analysis_size, original_size),
-                original_size,
-                self.config.margin_ratio,
-            )
-            for roi in merged_analysis_rois
-        ]
-        return RoiGenerationTrace(
-            filtered_motion_map=filtered_motion,
-            candidate_analysis_rois=analysis_rois,
-            merged_analysis_rois=merged_analysis_rois,
-            final_rois=sort_rois_by_area(current_rois),
-        )
+        return self.policy.generate(event_maps, analysis_size, original_size)
 
     def _roi_or_hold_decision(self, current_rois: list[ROI], held_rois: list[ROI]) -> tuple[TriggerType, list[ROI]]:
         if current_rois:
@@ -396,39 +252,9 @@ class RuleBasedRoiGenerator:
         )
 
 
-def evaluate_budget_fallback(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> BudgetFallbackDecision:
-    if not rois:
-        return BudgetFallbackDecision(False)
-    if len(rois) > config.max_roi_per_frame:
-        return BudgetFallbackDecision(True, "max_roi_per_frame")
-
-    total_roi_area = sum(roi.area() for roi in rois)
-    frame_area = frame_size.area()
-    if frame_area <= 0:
-        return BudgetFallbackDecision(True, "invalid_frame_area")
-    if total_roi_area / frame_area > config.max_total_roi_area_ratio:
-        return BudgetFallbackDecision(True, "max_total_roi_area_ratio")
-    return BudgetFallbackDecision(False)
-
-
-def should_fallback_to_full_frame(rois: list[ROI], frame_size: FrameSize, config: RoiGeneratorConfig) -> bool:
-    return evaluate_budget_fallback(rois, frame_size, config).should_fallback
-
-
 def is_periodic_full_frame(frame_id: int, interval: int) -> bool:
     return interval > 0 and frame_id > 0 and frame_id % interval == 0
 
 
 def sort_rois_by_area(rois: list[ROI]) -> list[ROI]:
     return sorted(rois, key=lambda roi: roi.area(), reverse=True)
-
-
-def _optional_int(value: Any) -> int | None:
-    if value is None:
-        return None
-    return int(value)
-
-
-def load_roi_generator_config(config_path: str | Path) -> RoiGeneratorConfig:
-    config = load_yaml_config(config_path)
-    return RoiGeneratorConfig.from_mapping(config)
