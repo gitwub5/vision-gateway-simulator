@@ -48,6 +48,23 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.debug_max_frames, 120)
         self.assertEqual(config.debug_stride, 5)
 
+    def test_config_loads_tile_metadata_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "tile_metadata": {
+                        "grid_rows": 4,
+                        "grid_cols": 6,
+                        "motion_density_threshold": 0.2,
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(config.tile_grid_rows, 4)
+        self.assertEqual(config.tile_grid_cols, 6)
+        self.assertEqual(config.tile_motion_density_threshold, 0.2)
+
     def test_decision_records_dynamic_analysis_size(self) -> None:
         gate = RuleBasedRoiGenerator(RoiGeneratorConfig(processing_width=1280, full_frame_interval=60))
         packet = _packet(frame_id=0, original_size=FrameSize(width=3840, height=2160))
@@ -86,6 +103,12 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(decision.rois[0].coord_system, "original_frame")
         self.assertGreater(decision.rois[0].w, 0)
         self.assertGreater(decision.rois[0].h, 0)
+        self.assertEqual(decision.policy_label, "fake_policy")
+        self.assertEqual(decision.decision_reason, "roi_selected")
+        self.assertEqual(decision.roi_batch_slots_used, 1)
+        self.assertEqual(decision.estimated_tensor_pixels, 400)
+        self.assertEqual(decision.tensor_batch_cost, 400)
+        self.assertEqual(decision.effective_input_area, 400)
 
     def test_temporal_hold_triggers_when_motion_disappears(self) -> None:
         gate = RuleBasedRoiGenerator(
@@ -133,6 +156,8 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(decision.trigger_type, TriggerType.FALLBACK_FULL_FRAME)
         self.assertTrue(decision.should_run_full_frame)
         self.assertEqual(decision.rois, [])
+        self.assertEqual(decision.decision_reason, "roi_area_near_full_frame")
+        self.assertEqual(decision.effective_input_area, 10000)
 
     def test_debug_sink_receives_per_frame_generation_trace(self) -> None:
         sink = FakeDebugSink()
@@ -158,13 +183,13 @@ class GatePolicyTest(unittest.TestCase):
         config = RoiGeneratorConfig(max_roi_per_frame=1)
         rois = [ROI(0, 0, 10, 10), ROI(20, 20, 10, 10)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
-        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "max_roi_per_frame")
+        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "budget_overflow")
 
     def test_should_fallback_when_roi_area_exceeds_limit(self) -> None:
         config = RoiGeneratorConfig(max_total_roi_area_ratio=0.25)
         rois = [ROI(0, 0, 60, 60)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
-        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "max_total_roi_area_ratio")
+        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "roi_area_near_full_frame")
 
     def test_periodic_full_frame_skips_first_frame_policy(self) -> None:
         self.assertFalse(is_periodic_full_frame(frame_id=0, interval=30))

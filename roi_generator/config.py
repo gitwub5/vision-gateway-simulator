@@ -28,6 +28,9 @@ class RoiGeneratorConfig:
     full_frame_interval: int = 60
     max_roi_per_frame: int = 5
     max_total_roi_area_ratio: float = 0.5
+    tile_grid_rows: int = 8
+    tile_grid_cols: int = 8
+    tile_motion_density_threshold: float = 0.0
     debug_enabled: bool = False
     debug_max_frames: int | None = None
     debug_stride: int = 1
@@ -59,6 +62,7 @@ class RoiGeneratorConfig:
     def from_mapping(cls, config: dict[str, Any]) -> "RoiGeneratorConfig":
         roi_generator = config.get("roi_generator", config.get("npx_gate", config))
         processing = roi_generator.get("processing", {}) or {}
+        tile_metadata = roi_generator.get("tile_metadata", {}) or {}
         debug = roi_generator.get("debug", {}) or {}
         return cls(
             analysis_width=int(roi_generator.get("analysis_width", cls.analysis_width)),
@@ -83,6 +87,14 @@ class RoiGeneratorConfig:
             max_roi_per_frame=int(roi_generator.get("max_roi_per_frame", cls.max_roi_per_frame)),
             max_total_roi_area_ratio=float(
                 roi_generator.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
+            ),
+            tile_grid_rows=max(1, int(roi_generator.get("tile_grid_rows", tile_metadata.get("grid_rows", cls.tile_grid_rows)))),
+            tile_grid_cols=max(1, int(roi_generator.get("tile_grid_cols", tile_metadata.get("grid_cols", cls.tile_grid_cols)))),
+            tile_motion_density_threshold=float(
+                roi_generator.get(
+                    "tile_motion_density_threshold",
+                    tile_metadata.get("motion_density_threshold", cls.tile_motion_density_threshold),
+                )
             ),
             debug_enabled=bool(debug.get("enabled", cls.debug_enabled)),
             debug_max_frames=_optional_int(debug.get("max_frames")),

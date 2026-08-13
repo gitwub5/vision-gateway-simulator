@@ -22,8 +22,14 @@ from evaluation.gt_report import (
     summarize_gt_roi_containment,
 )
 from evaluation.roi_containment import summarize_roi_containment
-from evaluation.roi_proposal_report import RoiProposalInputs, build_roi_proposal_report
+from evaluation.roi_proposal_report import (
+    RoiProposalInputs,
+    build_roi_proposal_report,
+    write_cost_summary_json,
+    write_roi_policy_summary_markdown,
+)
 from evaluation.workload_metrics import reduction_ratio
+from roi_generator.trace import TileMetadataRecord, TileTrace
 
 
 class EvaluationMetricsTest(unittest.TestCase):
@@ -149,6 +155,12 @@ class EvaluationMetricsTest(unittest.TestCase):
                 roi_records=rois,
                 frame_records=frames,
                 target_classes=["person"],
+                tile_records=[
+                    _tile_record(ROI(0, 0, 50, 50, coord_system="original_frame"), selected=True),
+                    _tile_record(ROI(50, 0, 50, 50, coord_system="original_frame"), selected=True),
+                    _tile_record(ROI(0, 50, 50, 50, coord_system="original_frame"), selected=False),
+                    _tile_record(ROI(0, 0, 50, 50, coord_system="original_frame"), frame_id=2, selected=True),
+                ],
             )
 
         self.assertEqual(report.target_classes, ("person",))
@@ -159,6 +171,49 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.full_frame_input_pixel_area, 20000)
         self.assertEqual(report.roi_only_input_pixel_area, 288)
         self.assertEqual(report.effective_input_pixel_area, 10288)
+        self.assertEqual(report.tile_record_count, 4)
+        self.assertEqual(report.selected_tile_count, 3)
+        self.assertEqual(report.target_gt_tile_contained_count, 1)
+        self.assertEqual(report.target_gt_tile_containment, 1.0)
+        self.assertEqual(report.false_tile_count, 2)
+        self.assertEqual(report.false_tile_ratio, 2 / 3)
+        self.assertEqual(report.average_selected_tile_count_per_frame, 1.5)
+        self.assertEqual(report.average_selected_tile_area_ratio_per_frame, 0.375)
+        self.assertEqual(report.average_raw_component_count_per_frame, 2.0)
+        self.assertEqual(report.average_filtered_component_count_per_frame, 1.0)
+        self.assertEqual(report.average_merged_roi_count_per_frame, 1.0)
+        self.assertEqual(report.average_motion_density_per_frame, 0.25)
+        self.assertEqual(report.average_final_roi_area_ratio_per_frame, 0.12)
+        self.assertEqual(report.decision_reason_counts, {"roi_selected": 2})
+
+    def test_roi_policy_and_cost_summary_writers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            inputs = RoiProposalInputs(
+                ground_truth=root / "ground_truth.jsonl",
+                roi_metadata=root / "rule_roi.jsonl",
+                frame_metadata=root / "gate_decisions.jsonl",
+                report_json=root / "roi_proposal_report.json",
+                report_markdown=root / "roi_proposal_report.md",
+            )
+            report = build_roi_proposal_report(
+                inputs=inputs,
+                ground_truth=[_gt_annotation("person", [1, 1, 10, 10])],
+                roi_records=[_roi_record(ROI(0, 0, 12, 12))],
+                frame_records=[_frame_record()],
+                target_classes=["person"],
+            )
+            policy_summary = root / "roi_policy_summary.md"
+            cost_summary = root / "cost_summary.json"
+
+            write_roi_policy_summary_markdown(report, policy_summary)
+            write_cost_summary_json(report, cost_summary)
+
+            self.assertIn("ROI Policy Summary", policy_summary.read_text(encoding="utf-8"))
+            data = json.loads(cost_summary.read_text(encoding="utf-8"))
+            self.assertEqual(data["schema_version"], 1)
+            self.assertEqual(data["frame_count"], 1)
+            self.assertIn("decision_reason_counts", data)
 
 
 class ComparisonReportTest(unittest.TestCase):
@@ -287,6 +342,30 @@ def _frame_record(frame_id: int = 1, should_run_full_frame: bool = False) -> Gat
         gate_latency_ms=0.5,
         original_frame_size=FrameSize(width=100, height=100),
         analysis_frame_size=FrameSize(width=10, height=10),
+        decision_reason="roi_selected",
+        raw_component_count=2,
+        filtered_component_count=1,
+        merged_roi_count=1,
+        motion_density=0.25,
+        final_roi_area_ratio=0.12,
+    )
+
+
+def _tile_record(roi: ROI, frame_id: int = 1, selected: bool = True) -> TileMetadataRecord:
+    return TileMetadataRecord(
+        camera_id="cam_test",
+        source_id="cam_test",
+        frame_id=frame_id,
+        timestamp=frame_id / 30.0,
+        policy_label="component_bbox",
+        tile=TileTrace(
+            tile_id=1,
+            row=0,
+            col=0,
+            bbox=roi,
+            motion_density=0.5 if selected else 0.0,
+            selected=selected,
+        ),
     )
 
 

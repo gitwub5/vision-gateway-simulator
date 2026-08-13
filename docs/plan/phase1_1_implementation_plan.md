@@ -85,8 +85,122 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 - [x] `balanced_highres` config 추가
 - [x] ROI generator debug trace 시각화 추가
 - [x] UA-DETRAC MVI_39051 / PhysicalAI row 709 120-frame ROI debug run으로 candidate 품질 문제 유형 확인
+- [x] `roi_generator` 내부 구조를 `signals/`, `candidates/`, `policies/`, `budget.py`, `contract.py`, `trace.py` 중심으로 분리
 
-## 5. Stage A0: Observability & ROI Batch Contract
+## 5. 파일 단위 구현 계획
+
+이 섹션은 Stage A0-A2 구현 전에 파일 추가/수정 위치를 고정하기 위한 기준이다. 새 기능은 가능한 한 policy, candidate, budget, report 단위로 분리하고, `gate.py`에는 orchestration만 남긴다.
+
+### 현재 구조 기준
+
+| 경로 | 역할 | Phase 1.1 처리 |
+|---|---|---|
+| `roi_generator/gate.py` | `FramePacket -> GateDecision` orchestration | 특정 policy 세부 구현을 넣지 않는다 |
+| `roi_generator/config.py` | ROI generator config parsing | `roi_policy`, tile/budget/small-object config key 추가 |
+| `roi_generator/contract.py` | downstream gate decision contract | policy label, decision reason, batch contract field 확장 |
+| `roi_generator/budget.py` | ROI/batch/tile budget 판단 | A2 cost/fallback 판단 추가 |
+| `roi_generator/trace.py` | debug/observability trace | A0 component/tile/cost trace dataclass 추가 |
+| `roi_generator/signals/` | frame diff, motion map, preprocessing | compressed-domain signal은 Phase 1.2로 보류 |
+| `roi_generator/candidates/components.py` | component bbox candidate primitive | A0 component metadata 계산 지점 |
+| `roi_generator/candidates/tiles.py` | tile grid/activity candidate primitive | A0/A1에서 신규 추가 |
+| `roi_generator/policies/component_bbox.py` | 기존 baseline policy | `component_bbox_balanced`, noise filter, recall padding 확장 |
+| `roi_generator/policies/tile_mask.py` | tile-first policy | A1에서 신규 추가 |
+| `roi_generator/policies/hybrid_component_tile.py` | component + tile hybrid policy | A1에서 신규 추가 |
+| `evaluation/roi_proposal_report.py` | target-aware ROI proposal report | A0/A2 metric 확장 |
+| `visualization/roi_debug_renderer.py` | ROI debug trace visualization | component/tile overlay 확장 |
+| `experiments/run_roi_proposal_validation.py` | policy 공통 validation runner | output artifact path와 manifest 입력 확장 |
+
+### Stage A0 파일 변경 계획
+
+| 파일 | 변경 내용 | 산출물 |
+|---|---|---|
+| `roi_generator/contract.py` | `policy_label`, `decision_reason`, `batch_slot`, `processing_width`, `processing_height` contract 추가 | `gate_decisions.jsonl` schema 확장 |
+| `roi_generator/trace.py` | `ComponentTrace`, `TileTrace`, `CostTrace`, `PolicyTrace` 계열 dataclass 추가 | debug snapshot과 policy trace record |
+| `roi_generator/candidates/components.py` | component area, bbox size, aspect ratio, fill density, center 계산 helper 추가 | component metadata |
+| `roi_generator/candidates/tiles.py` | fixed grid, per-tile motion density, GT tile containment 계산 helper 추가 | tile metadata |
+| `roi_generator/metadata.py` | frame/ROI metadata writer가 policy/cost field를 기록하도록 확장 | JSONL metadata |
+| `evaluation/roi_proposal_report.py` | ROI count, tile count, batch slot, estimated tensor cost, size bucket summary 추가 | report JSON/Markdown |
+| `visualization/roi_debug_renderer.py` | component bbox와 tile grid overlay를 함께 렌더링 | ROI debug image |
+| `experiments/run_roi_proposal_validation.py` | `policy_traces.jsonl`, `component_metadata.jsonl`, `tile_metadata.jsonl` path 추가 | run artifact 고정 |
+
+### Stage A1 파일 변경 계획
+
+| 파일 | 변경 내용 | 산출물 |
+|---|---|---|
+| `roi_generator/config.py` | `roi_policy` selector와 policy별 config section 추가 | config-driven policy selection |
+| `roi_generator/policies/base.py` | policy interface에 policy label, trace output contract 명확화 | 공통 policy contract |
+| `roi_generator/policies/component_bbox.py` | noise filter, recall padding profile 지원 | `component_bbox_*` profiles |
+| `roi_generator/policies/tile_mask.py` | fixed grid tile activity 기반 ROI 생성 | `tile_mask_balanced` |
+| `roi_generator/policies/hybrid_component_tile.py` | component candidate를 tile score/history/budget으로 보정 | `hybrid_component_tile_balanced` |
+| `configs/roi_generator/profile_component_bbox_noise_filter.yaml` | component noise filtering profile | 비교 run config |
+| `configs/roi_generator/profile_component_bbox_recall_padding.yaml` | small target recall padding profile | 비교 run config |
+| `configs/roi_generator/profile_tile_mask_balanced.yaml` | tile-first baseline profile | 비교 run config |
+| `configs/roi_generator/profile_hybrid_component_tile_balanced.yaml` | hybrid baseline profile | 비교 run config |
+| `tests/test_roi_generator.py` | gate orchestration regression 유지 | 기존 behavior 보호 |
+| `tests/test_roi_policy_component_bbox.py` | component bbox policy 단위 테스트 | baseline 보호 |
+| `tests/test_roi_policy_tile_mask.py` | tile grid/selection 단위 테스트 | 신규 policy 보호 |
+| `tests/test_roi_policy_hybrid_component_tile.py` | hybrid scoring 단위 테스트 | 신규 policy 보호 |
+
+### Stage A2 파일 변경 계획
+
+| 파일 | 변경 내용 | 산출물 |
+|---|---|---|
+| `roi_generator/budget.py` | `max_roi_per_frame`을 batch slot budget으로 재해석하고 tile/tensor cost budget 추가 | fallback decision |
+| `roi_generator/contract.py` | `roi_batch_slots_used`, `tile_group_count`, `estimated_tensor_pixels`, `tensor_batch_cost`, `effective_input_area` field 추가 | downstream cost contract |
+| `evaluation/roi_proposal_report.py` | fallback reason distribution과 budget overflow case summary 추가 | cost summary |
+| `experiments/run_roi_proposal_validation.py` | `reports/cost_summary.json` 생성 | policy 비교 산출물 |
+| `tests/test_roi_budget.py` | area/count/tile/batch fallback unit test 추가 | budget regression guard |
+| `tests/test_roi_contract.py` | contract serialization unit test 추가 | metadata schema guard |
+
+### Output artifact 구조
+
+Phase 1.1 run output은 기존 `outputs/roi_proposal_validation/<run_id>/` 구조를 유지한다. A0-A2에서 아래 파일을 추가한다.
+
+```text
+outputs/roi_proposal_validation/<run_id>/
+  manifest.json
+  roi_metadata/
+    rule_roi.jsonl
+    gate_decisions.jsonl
+    policy_traces.jsonl
+    component_metadata.jsonl
+    tile_metadata.jsonl
+  reports/
+    roi_proposal_report.json
+    roi_proposal_report.md
+    roi_policy_summary.md
+    cost_summary.json
+  visualizations/
+    failures/
+    roi_debug/
+    tile_debug/
+```
+
+### Config key 구조
+
+```yaml
+roi_generator:
+  roi_policy: component_bbox
+  policies:
+    component_bbox:
+      component_filter:
+        enabled: false
+    tile_mask:
+      grid_rows: 8
+      grid_cols: 8
+      motion_density_threshold: 0.02
+    hybrid_component_tile:
+      tile_score_weight: 0.5
+
+  budget:
+    enabled: true
+    max_roi_per_frame: 5
+    max_total_roi_area_ratio: 0.5
+    max_selected_tile_count: null
+    max_tensor_batch_cost: null
+```
+
+## 6. Stage A0: Observability & ROI Batch Contract
 
 ### 목표
 
@@ -98,51 +212,64 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 
 ### 구현 항목
 
-- [ ] ROI debug summary 확장
-  - [ ] raw component count
-  - [ ] filtered component count
-  - [ ] merged ROI count
-  - [ ] motion density
-  - [ ] final ROI area ratio
-  - [ ] fallback reason
-- [ ] component metadata 기록
-  - [ ] component area ratio
-  - [ ] bbox width/height
-  - [ ] bbox aspect ratio
-  - [ ] fill density = component area / bbox area
-  - [ ] component center
-- [ ] tile metadata 계산
-  - [ ] tile grid
-  - [ ] per-tile motion density
-  - [ ] selected tile count
-  - [ ] selected tile area ratio
-  - [ ] GT tile containment / recall
-  - [ ] false tile ratio against target GT
-- [ ] downstream ROI batch contract 추가
-  - [ ] `source_id`
-  - [ ] `roi_id`
-  - [ ] `batch_slot`
-  - [ ] `processing_width`
-  - [ ] `processing_height`
-  - [ ] `decision_reason`
-- [ ] cost metadata 추가
-  - [ ] `roi_batch_slots_used`
-  - [ ] `tile_group_count`
-  - [ ] `estimated_tensor_pixels`
-  - [ ] `tensor_batch_cost`
-  - [ ] `effective_input_area`
-- [ ] fallback/decision reason 체계화
-  - [ ] `budget_overflow`
-  - [ ] `roi_area_near_full_frame`
-  - [ ] `tile_count_overhead_exceeds_gain`
-  - [ ] `tile_history_insufficient`
-  - [ ] `out_of_profile_distribution`
-  - [ ] `batch_slot_overflow`
-  - [ ] `feedback_stale`
-- [ ] object size bucket metric 추가
-  - [ ] small / medium / large GT count
-  - [ ] bucket별 ROI containment
-  - [ ] bucket별 missed target count
+- [x] ROI debug summary 확장
+  - [x] raw component count
+  - [x] filtered component count
+  - [x] merged ROI count
+  - [x] motion density
+  - [x] final ROI area ratio
+  - [x] fallback reason
+- [x] component metadata 기록
+  - [x] component area ratio
+  - [x] bbox width/height
+  - [x] bbox aspect ratio
+  - [x] fill density = component area / bbox area
+  - [x] component center
+- [x] tile metadata 계산
+  - [x] tile grid
+  - [x] per-tile motion density
+  - [x] selected tile count
+  - [x] selected tile area ratio
+  - [x] GT tile containment / recall
+  - [x] false tile ratio against target GT
+- [x] downstream ROI batch contract 추가
+  - [x] `source_id`
+  - [x] `roi_id`
+  - [x] `batch_slot`
+  - [x] `processing_width`
+  - [x] `processing_height`
+  - [x] `decision_reason`
+- [x] cost metadata 추가
+  - [x] `roi_batch_slots_used`
+  - [x] `tile_group_count`
+  - [x] `estimated_tensor_pixels`
+  - [x] `tensor_batch_cost`
+  - [x] `effective_input_area`
+- [x] fallback/decision reason 체계화
+  - [x] `budget_overflow`
+  - [x] `roi_area_near_full_frame`
+
+### A0 산출물
+
+- [x] `roi_metadata/policy_traces.jsonl`
+- [x] `roi_metadata/component_metadata.jsonl`
+- [x] `roi_metadata/tile_metadata.jsonl`
+- [x] `reports/roi_policy_summary.md`
+- [x] `reports/cost_summary.json`
+
+### 후속 stage로 이관한 항목
+
+아래 항목은 A0 완료 조건에서 제외한다. A0에서는 contract와 산출물 구조만 마련했고, 실제 condition은 해당 stage에서 구현한다.
+
+- `tile_count_overhead_exceeds_gain`: A1 `tile_mask` baseline 이후
+- `tile_history_insufficient`: tile history/profile 구현 이후
+- `out_of_profile_distribution`: profile/controller 판단 데이터 축적 이후
+- `batch_slot_overflow`: A2 batch slot budget 구현 이후
+- `feedback_stale`: Stage C reference feedback 구현 이후
+- object size bucket metric: Stage B small object policy에서 구현
+  - small / medium / large GT count
+  - bucket별 ROI containment
+  - bucket별 missed target count
 
 ### A0에서 하지 않는 항목
 
@@ -161,7 +288,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 - report에서 ROI area뿐 아니라 ROI count, tile count, batch slot, estimated tensor cost를 함께 볼 수 있다.
 - failure visualization과 summary만 보고 실패 유형을 구분할 수 있다.
 
-## 6. Stage A1: ROI Policy Baselines
+## 7. Stage A1: ROI Policy Baselines
 
 ### 목표
 
@@ -226,7 +353,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 - ROI count/tile count가 batch budget 안에 들어온다.
 - small object bucket에서 baseline 대비 regression이 없다.
 
-## 7. Stage A2: Budget / Cost / Fallback Policy
+## 8. Stage A2: Budget / Cost / Fallback Policy
 
 ### 목표
 
@@ -263,7 +390,7 @@ ROI area가 줄어도 ROI count, tile count, tensor batch slot이 늘면 실제 
 - fallback reason 분포가 해석 가능하다.
 - ROI/tile/batch budget overflow case가 report에서 분리된다.
 
-## 8. Stage B: Small Object Policy
+## 9. Stage B: Small Object Policy
 
 ### 목표
 
@@ -289,7 +416,7 @@ small target miss를 단순 padding 문제가 아니라 small-object-specific ti
 - small target missed frame count가 줄어든다.
 - tile/ROI count 증가가 tensor cost budget 안에 머문다.
 
-## 9. Stage C: Reference Detector Feedback
+## 10. Stage C: Reference Detector Feedback
 
 ### 목표
 
@@ -320,7 +447,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 - full-frame check count가 과도하게 증가하지 않는다.
 - feedback stale / refresh reason이 report에 분리된다.
 
-## 10. Stage D: Final Policy Selection
+## 11. Stage D: Final Policy Selection
 
 ### 목표
 
@@ -347,7 +474,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 - fallback reason과 policy label이 report에 요약된다.
 - Keep/Tune/Disable/Remove 판정이 기록된다.
 
-## 11. 공통 검증 절차
+## 12. 공통 검증 절차
 
 각 stage는 동일한 절차로 검증한다.
 
@@ -361,7 +488,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 8. 결과를 `docs/runs/phase1_validation_runs.md` 또는 별도 run log에 기록
 9. Keep/Tune/Disable/Remove 판정
 
-## 12. Baseline Dataset
+## 13. Baseline Dataset
 
 | 목적 | Baseline |
 |---|---|
@@ -373,9 +500,9 @@ Construction Site Static Camera는 Phase 1.1 active baseline에서 제외한다.
 
 OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation dataset이므로 primary GT dataset으로 쓰지 않는다. 대신 annotated-object lower-bound 보조 평가와 public surveillance sample 확인에 사용한다.
 
-## 13. Deferred to Phase 1.2
+## 14. Deferred to Phase 1.2
 
-아래 항목은 Phase 1.1에서 제외하고 `docs/plan/phase1_2_research_backlog.md`로 이동한다.
+아래 항목은 Phase 1.1에서 제외하고 `docs/plan/phase1_2_deferred_research_plan.md`로 이동한다.
 
 | 항목 | 제외 이유 |
 |---|---|
@@ -387,7 +514,7 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 | non-uniform tile layout optimization | A0/A1에서는 fixed grid baseline이 먼저 |
 | ROI quality/QP action | ROI 생성보다 encoding quality policy에 가까움 |
 
-## 14. Phase 1.1 종료 조건
+## 15. Phase 1.1 종료 조건
 
 ### 성공 종료
 

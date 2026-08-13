@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from common import FrameSize, ROI
+from roi_generator.trace import ComponentTrace
 
 
 def generate_roi_candidates(motion_map, min_area_ratio: float = 0.001) -> list[ROI]:
@@ -20,6 +21,45 @@ def generate_roi_candidates(motion_map, min_area_ratio: float = 0.001) -> list[R
         score = min(float(area) / float(width * height), 1.0)
         rois.append(ROI(x=int(x), y=int(y), w=int(w), h=int(h), score=score, coord_system="analysis_frame"))
     return rois
+
+
+def count_connected_components(motion_map) -> int:
+    import cv2
+
+    count, _, _, _ = cv2.connectedComponentsWithStats(motion_map, connectivity=8)
+    return max(0, int(count) - 1)
+
+
+def motion_density(motion_map) -> float:
+    area = max(1, int(motion_map.size))
+    try:
+        active = int((motion_map > 0).sum())
+    except TypeError:
+        return 0.0
+    return active / area
+
+
+def component_traces_from_rois(rois: list[ROI], frame_size: FrameSize) -> list[ComponentTrace]:
+    frame_area = frame_size.area()
+    traces: list[ComponentTrace] = []
+    for index, roi in enumerate(rois, start=1):
+        component_area_ratio = max(0.0, min(roi.score, 1.0))
+        component_area = component_area_ratio * frame_area
+        bbox_area = roi.area()
+        traces.append(
+            ComponentTrace(
+                component_id=index,
+                bbox=roi,
+                component_area_ratio=component_area_ratio,
+                bbox_width=roi.w,
+                bbox_height=roi.h,
+                bbox_aspect_ratio=_aspect_ratio(roi),
+                fill_density=(component_area / bbox_area if bbox_area else 0.0),
+                center_x=roi.x + roi.w / 2.0,
+                center_y=roi.y + roi.h / 2.0,
+            )
+        )
+    return traces
 
 
 def scale_roi_to_original(roi: ROI, analysis_size: FrameSize, original_size: FrameSize) -> ROI:
@@ -84,3 +124,9 @@ def _union(a: ROI, b: ROI) -> ROI:
     x2 = max(a.x + a.w, b.x + b.w)
     y2 = max(a.y + a.h, b.y + b.h)
     return ROI(x=x1, y=y1, w=x2 - x1, h=y2 - y1, score=max(a.score, b.score), coord_system=a.coord_system)
+
+
+def _aspect_ratio(roi: ROI) -> float:
+    if roi.h <= 0:
+        return 0.0
+    return roi.w / roi.h

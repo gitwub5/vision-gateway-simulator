@@ -273,6 +273,11 @@ def read_roi_metadata_jsonl(input_path: str | Path) -> list[ROIMetadata]:
                 ),
                 source=str(data.get("source", "rule_based_roi_generator")),
                 trigger_type=TriggerType(str(data.get("trigger_type", TriggerType.ROI.value))),
+                policy_label=str(data.get("policy_label", "component_bbox")),
+                decision_reason=data.get("decision_reason"),
+                batch_slot=_optional_int(data.get("batch_slot")),
+                processing_width=_optional_int(data.get("processing_width")),
+                processing_height=_optional_int(data.get("processing_height")),
             )
         )
     return records
@@ -295,6 +300,19 @@ def read_gate_frame_metadata_jsonl(input_path: str | Path) -> list[GateFrameMeta
                 original_frame_size=FrameSize(width=int(original_width), height=int(original_height)),
                 analysis_frame_size=FrameSize(width=int(analysis_width), height=int(analysis_height)),
                 source=str(data.get("source", "rule_based_roi_generator")),
+                policy_label=str(data.get("policy_label", "component_bbox")),
+                decision_reason=data.get("decision_reason"),
+                roi_batch_slots_used=int(data.get("roi_batch_slots_used", data.get("roi_count", 0))),
+                tile_group_count=int(data.get("tile_group_count", 0)),
+                selected_tile_count=int(data.get("selected_tile_count", 0)),
+                estimated_tensor_pixels=int(data.get("estimated_tensor_pixels", 0)),
+                tensor_batch_cost=int(data.get("tensor_batch_cost", 0)),
+                effective_input_area=int(data.get("effective_input_area", 0)),
+                raw_component_count=int(data.get("raw_component_count", 0)),
+                filtered_component_count=int(data.get("filtered_component_count", 0)),
+                merged_roi_count=int(data.get("merged_roi_count", data.get("roi_count", 0))),
+                motion_density=float(data.get("motion_density", 0.0)),
+                final_roi_area_ratio=float(data.get("final_roi_area_ratio", 0.0)),
             )
         )
     return records
@@ -323,3 +341,9 @@ def _to_list(value: Any) -> list[Any]:
     if hasattr(value, "tolist"):
         value = value.tolist()
     return list(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)

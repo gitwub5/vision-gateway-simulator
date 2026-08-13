@@ -19,4 +19,17 @@ class GateDecision:
     analysis_frame_size: FrameSize
     gate_latency_ms: float
     should_run_full_frame: bool = False
+    policy_label: str = "component_bbox"
+    decision_reason: str | None = None
+    roi_batch_slots_used: int = 0
+    tile_group_count: int = 0
+    selected_tile_count: int = 0
+    estimated_tensor_pixels: int = 0
+    tensor_batch_cost: int = 0
+    effective_input_area: int = 0
+    raw_component_count: int = 0
+    filtered_component_count: int = 0
+    merged_roi_count: int = 0
+    motion_density: float = 0.0
+    final_roi_area_ratio: float = 0.0
     event_maps: EventMaps | None = field(default=None, repr=False, compare=False)

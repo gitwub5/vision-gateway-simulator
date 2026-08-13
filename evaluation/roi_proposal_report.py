@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from common.io import write_json, write_text
 from common.records import format_ratio, group_by_frame
 from evaluation.class_filter import filter_gt_by_target_classes, normalize_target_classes
 from evaluation.roi_containment import contains_bbox
+from roi_generator.trace import TileMetadataRecord
 
 
 @dataclass(frozen=True)
@@ -21,15 +23,19 @@ class RoiProposalInputs:
     frame_metadata: Path
     report_json: Path
     report_markdown: Path
+    tile_metadata: Path | None = None
 
     def to_json_dict(self) -> dict[str, str]:
-        return {
+        data = {
             "ground_truth": str(self.ground_truth),
             "roi_metadata": str(self.roi_metadata),
             "frame_metadata": str(self.frame_metadata),
             "report_json": str(self.report_json),
             "report_markdown": str(self.report_markdown),
         }
+        if self.tile_metadata is not None:
+            data["tile_metadata"] = str(self.tile_metadata)
+        return data
 
 
 @dataclass(frozen=True)
@@ -55,6 +61,18 @@ class RoiProposalReport:
     max_total_roi_area_ratio_per_frame: float
     gate_average_latency_ms: float
     gate_max_latency_ms: float
+    tile_record_count: int = 0
+    selected_tile_count: int = 0
+    average_selected_tile_count_per_frame: float = 0.0
+    average_selected_tile_area_ratio_per_frame: float = 0.0
+    target_gt_tile_contained_count: int = 0
+    false_tile_count: int = 0
+    average_raw_component_count_per_frame: float = 0.0
+    average_filtered_component_count_per_frame: float = 0.0
+    average_merged_roi_count_per_frame: float = 0.0
+    average_motion_density_per_frame: float = 0.0
+    average_final_roi_area_ratio_per_frame: float = 0.0
+    decision_reason_counts: dict[str, int] = field(default_factory=dict)
 
     @property
     def missed_gt_count(self) -> int:
@@ -71,6 +89,18 @@ class RoiProposalReport:
         if self.roi_record_count == 0:
             return 0.0
         return self.false_roi_count / self.roi_record_count
+
+    @property
+    def target_gt_tile_containment(self) -> float:
+        if self.target_gt_count == 0:
+            return 0.0
+        return self.target_gt_tile_contained_count / self.target_gt_count
+
+    @property
+    def false_tile_ratio(self) -> float:
+        if self.selected_tile_count == 0:
+            return 0.0
+        return self.false_tile_count / self.selected_tile_count
 
     @property
     def fallback_frame_rate(self) -> float:
@@ -100,6 +130,8 @@ class RoiProposalReport:
         data["missed_gt_count"] = self.missed_gt_count
         data["target_gt_roi_containment"] = self.target_gt_roi_containment
         data["false_roi_rate"] = self.false_roi_rate
+        data["target_gt_tile_containment"] = self.target_gt_tile_containment
+        data["false_tile_ratio"] = self.false_tile_ratio
         data["fallback_frame_rate"] = self.fallback_frame_rate
         data["full_frame_check_rate"] = self.full_frame_check_rate
         data["roi_only_input_area_reduction"] = self.roi_only_input_area_reduction
@@ -128,6 +160,15 @@ class RoiProposalReport:
             f"- Full-frame check rate: {format_ratio(self.full_frame_check_rate)}",
             f"- Fallback frame rate: {format_ratio(self.fallback_frame_rate)}",
             f"- False ROI rate against target GT: {format_ratio(self.false_roi_rate)}",
+            f"- Target GT tile containment: {format_ratio(self.target_gt_tile_containment)}",
+            f"- False tile ratio against target GT: {format_ratio(self.false_tile_ratio)}",
+            f"- Average selected tile count per frame: {self.average_selected_tile_count_per_frame:.3f}",
+            f"- Average selected tile area ratio per frame: {format_ratio(self.average_selected_tile_area_ratio_per_frame)}",
+            f"- Average raw component count per frame: {self.average_raw_component_count_per_frame:.3f}",
+            f"- Average filtered component count per frame: {self.average_filtered_component_count_per_frame:.3f}",
+            f"- Average merged ROI count per frame: {self.average_merged_roi_count_per_frame:.3f}",
+            f"- Average motion density per frame: {format_ratio(self.average_motion_density_per_frame)}",
+            f"- Average final ROI area ratio per frame: {format_ratio(self.average_final_roi_area_ratio_per_frame)}",
             f"- Gate average latency: {self.gate_average_latency_ms:.3f} ms",
             f"- Gate max latency: {self.gate_max_latency_ms:.3f} ms",
             "",
@@ -138,13 +179,22 @@ class RoiProposalReport:
             f"- Target GT frames: {self.target_gt_frame_count}",
             f"- ROI records: {self.roi_record_count}",
             f"- ROI frames: {self.roi_frame_count}",
+            f"- Tile records: {self.tile_record_count}",
+            f"- Selected tile records: {self.selected_tile_count}",
             f"- Full-frame input pixel area: {self.full_frame_input_pixel_area}",
             f"- ROI-only input pixel area: {self.roi_only_input_pixel_area}",
             f"- Effective input pixel area: {self.effective_input_pixel_area}",
             "",
-            "## Inputs",
+            "## Decision Reasons",
             "",
         ]
+        for reason, count in sorted(self.decision_reason_counts.items()):
+            lines.append(f"- `{reason}`: {count}")
+        lines.extend([
+            "",
+            "## Inputs",
+            "",
+        ])
         for key, value in self.inputs.to_json_dict().items():
             lines.append(f"- `{key}`: `{value}`")
         lines.append("")
@@ -157,13 +207,17 @@ def build_roi_proposal_report(
     roi_records: Iterable[ROIMetadata],
     frame_records: Iterable[GateFrameMetadata],
     target_classes: Iterable[str] | None = None,
+    tile_records: Iterable[TileMetadataRecord] | None = None,
 ) -> RoiProposalReport:
     normalized_targets = normalize_target_classes(target_classes)
     gt_records = filter_gt_by_target_classes(ground_truth, normalized_targets)
     rois = list(roi_records)
     frames = list(frame_records)
+    tiles = list(tile_records or [])
     rois_by_frame = group_by_frame(rois)
     gt_by_frame = group_by_frame(gt_records)
+    selected_tiles = [tile for tile in tiles if tile.tile.selected]
+    selected_tiles_by_frame = group_by_frame(selected_tiles)
 
     contained_gt_count = 0
     missed_target_frames: set[tuple[str, int]] = set()
@@ -184,6 +238,18 @@ def build_roi_proposal_report(
         if not any(contains_bbox(roi_record.roi, gt.bbox_xyxy) for gt in frame_gt):
             false_roi_count += 1
 
+    target_gt_tile_contained_count = 0
+    for gt in gt_records:
+        frame_tiles = selected_tiles_by_frame.get((gt.camera_id, gt.frame_id), [])
+        if any(contains_bbox(tile.tile.bbox, gt.bbox_xyxy) for tile in frame_tiles):
+            target_gt_tile_contained_count += 1
+
+    false_tile_count = 0
+    for tile in selected_tiles:
+        frame_gt = gt_by_frame.get((tile.camera_id, tile.frame_id), [])
+        if not any(contains_bbox(tile.tile.bbox, gt.bbox_xyxy) for gt in frame_gt):
+            false_tile_count += 1
+
     full_frame_input_area = sum(frame.original_frame_size.area() for frame in frames)
     roi_area_by_frame = {
         key: sum(roi_record.roi.area() for roi_record in frame_rois)
@@ -192,7 +258,9 @@ def build_roi_proposal_report(
     roi_only_input_area = sum(roi_area_by_frame.values())
     effective_input_area = 0
     area_ratios: list[float] = []
+    selected_tile_area_ratios: list[float] = []
     latencies = [frame.gate_latency_ms for frame in frames]
+    decision_reason_counts = Counter(frame.decision_reason or "unknown" for frame in frames)
 
     for frame in frames:
         key = (frame.camera_id, frame.frame_id)
@@ -202,6 +270,8 @@ def build_roi_proposal_report(
         if frame.should_run_full_frame:
             effective_input_area += frame_area
         area_ratios.append(roi_area / frame_area if frame_area else 0.0)
+        selected_tile_area = sum(tile.tile.bbox.area() for tile in selected_tiles_by_frame.get(key, []))
+        selected_tile_area_ratios.append(selected_tile_area / frame_area if frame_area else 0.0)
 
     return RoiProposalReport(
         inputs=inputs,
@@ -223,6 +293,20 @@ def build_roi_proposal_report(
         average_roi_count_per_frame=(len(rois) / len(frames) if frames else 0.0),
         average_total_roi_area_ratio_per_frame=(sum(area_ratios) / len(area_ratios) if area_ratios else 0.0),
         max_total_roi_area_ratio_per_frame=(max(area_ratios) if area_ratios else 0.0),
+        tile_record_count=len(tiles),
+        selected_tile_count=len(selected_tiles),
+        average_selected_tile_count_per_frame=(len(selected_tiles) / len(frames) if frames else 0.0),
+        average_selected_tile_area_ratio_per_frame=(
+            sum(selected_tile_area_ratios) / len(selected_tile_area_ratios) if selected_tile_area_ratios else 0.0
+        ),
+        target_gt_tile_contained_count=target_gt_tile_contained_count,
+        false_tile_count=false_tile_count,
+        average_raw_component_count_per_frame=_average(frame.raw_component_count for frame in frames),
+        average_filtered_component_count_per_frame=_average(frame.filtered_component_count for frame in frames),
+        average_merged_roi_count_per_frame=_average(frame.merged_roi_count for frame in frames),
+        average_motion_density_per_frame=_average(frame.motion_density for frame in frames),
+        average_final_roi_area_ratio_per_frame=_average(frame.final_roi_area_ratio for frame in frames),
+        decision_reason_counts=dict(decision_reason_counts),
         gate_average_latency_ms=(sum(latencies) / len(latencies) if latencies else 0.0),
         gate_max_latency_ms=(max(latencies) if latencies else 0.0),
     )
@@ -236,7 +320,69 @@ def write_roi_proposal_report_markdown(report: RoiProposalReport, output_path: s
     write_text(report.to_markdown(), output_path)
 
 
+def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: str | Path) -> None:
+    lines = [
+        "# ROI Policy Summary",
+        "",
+        "## Target Coverage",
+        "",
+        f"- Target GT ROI containment: {format_ratio(report.target_gt_roi_containment)}",
+        f"- Target GT tile containment: {format_ratio(report.target_gt_tile_containment)}",
+        f"- Missed target GT objects: {report.missed_gt_count}",
+        f"- No-ROI target frames: {report.no_roi_target_frame_count}",
+        "",
+        "## Policy Cost",
+        "",
+        f"- Effective input area reduction: {format_ratio(report.effective_input_area_reduction)}",
+        f"- Average ROI count per frame: {report.average_roi_count_per_frame:.3f}",
+        f"- Average selected tile count per frame: {report.average_selected_tile_count_per_frame:.3f}",
+        f"- Average final ROI area ratio per frame: {format_ratio(report.average_final_roi_area_ratio_per_frame)}",
+        f"- Average motion density per frame: {format_ratio(report.average_motion_density_per_frame)}",
+        "",
+        "## Decision Reasons",
+        "",
+    ]
+    for reason, count in sorted(report.decision_reason_counts.items()):
+        lines.append(f"- `{reason}`: {count}")
+    lines.append("")
+    write_text("\n".join(lines), output_path)
+
+
+def write_cost_summary_json(report: RoiProposalReport, output_path: str | Path) -> None:
+    write_json(
+        {
+            "schema_version": 1,
+            "frame_count": report.frame_count,
+            "full_frame_input_pixel_area": report.full_frame_input_pixel_area,
+            "roi_only_input_pixel_area": report.roi_only_input_pixel_area,
+            "effective_input_pixel_area": report.effective_input_pixel_area,
+            "roi_only_input_area_reduction": report.roi_only_input_area_reduction,
+            "effective_input_area_reduction": report.effective_input_area_reduction,
+            "average_roi_count_per_frame": report.average_roi_count_per_frame,
+            "average_total_roi_area_ratio_per_frame": report.average_total_roi_area_ratio_per_frame,
+            "max_total_roi_area_ratio_per_frame": report.max_total_roi_area_ratio_per_frame,
+            "selected_tile_count": report.selected_tile_count,
+            "average_selected_tile_count_per_frame": report.average_selected_tile_count_per_frame,
+            "average_selected_tile_area_ratio_per_frame": report.average_selected_tile_area_ratio_per_frame,
+            "average_raw_component_count_per_frame": report.average_raw_component_count_per_frame,
+            "average_filtered_component_count_per_frame": report.average_filtered_component_count_per_frame,
+            "average_merged_roi_count_per_frame": report.average_merged_roi_count_per_frame,
+            "average_motion_density_per_frame": report.average_motion_density_per_frame,
+            "average_final_roi_area_ratio_per_frame": report.average_final_roi_area_ratio_per_frame,
+            "decision_reason_counts": report.decision_reason_counts,
+        },
+        output_path,
+    )
+
+
 def _reduction_ratio(baseline: int, current: int) -> float:
     if baseline == 0:
         return 0.0
     return (baseline - current) / baseline
+
+
+def _average(values: Iterable[float]) -> float:
+    items = list(values)
+    if not items:
+        return 0.0
+    return sum(items) / len(items)

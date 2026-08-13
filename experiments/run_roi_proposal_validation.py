@@ -27,11 +27,14 @@ from evaluation import collect_hardware_snapshot
 from evaluation.roi_proposal_report import (
     RoiProposalInputs,
     build_roi_proposal_report,
+    write_cost_summary_json,
+    write_roi_policy_summary_markdown,
     write_roi_proposal_report_json,
     write_roi_proposal_report_markdown,
 )
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
 from roi_generator import load_roi_generator_config
+from roi_generator.metadata import read_tile_metadata_jsonl
 from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
 from experiments.validation_common import load_validation_config, run_roi_generator_metadata
 from visualization.roi_debug_renderer import RoiDebugRenderer
@@ -55,9 +58,14 @@ class RoiProposalPaths:
         self.manifest = root / "manifest.json"
         self.roi_metadata = self.roi_metadata_dir / "rule_roi.jsonl"
         self.frame_metadata = self.roi_metadata_dir / "gate_decisions.jsonl"
+        self.component_metadata = self.roi_metadata_dir / "component_metadata.jsonl"
+        self.tile_metadata = self.roi_metadata_dir / "tile_metadata.jsonl"
+        self.policy_traces = self.roi_metadata_dir / "policy_traces.jsonl"
         self.ground_truth = self.annotations_dir / "ground_truth.jsonl"
         self.report_json = self.reports_dir / "roi_proposal_report.json"
         self.report_markdown = self.reports_dir / "roi_proposal_report.md"
+        self.roi_policy_summary = self.reports_dir / "roi_policy_summary.md"
+        self.cost_summary = self.reports_dir / "cost_summary.json"
 
     @classmethod
     def from_root(cls, root: str | Path) -> "RoiProposalPaths":
@@ -79,9 +87,14 @@ class RoiProposalPaths:
             "manifest": str(self.manifest),
             "roi_metadata": str(self.roi_metadata),
             "frame_metadata": str(self.frame_metadata),
+            "component_metadata": str(self.component_metadata),
+            "tile_metadata": str(self.tile_metadata),
+            "policy_traces": str(self.policy_traces),
             "ground_truth": str(self.ground_truth),
             "report_json": str(self.report_json),
             "report_markdown": str(self.report_markdown),
+            "roi_policy_summary": str(self.roi_policy_summary),
+            "cost_summary": str(self.cost_summary),
             "visualizations": str(self.visualizations_dir),
             "roi_debug": str(self.roi_debug_dir),
         }
@@ -140,6 +153,9 @@ def main() -> None:
             roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
+            component_output=paths.component_metadata,
+            tile_output=paths.tile_metadata,
+            policy_trace_output=paths.policy_traces,
             debug_sink=roi_debug_renderer,
         ),
     )
@@ -226,6 +242,7 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
         ground_truth=paths.ground_truth,
         roi_metadata=paths.roi_metadata,
         frame_metadata=paths.frame_metadata,
+        tile_metadata=paths.tile_metadata,
         report_json=paths.report_json,
         report_markdown=paths.report_markdown,
     )
@@ -235,9 +252,12 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
         roi_records=read_roi_metadata_jsonl(paths.roi_metadata),
         frame_records=read_gate_frame_metadata_jsonl(paths.frame_metadata),
         target_classes=target_classes,
+        tile_records=read_tile_metadata_jsonl(paths.tile_metadata),
     )
     write_roi_proposal_report_json(report, paths.report_json)
     write_roi_proposal_report_markdown(report, paths.report_markdown)
+    write_roi_policy_summary_markdown(report, paths.roi_policy_summary)
+    write_cost_summary_json(report, paths.cost_summary)
     return report.to_json_dict()
 
 

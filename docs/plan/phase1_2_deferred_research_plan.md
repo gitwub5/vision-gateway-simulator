@@ -1,6 +1,6 @@
-# Phase 1.2 Research Backlog
+# Phase 1.2 Deferred Research Plan
 
-이 문서는 Phase 1.1 ROI Gate policy 검증 범위에서 제외한 항목을 Phase 1.2 후보로 관리한다.
+이 문서는 Phase 1.1 ROI Gate policy 검증 범위에서 의도적으로 제외한 항목을 Phase 1.2 deferred research 후보로 관리한다.
 
 Phase 1.2는 Phase 1.1에서 `component_bbox`, `tile_mask`, `hybrid_component_tile` baseline과 ROI/tile/batch cost metric이 정리된 뒤 진행한다.
 
@@ -102,4 +102,4 @@ Fixed grid `tile_mask`가 target containment는 좋지만 tile count/tensor cost
 
 Phase 1.2 후보를 실제 구현으로 승격할 때는 별도 implementation plan을 만든다.
 
-승격 전까지 이 문서는 backlog이며, Phase 1.1 Keep/Tune/Disable/Remove 판정을 대체하지 않는다.
+승격 전까지 이 문서는 deferred research plan이며, Phase 1.1 Keep/Tune/Disable/Remove 판정을 대체하지 않는다.

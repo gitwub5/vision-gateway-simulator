@@ -9,6 +9,12 @@ from common import FramePacket, FrameSize, ROI, TriggerType
 from roi_generator.budget import BudgetFallbackDecision, evaluate_budget_fallback, should_fallback_to_full_frame
 from roi_generator.config import RoiGeneratorConfig, load_roi_generator_config
 from roi_generator.contract import GateDecision
+from roi_generator.decision_reasons import (
+    ANALYSIS_SIZE_CHANGED,
+    INITIAL_FRAME,
+    PERIODIC_FULL_FRAME,
+    reason_for_trigger,
+)
 from roi_generator.signals.event_encoder import EventMaps, encode_event_maps
 from roi_generator.policies import ComponentBboxPolicy, RoiPolicy
 from roi_generator.signals.preprocess import resize_for_analysis, to_gray
@@ -31,6 +37,7 @@ class RuleBasedRoiGenerator:
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None
         self._previous_analysis_size: FrameSize | None = None
+        self.last_generation_trace: RoiGenerationTrace | None = None
 
     def process(self, packet: FramePacket) -> GateDecision:
         started = perf_counter()
@@ -43,6 +50,7 @@ class RuleBasedRoiGenerator:
             merged_analysis_rois=[],
             final_rois=[],
         )
+        self.last_generation_trace = empty_trace
 
         if self._previous_analysis_gray is None:
             self._remember_analysis_frame(analysis_gray, analysis_size)
@@ -52,6 +60,7 @@ class RuleBasedRoiGenerator:
                 started=started,
                 event_maps=None,
                 analysis_size=analysis_size,
+                decision_reason=INITIAL_FRAME,
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -73,6 +82,7 @@ class RuleBasedRoiGenerator:
                 started=started,
                 event_maps=None,
                 analysis_size=analysis_size,
+                decision_reason=ANALYSIS_SIZE_CHANGED,
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -89,6 +99,7 @@ class RuleBasedRoiGenerator:
         self._remember_analysis_frame(analysis_gray, analysis_size)
 
         generation_trace = self._generate_roi_trace(event_maps, analysis_size, packet.original_size)
+        self.last_generation_trace = generation_trace
         current_rois = generation_trace.final_rois
         budget_fallback = evaluate_budget_fallback(current_rois, packet.original_size, self.config)
         if budget_fallback.should_fallback:
@@ -101,6 +112,10 @@ class RuleBasedRoiGenerator:
                 should_run_full_frame=True,
                 event_maps=event_maps,
                 analysis_size=analysis_size,
+                decision_reason=budget_fallback.reason or "budget_fallback",
+                selected_tile_count=selected_tile_count(generation_trace),
+                tile_group_count=selected_tile_count(generation_trace),
+                trace=generation_trace,
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -123,6 +138,10 @@ class RuleBasedRoiGenerator:
                 started=started,
                 event_maps=event_maps,
                 analysis_size=analysis_size,
+                decision_reason=PERIODIC_FULL_FRAME,
+                selected_tile_count=selected_tile_count(generation_trace),
+                tile_group_count=selected_tile_count(generation_trace),
+                trace=generation_trace,
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -143,6 +162,10 @@ class RuleBasedRoiGenerator:
             should_run_full_frame=False,
             event_maps=event_maps,
             analysis_size=analysis_size,
+            decision_reason=reason_for_trigger(trigger_type),
+            selected_tile_count=selected_tile_count(generation_trace),
+            tile_group_count=selected_tile_count(generation_trace),
+            trace=generation_trace,
         )
         self._emit_debug_snapshot(
             packet=packet,
@@ -190,6 +213,10 @@ class RuleBasedRoiGenerator:
         started: float,
         event_maps: EventMaps | None,
         analysis_size: FrameSize,
+        decision_reason: str,
+        selected_tile_count: int = 0,
+        tile_group_count: int = 0,
+        trace: RoiGenerationTrace | None = None,
     ) -> GateDecision:
         return self._decision(
             packet=packet,
@@ -199,6 +226,10 @@ class RuleBasedRoiGenerator:
             should_run_full_frame=True,
             event_maps=event_maps,
             analysis_size=analysis_size,
+            decision_reason=decision_reason,
+            selected_tile_count=selected_tile_count,
+            tile_group_count=tile_group_count,
+            trace=trace,
         )
 
     def _decision(
@@ -210,9 +241,17 @@ class RuleBasedRoiGenerator:
         should_run_full_frame: bool,
         event_maps: EventMaps | None,
         analysis_size: FrameSize | None = None,
+        decision_reason: str | None = None,
+        selected_tile_count: int = 0,
+        tile_group_count: int = 0,
+        trace: RoiGenerationTrace | None = None,
     ) -> GateDecision:
         if analysis_size is None:
             analysis_size = self.config.analysis_size_for_frame(packet.original_size)
+        estimated_tensor_pixels = sum(roi.area() for roi in rois)
+        effective_input_area = estimated_tensor_pixels
+        if should_run_full_frame:
+            effective_input_area += packet.original_size.area()
         return GateDecision(
             camera_id=packet.camera_id,
             frame_id=packet.frame_id,
@@ -223,6 +262,19 @@ class RuleBasedRoiGenerator:
             analysis_frame_size=analysis_size,
             gate_latency_ms=(perf_counter() - started) * 1000.0,
             should_run_full_frame=should_run_full_frame,
+            policy_label=self.policy.name,
+            decision_reason=decision_reason,
+            roi_batch_slots_used=len(rois),
+            tile_group_count=tile_group_count,
+            selected_tile_count=selected_tile_count,
+            estimated_tensor_pixels=estimated_tensor_pixels,
+            tensor_batch_cost=estimated_tensor_pixels,
+            effective_input_area=effective_input_area,
+            raw_component_count=(trace.raw_component_count if trace else 0),
+            filtered_component_count=(trace.filtered_component_count if trace else 0),
+            merged_roi_count=(len(trace.merged_analysis_rois) if trace else 0),
+            motion_density=(trace.motion_density if trace else 0.0),
+            final_roi_area_ratio=final_roi_area_ratio(trace, packet.original_size) if trace else 0.0,
             event_maps=event_maps,
         )
 
@@ -254,6 +306,17 @@ class RuleBasedRoiGenerator:
 
 def is_periodic_full_frame(frame_id: int, interval: int) -> bool:
     return interval > 0 and frame_id > 0 and frame_id % interval == 0
+
+
+def selected_tile_count(trace: RoiGenerationTrace) -> int:
+    return sum(1 for tile in trace.tile_traces if tile.selected)
+
+
+def final_roi_area_ratio(trace: RoiGenerationTrace, frame_size: FrameSize) -> float:
+    frame_area = frame_size.area()
+    if frame_area <= 0:
+        return 0.0
+    return sum(roi.area() for roi in trace.final_rois) / frame_area
 
 
 def sort_rois_by_area(rois: list[ROI]) -> list[ROI]:
