@@ -115,9 +115,9 @@ python -m unittest discover -s tests
 | [docs/plan/phase1_validation_plan.md](docs/plan/phase1_validation_plan.md) | Phase 1 공유용 검증 실행 절차와 산출물 규칙 |
 | [docs/plan/vision_frontend_validation_roadmap.md](docs/plan/vision_frontend_validation_roadmap.md) | Phase 2 이후 장기 로드맵 |
 | [docs/README.md](docs/README.md) | 문서 디렉터리 운영 규칙 |
-| [docs/sample_data.md](docs/sample_data.md) | 공개 sample data 준비 방법 |
-| [docs/smoke_test.md](docs/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
-| [docs/smoke_test_visualization_result.md](docs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |
+| [docs/how-to/dataset_setup.md](docs/how-to/dataset_setup.md) | 공개 sample data 준비 방법 |
+| [docs/how-to/smoke_test.md](docs/how-to/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
+| [docs/runs/smoke_test_visualization_result.md](docs/runs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |
 
 ## 협업 메모
 

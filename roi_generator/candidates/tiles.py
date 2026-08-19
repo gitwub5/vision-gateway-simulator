@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from common import FrameSize, ROI
-from roi_generator.trace import TileTrace
+from roi_generator.observability.trace import TileTrace
 
 
 def tile_traces_from_motion_map(
@@ -43,6 +43,10 @@ def tile_traces_from_motion_map(
 
 def selected_tile_count(tile_traces: list[TileTrace]) -> int:
     return sum(1 for tile in tile_traces if tile.selected)
+
+
+def selected_tile_rois(tile_traces: list[TileTrace]) -> list[ROI]:
+    return [tile.bbox for tile in tile_traces if tile.selected]
 
 
 def scale_tile_traces_to_original(

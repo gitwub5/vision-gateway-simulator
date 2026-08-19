@@ -6,20 +6,20 @@ from time import perf_counter
 from typing import Any
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from roi_generator.budget import BudgetFallbackDecision, evaluate_budget_fallback, should_fallback_to_full_frame
-from roi_generator.config import RoiGeneratorConfig, load_roi_generator_config
-from roi_generator.contract import GateDecision
-from roi_generator.decision_reasons import (
+from roi_generator.core.budget import BudgetFallbackDecision, evaluate_budget_fallback, should_fallback_to_full_frame
+from roi_generator.core.config import RoiGeneratorConfig, load_roi_generator_config
+from roi_generator.core.contract import GateDecision
+from roi_generator.core.decision_reasons import (
     ANALYSIS_SIZE_CHANGED,
     INITIAL_FRAME,
     PERIODIC_FULL_FRAME,
     reason_for_trigger,
 )
 from roi_generator.signals.event_encoder import EventMaps, encode_event_maps
-from roi_generator.policies import ComponentBboxPolicy, RoiPolicy
+from roi_generator.policies import RoiPolicy, create_roi_policy
 from roi_generator.signals.preprocess import resize_for_analysis, to_gray
-from roi_generator.temporal_hold import TemporalHold
-from roi_generator.trace import RoiDebugSink, RoiDebugSnapshot, RoiGenerationTrace
+from roi_generator.core.temporal_hold import TemporalHold
+from roi_generator.observability.trace import RoiDebugSink, RoiDebugSnapshot, RoiGenerationTrace
 
 
 class RuleBasedRoiGenerator:
@@ -32,7 +32,7 @@ class RuleBasedRoiGenerator:
         policy: RoiPolicy | None = None,
     ) -> None:
         self.config = config
-        self.policy = policy or ComponentBboxPolicy(config)
+        self.policy = policy or create_roi_policy(config)
         self.debug_sink = debug_sink
         self._temporal_hold = TemporalHold(config.hold_frames)
         self._previous_analysis_gray = None

@@ -34,7 +34,7 @@ from evaluation.roi_proposal_report import (
 )
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
 from roi_generator import load_roi_generator_config
-from roi_generator.metadata import read_tile_metadata_jsonl
+from roi_generator.observability.metadata import read_tile_metadata_jsonl
 from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
 from experiments.validation_common import load_validation_config, run_roi_generator_metadata
 from visualization.roi_debug_renderer import RoiDebugRenderer

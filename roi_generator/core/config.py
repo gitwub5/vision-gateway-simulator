@@ -12,6 +12,7 @@ from common.io import load_yaml_config
 
 @dataclass(frozen=True)
 class RoiGeneratorConfig:
+    roi_policy: str = "component_bbox"
     analysis_width: int = 256
     analysis_height: int = 144
     processing_width: int | None = None
@@ -31,6 +32,12 @@ class RoiGeneratorConfig:
     tile_grid_rows: int = 8
     tile_grid_cols: int = 8
     tile_motion_density_threshold: float = 0.0
+    component_filter_enabled: bool = False
+    component_filter_min_area_ratio: float | None = None
+    component_filter_max_aspect_ratio: float | None = None
+    component_filter_min_fill_density: float | None = None
+    min_final_roi_width: int = 0
+    min_final_roi_height: int = 0
     debug_enabled: bool = False
     debug_max_frames: int | None = None
     debug_stride: int = 1
@@ -63,8 +70,11 @@ class RoiGeneratorConfig:
         roi_generator = config.get("roi_generator", config.get("npx_gate", config))
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
+        component_filter = roi_generator.get("component_filter", {}) or {}
+        recall_padding = roi_generator.get("recall_padding", {}) or {}
         debug = roi_generator.get("debug", {}) or {}
         return cls(
+            roi_policy=str(roi_generator.get("roi_policy", cls.roi_policy)),
             analysis_width=int(roi_generator.get("analysis_width", cls.analysis_width)),
             analysis_height=int(roi_generator.get("analysis_height", cls.analysis_height)),
             processing_width=_optional_int(roi_generator.get("processing_width", processing.get("width"))),
@@ -96,6 +106,28 @@ class RoiGeneratorConfig:
                     tile_metadata.get("motion_density_threshold", cls.tile_motion_density_threshold),
                 )
             ),
+            component_filter_enabled=bool(component_filter.get("enabled", cls.component_filter_enabled)),
+            component_filter_min_area_ratio=_optional_float(component_filter.get("min_area_ratio")),
+            component_filter_max_aspect_ratio=_optional_float(component_filter.get("max_aspect_ratio")),
+            component_filter_min_fill_density=_optional_float(component_filter.get("min_fill_density")),
+            min_final_roi_width=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "min_final_roi_width",
+                        recall_padding.get("min_final_roi_width", cls.min_final_roi_width),
+                    )
+                ),
+            ),
+            min_final_roi_height=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "min_final_roi_height",
+                        recall_padding.get("min_final_roi_height", cls.min_final_roi_height),
+                    )
+                ),
+            ),
             debug_enabled=bool(debug.get("enabled", cls.debug_enabled)),
             debug_max_frames=_optional_int(debug.get("max_frames")),
             debug_stride=max(1, int(debug.get("stride", cls.debug_stride))),
@@ -111,3 +143,9 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)

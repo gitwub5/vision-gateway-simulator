@@ -29,12 +29,12 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
 | Tier 0 | `opencv-vtest` | `configs/datasets/opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `physicalai-smartspaces` | `configs/datasets/physicalai_row0709.yaml` | 산업/창고 synthetic fixed-camera target-aware ROI proposal validation | person GT ROI containment, ROI count/area, fallback/full-frame check, gate latency, ROI failure visualization |
-| Tier 1 | `ua-detrac` | `configs/datasets/ua_detrac_mvi_39051.yaml` | 실사 고정/준고정 교통 CCTV ROI proposal validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
+| Tier 1 | `physicalai-smartspaces` | `configs/datasets/physicalai_row0709_after3m.yaml` | 산업/창고 crowded person synthetic fixed-camera target-aware ROI proposal validation | person GT ROI containment, ROI count/area, fallback/full-frame check, gate latency, ROI failure visualization |
+| Tier 1 | `ua-detrac` | `configs/datasets/ua_detrac_mvi_40204.yaml` | 실사 차량 전용 교통 CCTV ROI proposal validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
 | Tier 2 | `od-virat-tiny` | `configs/datasets/od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
-우선순위는 Tier 0 smoke 이후, 산업 도메인 후보인 PhysicalAI row 단위 dataset과 실사 temporal GT인 UA-DETRAC을 함께 고정하는 것이다.
+우선순위는 Tier 0 smoke 이후, 산업 도메인 후보인 PhysicalAI row 709의 3분 이후 crowded person 구간과 실사 vehicle-only GT인 UA-DETRAC MVI_40204를 함께 고정하는 것이다.
 
 Construction Site Static Camera는 검토 후 active validation dataset에서 제외했다. `IMG259`-`IMG457` 구간의 balanced/high-res ROI generator 결과는 `outputs/`에 보존하되, 단일 연속 영상이 아니고 raw ROI가 거의 전체 프레임으로 확장되어 ROI proposal primary 검증에 부적합하다고 기록한다.
 
@@ -73,70 +73,19 @@ Run id 규칙:
 
 ```text
 opencv_vtest_f0000_0120_balanced_20260729
-ua_detrac_mvi_39051_f0000_0120_recall_20260805
+ua_detrac_mvi_40204_f0000_0120_recall_20260805
 ```
 
-## 5. 기본 실행 명령
+## 5. 실행 Guide
 
-OpenCV vtest quick:
+실제 실행 명령은 `docs/how-to/`에서 관리한다.
 
-```bash
-python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/opencv_vtest.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
-  --model-config configs/models/yolo_default.yaml \
-  --experiment-name opencv_vtest_balanced \
-  --limit 120 \
-  --render-limit 30
-```
-
-UA-DETRAC balanced review:
-
-```bash
-python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
-  --model-config configs/models/yolo_default.yaml \
-  --experiment-name ua_detrac_mvi_39051_balanced \
-  --limit 1000 \
-  --render-limit 100
-```
-
-PhysicalAI row 709 ROI proposal quick:
-
-```bash
-python3 experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai_row0709.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
-  --experiment-name physicalai_row0709_balanced \
-  --limit 120 \
-  --render-limit 30
-```
-
-UA-DETRAC high-res ROI analysis review:
-
-```bash
-python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced_highres.yaml \
-  --model-config configs/models/yolo_default.yaml \
-  --experiment-name ua_detrac_mvi_39051_balanced_highres \
-  --limit 1000 \
-  --render-limit 100
-```
-
-UA-DETRAC no-refresh ablation:
-
-```bash
-python3 experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/ua_detrac_mvi_39051.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
-  --model-config configs/models/yolo_default.yaml \
-  --experiment-name ua_detrac_mvi_39051_balanced_no_refresh \
-  --limit 1000 \
-  --render-limit 100 \
-  --disable-full-frame-checks
-```
+| Guide | Scope |
+|---|---|
+| `docs/how-to/dataset_setup.md` | dataset 준비와 config 확인 |
+| `docs/how-to/roi_proposal_validation.md` | ROI proposal validation 실행 |
+| `docs/how-to/e2e_inference_validation.md` | ROI gate + YOLO E2E validation 실행 |
+| `docs/how-to/smoke_test.md` | synthetic smoke test 실행 |
 
 ## 6. 필수 산출물
 

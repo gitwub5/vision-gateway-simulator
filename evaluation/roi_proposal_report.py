@@ -13,7 +13,7 @@ from common.io import write_json, write_text
 from common.records import format_ratio, group_by_frame
 from evaluation.class_filter import filter_gt_by_target_classes, normalize_target_classes
 from evaluation.roi_containment import contains_bbox
-from roi_generator.trace import TileMetadataRecord
+from roi_generator.observability.trace import TileMetadataRecord
 
 
 @dataclass(frozen=True)
@@ -72,6 +72,7 @@ class RoiProposalReport:
     average_merged_roi_count_per_frame: float = 0.0
     average_motion_density_per_frame: float = 0.0
     average_final_roi_area_ratio_per_frame: float = 0.0
+    policy_label_counts: dict[str, int] = field(default_factory=dict)
     decision_reason_counts: dict[str, int] = field(default_factory=dict)
 
     @property
@@ -172,6 +173,13 @@ class RoiProposalReport:
             f"- Gate average latency: {self.gate_average_latency_ms:.3f} ms",
             f"- Gate max latency: {self.gate_max_latency_ms:.3f} ms",
             "",
+            "## Policy Labels",
+            "",
+        ]
+        for policy_label, count in sorted(self.policy_label_counts.items()):
+            lines.append(f"- `{policy_label}`: {count}")
+        lines.extend([
+            "",
             "## Counts",
             "",
             f"- Frames: {self.frame_count}",
@@ -187,7 +195,7 @@ class RoiProposalReport:
             "",
             "## Decision Reasons",
             "",
-        ]
+        ])
         for reason, count in sorted(self.decision_reason_counts.items()):
             lines.append(f"- `{reason}`: {count}")
         lines.extend([
@@ -260,6 +268,7 @@ def build_roi_proposal_report(
     area_ratios: list[float] = []
     selected_tile_area_ratios: list[float] = []
     latencies = [frame.gate_latency_ms for frame in frames]
+    policy_label_counts = Counter(frame.policy_label or "unknown" for frame in frames)
     decision_reason_counts = Counter(frame.decision_reason or "unknown" for frame in frames)
 
     for frame in frames:
@@ -306,6 +315,7 @@ def build_roi_proposal_report(
         average_merged_roi_count_per_frame=_average(frame.merged_roi_count for frame in frames),
         average_motion_density_per_frame=_average(frame.motion_density for frame in frames),
         average_final_roi_area_ratio_per_frame=_average(frame.final_roi_area_ratio for frame in frames),
+        policy_label_counts=dict(policy_label_counts),
         decision_reason_counts=dict(decision_reason_counts),
         gate_average_latency_ms=(sum(latencies) / len(latencies) if latencies else 0.0),
         gate_max_latency_ms=(max(latencies) if latencies else 0.0),
@@ -324,6 +334,13 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
     lines = [
         "# ROI Policy Summary",
         "",
+        "## Policy Labels",
+        "",
+    ]
+    for policy_label, count in sorted(report.policy_label_counts.items()):
+        lines.append(f"- `{policy_label}`: {count}")
+    lines.extend([
+        "",
         "## Target Coverage",
         "",
         f"- Target GT ROI containment: {format_ratio(report.target_gt_roi_containment)}",
@@ -341,7 +358,7 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
         "",
         "## Decision Reasons",
         "",
-    ]
+    ])
     for reason, count in sorted(report.decision_reason_counts.items()):
         lines.append(f"- `{reason}`: {count}")
     lines.append("")
@@ -369,6 +386,7 @@ def write_cost_summary_json(report: RoiProposalReport, output_path: str | Path) 
             "average_merged_roi_count_per_frame": report.average_merged_roi_count_per_frame,
             "average_motion_density_per_frame": report.average_motion_density_per_frame,
             "average_final_roi_area_ratio_per_frame": report.average_final_roi_area_ratio_per_frame,
+            "policy_label_counts": report.policy_label_counts,
             "decision_reason_counts": report.decision_reason_counts,
         },
         output_path,

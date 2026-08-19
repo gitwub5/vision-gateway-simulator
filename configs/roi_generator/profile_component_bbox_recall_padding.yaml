@@ -13,3 +13,6 @@ roi_generator:
   full_frame_interval: 60
   max_roi_per_frame: 10
   max_total_roi_area_ratio: 0.6
+  recall_padding:
+    min_final_roi_width: 96
+    min_final_roi_height: 96

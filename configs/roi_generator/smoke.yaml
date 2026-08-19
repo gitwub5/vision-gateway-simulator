@@ -1,4 +1,5 @@
 roi_generator:
+  roi_policy: component_bbox
   analysis_width: 256
   analysis_height: 144
   threshold_motion: 8

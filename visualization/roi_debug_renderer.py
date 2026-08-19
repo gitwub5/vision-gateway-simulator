@@ -9,7 +9,7 @@ from typing import Any
 from common import GroundTruthAnnotation, ROI
 from common.records import frame_key, group_by_frame
 from evaluation.class_filter import filter_gt_by_target_classes
-from roi_generator.gate import RoiDebugSnapshot
+from roi_generator.core.gate import RoiDebugSnapshot
 from visualization.roi_proposal_renderer import clear_jpgs, frame_stem, load_visualization_dependencies
 
 
@@ -108,6 +108,9 @@ def draw_roi_debug_sheet(cv2: Any, np: Any, snapshot: RoiDebugSnapshot, target_g
 def draw_analysis_rois(cv2: Any, canvas: Any, snapshot: RoiDebugSnapshot) -> None:
     analysis_size = snapshot.decision.analysis_frame_size
     original_size = snapshot.decision.original_frame_size
+    for tile in snapshot.generation_trace.tile_traces:
+        if tile.selected:
+            draw_roi_xywh(cv2, canvas, tile.bbox, (255, 160, 0), "tile")
     for roi in snapshot.generation_trace.candidate_analysis_rois:
         scaled = scale_analysis_roi(roi, analysis_size, original_size)
         draw_roi_xywh(cv2, canvas, scaled, (0, 180, 255), "candidate")
@@ -135,6 +138,7 @@ def draw_summary(cv2: Any, panel: Any, snapshot: RoiDebugSnapshot, target_gt: li
         f"morph_kernel: {config.morphology_kernel_size}",
         f"min_area_ratio: {config.min_area_ratio}",
         f"candidate_rois: {len(trace.candidate_analysis_rois)}",
+        f"selected_tiles: {sum(1 for tile in trace.tile_traces if tile.selected)}",
         f"merged_rois: {len(trace.merged_analysis_rois)}",
         f"final_rois_before_policy: {len(trace.final_rois)}",
         f"decision_rois: {len(snapshot.decision.rois)}",

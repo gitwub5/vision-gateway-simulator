@@ -1,10 +1,7 @@
 roi_generator:
-  roi_policy: component_bbox
+  roi_policy: hybrid_component_tile
   analysis_width: 384
   analysis_height: 216
-  processing:
-    width: 1280
-    allow_upscale: false
   threshold_motion: 8
   threshold_on: 8
   threshold_off: 8
@@ -15,4 +12,8 @@ roi_generator:
   hold_frames: 12
   full_frame_interval: 120
   max_roi_per_frame: 8
-  max_total_roi_area_ratio: 0.35
+  max_total_roi_area_ratio: 0.45
+  tile_metadata:
+    grid_rows: 8
+    grid_cols: 8
+    motion_density_threshold: 0.005

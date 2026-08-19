@@ -6,7 +6,7 @@ from typing import Protocol
 
 from common import FrameSize
 from roi_generator.signals.event_encoder import EventMaps
-from roi_generator.trace import RoiGenerationTrace
+from roi_generator.observability.trace import RoiGenerationTrace
 
 
 class RoiPolicy(Protocol):

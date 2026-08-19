@@ -99,7 +99,7 @@ docs/tasks/phase1/task3_rule_based_roi_generator.md
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
 | Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
 | Task 8. Visualization | Owner B | Owner A | `outputs/visualizations/`, visualization helper modules |
-| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/sample_data.md`, `configs/datasets/*.yaml` |
+| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/how-to/dataset_setup.md`, `configs/datasets/*.yaml` |
 
 ## 4. 구현 체크리스트
 
@@ -215,7 +215,7 @@ outputs/
 - `frame_id`, `timestamp`, `camera_id`, `frame`을 포함한 frame packet 생성
 - 추후 annotation loader를 붙일 수 있는 구조 유지
 
-초기 입력 데이터 준비 방법은 `docs/sample_data.md`를 따른다.
+초기 입력 데이터 준비 방법은 `docs/how-to/dataset_setup.md`를 따른다.
 
 ### [x] Task 3. Rule-based ROI generator Emulator
 
@@ -348,8 +348,7 @@ vision-frontend-simulator/
 │   │   ├── phase1_implementation_plan.md
 │   │   ├── phase1_validation_plan.md
 │   │   └── vision_frontend_validation_roadmap.md
-│   ├── sample_data.md
-│   ├── smoke_test.md
+│   ├── how-to/
 │   ├── idea/                 # local only, gitignored
 │   └── tasks/
 │       └── phase1/
@@ -492,8 +491,8 @@ Phase 1 성공 기준, 다음 단계 진입 조건, ROI crop 개선 여부, SNN 
 - `docs/plan/`: 다음 Phase 계획과 세부 검증 문서를 정리하는 위치
 - `docs/tasks/phase*/`: Phase별 Task 구현 설명 문서
 - `docs/idea/`: 개인 기술 고민과 공유 전 의사결정 초안. Git 제외
-- `docs/sample_data.md`: 공개 sample data 다운로드와 수동 준비 안내
-- `docs/smoke_test.md`: 고정 카메라 synthetic smoke test 생성 및 실행 방법
+- `docs/how-to/dataset_setup.md`: 공개 sample data 다운로드와 수동 준비 안내
+- `docs/how-to/smoke_test.md`: 고정 카메라 synthetic smoke test 생성 및 실행 방법
 - `docs/plan/vision_frontend_validation_roadmap.md`: 전체 장기 로드맵
 - `.agents/project_context.md`: Codex 또는 자동화 agent가 먼저 확인할 문서 목록과 작업 원칙
 

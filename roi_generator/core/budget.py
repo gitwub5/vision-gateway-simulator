@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from common import FrameSize, ROI
-from roi_generator.config import RoiGeneratorConfig
-from roi_generator.decision_reasons import BUDGET_OVERFLOW, INVALID_FRAME_AREA, ROI_AREA_NEAR_FULL_FRAME
+from roi_generator.core.config import RoiGeneratorConfig
+from roi_generator.core.decision_reasons import BUDGET_OVERFLOW, INVALID_FRAME_AREA, ROI_AREA_NEAR_FULL_FRAME
 
 
 @dataclass(frozen=True)

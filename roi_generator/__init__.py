@@ -1,6 +1,6 @@
 """Rule-based ROI generator emulator."""
 
-from roi_generator.gate import (
+from roi_generator.core.gate import (
     BudgetFallbackDecision,
     GateDecision,
     RoiDebugSnapshot,
@@ -12,7 +12,7 @@ from roi_generator.gate import (
     load_roi_generator_config,
     should_fallback_to_full_frame,
 )
-from roi_generator.metadata import (
+from roi_generator.observability.metadata import (
     ComponentMetadataWriter,
     GateFrameMetadataWriter,
     PolicyTraceWriter,

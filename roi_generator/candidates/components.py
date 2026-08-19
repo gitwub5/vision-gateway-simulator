@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from common import FrameSize, ROI
-from roi_generator.trace import ComponentTrace
+from roi_generator.observability.trace import ComponentTrace
 
 
 def generate_roi_candidates(motion_map, min_area_ratio: float = 0.001) -> list[ROI]:

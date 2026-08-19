@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from roi_generator.gate import GateDecision
-from roi_generator.metadata import (
+from roi_generator.core.gate import GateDecision
+from roi_generator.observability.metadata import (
     GateFrameMetadataWriter,
     ROIMetadataWriter,
     build_roi_id,
@@ -20,7 +20,7 @@ from roi_generator.metadata import (
     roi_metadata_from_gate_decision,
     tile_metadata_from_trace,
 )
-from roi_generator.trace import ComponentTrace, RoiGenerationTrace, TileTrace
+from roi_generator.observability.trace import ComponentTrace, RoiGenerationTrace, TileTrace
 
 
 class RoiMetadataConversionTest(unittest.TestCase):

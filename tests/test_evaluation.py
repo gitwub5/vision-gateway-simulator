@@ -29,7 +29,7 @@ from evaluation.roi_proposal_report import (
     write_roi_policy_summary_markdown,
 )
 from evaluation.workload_metrics import reduction_ratio
-from roi_generator.trace import TileMetadataRecord, TileTrace
+from roi_generator.observability.trace import TileMetadataRecord, TileTrace
 
 
 class EvaluationMetricsTest(unittest.TestCase):

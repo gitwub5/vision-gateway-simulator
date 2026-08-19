@@ -4,14 +4,14 @@ import unittest
 from unittest.mock import patch
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from roi_generator.gate import (
+from roi_generator.core.gate import (
     RoiGeneratorConfig,
     RuleBasedRoiGenerator,
     evaluate_budget_fallback,
     is_periodic_full_frame,
     should_fallback_to_full_frame,
 )
-from roi_generator.temporal_hold import TemporalHold
+from roi_generator.core.temporal_hold import TemporalHold
 
 
 class FakeGrayFrame:
@@ -220,7 +220,7 @@ class FakePolicy:
         self.final_rois = final_rois
 
     def generate(self, event_maps, analysis_size: FrameSize, original_size: FrameSize):
-        from roi_generator.trace import RoiGenerationTrace
+        from roi_generator.observability.trace import RoiGenerationTrace
 
         final_rois = [
             ROI(roi.x, roi.y, roi.w, roi.h, score=roi.score, coord_system="original_frame")
@@ -258,8 +258,8 @@ def _patched_gate_helpers(rois: list[ROI] | None = None, seen_sizes: list[FrameS
         "encode_event_maps": lambda **kwargs: FakeEventMaps(),
     }
     if rois is not None:
-        patches["ComponentBboxPolicy"] = lambda config: FakePolicy(rois)
-    return patch.multiple("roi_generator.gate", **patches)
+        patches["create_roi_policy"] = lambda config: FakePolicy(rois)
+    return patch.multiple("roi_generator.core.gate", **patches)
 
 
 if __name__ == "__main__":

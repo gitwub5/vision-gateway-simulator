@@ -7,8 +7,8 @@ from typing import Any, Protocol
 
 from common import GateFrameMetadata, ROI, ROIMetadata
 from common.io import read_jsonl, write_jsonl
-from roi_generator.gate import GateDecision
-from roi_generator.trace import (
+from roi_generator.core.gate import GateDecision
+from roi_generator.observability.trace import (
     ComponentMetadataRecord,
     PolicyTraceRecord,
     RoiGenerationTrace,

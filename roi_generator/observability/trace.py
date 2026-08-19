@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from common import FramePacket, ROI
-from roi_generator.budget import BudgetFallbackDecision
-from roi_generator.config import RoiGeneratorConfig
-from roi_generator.contract import GateDecision
+from roi_generator.core.budget import BudgetFallbackDecision
+from roi_generator.core.config import RoiGeneratorConfig
+from roi_generator.core.contract import GateDecision
 from roi_generator.signals.event_encoder import EventMaps
 
 

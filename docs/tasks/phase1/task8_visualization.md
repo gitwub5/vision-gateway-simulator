@@ -101,8 +101,6 @@ python3 -m unittest tests.test_visualization
 python3 experiments/render_visualizations.py --help
 ```
 
-실제 smoke 실행 결과와 대표 이미지는 `docs/smoke_test_visualization_result.md`에 기록했다.
-
 검증 항목:
 
 - full-frame reference detection 대비 missed detection 탐지

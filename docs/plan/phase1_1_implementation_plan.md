@@ -4,7 +4,7 @@
 
 Phase 1.1의 목표는 ROI crop 면적을 무조건 줄이는 것이 아니다. 산업/장면별 target class에 필요한 ROI를 충분히 포함하면서, 모델 입력 픽셀량, ROI 개수, tile 개수, tensor batch slot, full-frame refresh/fallback 비용을 함께 줄일 수 있는지 검증한다.
 
-리서치 결과에 따라 Phase 1.1의 중심을 `component_filter` 개선에서 **ROI Gate policy contract 검증**으로 수정한다.
+리서치 검토에 따라 Phase 1.1의 중심을 `component_filter` 개선에서 **ROI Gate policy contract 검증**으로 수정한다.
 
 ## 1. 핵심 결론
 
@@ -85,7 +85,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 - [x] `balanced_highres` config 추가
 - [x] ROI generator debug trace 시각화 추가
 - [x] UA-DETRAC MVI_39051 / PhysicalAI row 709 120-frame ROI debug run으로 candidate 품질 문제 유형 확인
-- [x] `roi_generator` 내부 구조를 `signals/`, `candidates/`, `policies/`, `budget.py`, `contract.py`, `trace.py` 중심으로 분리
+- [x] `roi_generator` 내부 구조를 `core/`, `signals/`, `candidates/`, `policies/`, `observability/` 중심으로 분리
 
 ## 5. 파일 단위 구현 계획
 
@@ -95,11 +95,12 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 
 | 경로 | 역할 | Phase 1.1 처리 |
 |---|---|---|
-| `roi_generator/gate.py` | `FramePacket -> GateDecision` orchestration | 특정 policy 세부 구현을 넣지 않는다 |
-| `roi_generator/config.py` | ROI generator config parsing | `roi_policy`, tile/budget/small-object config key 추가 |
-| `roi_generator/contract.py` | downstream gate decision contract | policy label, decision reason, batch contract field 확장 |
-| `roi_generator/budget.py` | ROI/batch/tile budget 판단 | A2 cost/fallback 판단 추가 |
-| `roi_generator/trace.py` | debug/observability trace | A0 component/tile/cost trace dataclass 추가 |
+| `roi_generator/core/gate.py` | `FramePacket -> GateDecision` orchestration | 특정 policy 세부 구현을 넣지 않는다 |
+| `roi_generator/core/config.py` | ROI generator config parsing | `roi_policy`, tile/budget/small-object config key 추가 |
+| `roi_generator/core/contract.py` | downstream gate decision contract | policy label, decision reason, batch contract field 확장 |
+| `roi_generator/core/budget.py` | ROI/batch/tile budget 판단 | A2 cost/fallback 판단 추가 |
+| `roi_generator/observability/trace.py` | debug/observability trace | A0 component/tile/cost trace dataclass 추가 |
+| `roi_generator/observability/metadata.py` | GateDecision/trace JSONL 변환 | 평가 artifact 생성만 담당 |
 | `roi_generator/signals/` | frame diff, motion map, preprocessing | compressed-domain signal은 Phase 1.2로 보류 |
 | `roi_generator/candidates/components.py` | component bbox candidate primitive | A0 component metadata 계산 지점 |
 | `roi_generator/candidates/tiles.py` | tile grid/activity candidate primitive | A0/A1에서 신규 추가 |
@@ -114,11 +115,11 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 
 | 파일 | 변경 내용 | 산출물 |
 |---|---|---|
-| `roi_generator/contract.py` | `policy_label`, `decision_reason`, `batch_slot`, `processing_width`, `processing_height` contract 추가 | `gate_decisions.jsonl` schema 확장 |
-| `roi_generator/trace.py` | `ComponentTrace`, `TileTrace`, `CostTrace`, `PolicyTrace` 계열 dataclass 추가 | debug snapshot과 policy trace record |
+| `roi_generator/core/contract.py` | `policy_label`, `decision_reason`, `batch_slot`, `processing_width`, `processing_height` contract 추가 | `gate_decisions.jsonl` schema 확장 |
+| `roi_generator/observability/trace.py` | `ComponentTrace`, `TileTrace`, `CostTrace`, `PolicyTrace` 계열 dataclass 추가 | debug snapshot과 policy trace record |
 | `roi_generator/candidates/components.py` | component area, bbox size, aspect ratio, fill density, center 계산 helper 추가 | component metadata |
 | `roi_generator/candidates/tiles.py` | fixed grid, per-tile motion density, GT tile containment 계산 helper 추가 | tile metadata |
-| `roi_generator/metadata.py` | frame/ROI metadata writer가 policy/cost field를 기록하도록 확장 | JSONL metadata |
+| `roi_generator/observability/metadata.py` | frame/ROI metadata writer가 policy/cost field를 기록하도록 확장 | JSONL metadata |
 | `evaluation/roi_proposal_report.py` | ROI count, tile count, batch slot, estimated tensor cost, size bucket summary 추가 | report JSON/Markdown |
 | `visualization/roi_debug_renderer.py` | component bbox와 tile grid overlay를 함께 렌더링 | ROI debug image |
 | `experiments/run_roi_proposal_validation.py` | `policy_traces.jsonl`, `component_metadata.jsonl`, `tile_metadata.jsonl` path 추가 | run artifact 고정 |
@@ -127,7 +128,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 
 | 파일 | 변경 내용 | 산출물 |
 |---|---|---|
-| `roi_generator/config.py` | `roi_policy` selector와 policy별 config section 추가 | config-driven policy selection |
+| `roi_generator/core/config.py` | `roi_policy` selector와 policy별 config section 추가 | config-driven policy selection |
 | `roi_generator/policies/base.py` | policy interface에 policy label, trace output contract 명확화 | 공통 policy contract |
 | `roi_generator/policies/component_bbox.py` | noise filter, recall padding profile 지원 | `component_bbox_*` profiles |
 | `roi_generator/policies/tile_mask.py` | fixed grid tile activity 기반 ROI 생성 | `tile_mask_balanced` |
@@ -145,8 +146,8 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 
 | 파일 | 변경 내용 | 산출물 |
 |---|---|---|
-| `roi_generator/budget.py` | `max_roi_per_frame`을 batch slot budget으로 재해석하고 tile/tensor cost budget 추가 | fallback decision |
-| `roi_generator/contract.py` | `roi_batch_slots_used`, `tile_group_count`, `estimated_tensor_pixels`, `tensor_batch_cost`, `effective_input_area` field 추가 | downstream cost contract |
+| `roi_generator/core/budget.py` | `max_roi_per_frame`을 batch slot budget으로 재해석하고 tile/tensor cost budget 추가 | fallback decision |
+| `roi_generator/core/contract.py` | `roi_batch_slots_used`, `tile_group_count`, `estimated_tensor_pixels`, `tensor_batch_cost`, `effective_input_area` field 추가 | downstream cost contract |
 | `evaluation/roi_proposal_report.py` | fallback reason distribution과 budget overflow case summary 추가 | cost summary |
 | `experiments/run_roi_proposal_validation.py` | `reports/cost_summary.json` 생성 | policy 비교 산출물 |
 | `tests/test_roi_budget.py` | area/count/tile/batch fallback unit test 추가 | budget regression guard |
@@ -300,25 +301,26 @@ roi_generator:
 
 ### 구현 항목
 
-- [ ] `roi_policy=component_bbox | tile_mask | hybrid_component_tile` config 추가
-- [ ] `component_bbox` path를 명시적 policy로 분리
-- [ ] `component_bbox_noise_filter` profile 추가
-  - [ ] `component_filter.enabled`
-  - [ ] min area ratio
-  - [ ] max aspect ratio
-  - [ ] min fill density
-- [ ] `component_bbox_recall_padding` profile 추가
-  - [ ] min final ROI width/height
-  - [ ] padding/margin 강화
-- [ ] `tile_mask_balanced` profile 추가
-  - [ ] fixed grid 기반 tile activity map
-  - [ ] tile motion density threshold
-  - [ ] selected tile -> rectangular ROI/group 변환
-- [ ] `hybrid_component_tile_balanced` profile 추가
-  - [ ] component bbox 후보 생성
-  - [ ] tile score/history/budget으로 후보 score 보정
-- [ ] 공통 report에 `policy_label` 추가
-- [ ] debug renderer에서 component ROI와 selected tile overlay를 함께 표시
+- [x] `roi_policy=component_bbox | tile_mask | hybrid_component_tile` config 추가
+- [x] `component_bbox` path를 명시적 policy로 분리
+- [x] `component_bbox_noise_filter` profile 추가
+  - [x] `component_filter.enabled`
+  - [x] min area ratio
+  - [x] max aspect ratio
+  - [x] min fill density
+- [x] `component_bbox_recall_padding` profile 추가
+  - [x] min final ROI width/height
+  - [x] padding/margin 강화
+- [x] `tile_mask_balanced` profile 추가
+  - [x] fixed grid 기반 tile activity map
+  - [x] tile motion density threshold
+  - [x] selected tile -> rectangular ROI/group 변환
+- [x] `hybrid_component_tile_balanced` profile 추가
+  - [x] component bbox 후보 생성
+  - [x] selected tile activity로 component 후보 gating
+  - [ ] tile history/budget 기반 후보 score 보정
+- [x] 공통 report에 `policy_label` 추가
+- [x] debug renderer에서 component ROI와 selected tile overlay를 함께 표시
 
 ### 비교 run
 
@@ -330,6 +332,8 @@ roi_generator:
 | `component_bbox_recall_padding` | component path 작은 target 보존 |
 | `tile_mask_balanced` | fixed grid tile selection |
 | `hybrid_component_tile_balanced` | component + tile score hybrid |
+| `tile_mask_recall_12x12` | recall-oriented finer tile grid |
+| `hybrid_component_tile_cost` | cost-oriented hybrid tile threshold |
 
 ### 비교 metric
 
@@ -408,7 +412,7 @@ small target miss를 단순 padding 문제가 아니라 small-object-specific ti
 - [ ] `min_roi_width/height` config를 size bucket과 연결
 - [ ] `tile_overlap_ratio` 실험 추가
 - [ ] `small_object_tile_recall` profile 추가
-- [ ] `full_frame_lowres_context + selected_tile_highres` 후보는 A1/A2 결과 후 구현 여부 결정
+- [ ] `full_frame_lowres_context + selected_tile_highres` 후보 구현 여부 결정
 
 ### Keep 기준
 
@@ -478,25 +482,25 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 
 각 stage는 동일한 절차로 검증한다.
 
-1. PhysicalAI row 709 또는 UA-DETRAC MVI_39051 120-frame ROI Proposal quick run 실행
+1. PhysicalAI row 709 after 3m 또는 UA-DETRAC MVI_40204 120-frame ROI Proposal quick run 실행
 2. target-aware ROI proposal report 생성
 3. profile summary 생성
 4. ROI/tile/batch cost summary 생성
 5. ROI proposal failure visualization과 ROI debug trace 수동 검토
 6. E2E Inference quick run으로 downstream compatibility 보조 확인
 7. OD-VIRAT Tiny 120-frame annotated-object 보조 run 실행
-8. 결과를 `docs/runs/phase1_validation_runs.md` 또는 별도 run log에 기록
+8. 결과를 `docs/runs/`의 stage/topic별 run log에 기록
 9. Keep/Tune/Disable/Remove 판정
 
 ## 13. Baseline Dataset
 
 | 목적 | Baseline |
 |---|---|
-| 산업/창고 target-aware ROI proposal | `PhysicalAI row 709 + person + component_bbox_balanced` |
-| 실사 temporal vehicle ROI proposal | `UA-DETRAC MVI_39051 + vehicle target classes + component_bbox_balanced` |
+| 산업/창고 target-aware ROI proposal | `PhysicalAI row 709 after 3m + person + component_bbox_balanced` |
+| 실사 temporal vehicle ROI proposal | `UA-DETRAC MVI_40204 + vehicle target classes + component_bbox_balanced` |
 | E2E inference compatibility | 각 dataset의 동일 gate profile + `run_e2e_inference_validation.py` |
 
-Construction Site Static Camera는 Phase 1.1 active baseline에서 제외한다. `IMG259`-`IMG457` 구간 high-res ROI generation 결과는 보존하되, official config는 거의 모든 frame에서 full-frame fallback으로 빠졌고 fallback을 끈 diagnostic run은 ROI가 거의 전체 프레임을 덮어 ROI proposal 품질 판단에 부적합했다.
+Construction Site Static Camera는 Phase 1.1 active baseline에서 제외한다.
 
 OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation dataset이므로 primary GT dataset으로 쓰지 않는다. 대신 annotated-object lower-bound 보조 평가와 public surveillance sample 확인에 사용한다.
 
@@ -537,4 +541,4 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 - latency/call count/tensor cost가 개선되지 않는다.
 - input area reduction 외에는 의미 있는 이득이 없다.
 
-보류 또는 제거 판정을 받은 기능은 기본 config에서 꺼둔다. 반복 검증 가능한 evidence가 없으면 Phase 1.1 결과로 채택하지 않는다.
+보류 또는 제거 판정을 받은 기능은 기본 config에서 꺼둔다. 반복 검증 가능한 evidence가 없으면 Phase 1.1 채택 후보로 두지 않는다.
