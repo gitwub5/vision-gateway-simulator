@@ -9,10 +9,10 @@ from typing import Any
 from common import Detection
 from common.io import read_json, read_jsonl, write_json, write_text
 from common.records import format_ratio
-from evaluation.detection_metrics import DetectionMatchSummary, match_detections_by_iou
-from evaluation.latency_metrics import LatencySummary, summarize_latency
-from evaluation.roi_containment import RoiContainmentSummary, summarize_roi_containment
-from evaluation.workload_metrics import WorkloadSummary, summarize_workload
+from evaluation.metrics.detection import DetectionMatchSummary, match_detections_by_iou
+from evaluation.metrics.latency import LatencySummary, summarize_latency
+from evaluation.metrics.roi_containment import RoiContainmentSummary, summarize_roi_containment
+from evaluation.metrics.workload import WorkloadSummary, summarize_workload
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
 
 

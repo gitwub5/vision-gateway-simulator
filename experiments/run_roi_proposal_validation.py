@@ -24,7 +24,7 @@ from data_loader.annotation_loader import (
     write_ground_truth_jsonl,
 )
 from evaluation import collect_hardware_snapshot
-from evaluation.roi_proposal_report import (
+from evaluation.reports.roi_proposal import (
     RoiProposalInputs,
     build_roi_proposal_report,
     write_cost_summary_json,

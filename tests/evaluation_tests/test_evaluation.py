@@ -6,29 +6,29 @@ import unittest
 from pathlib import Path
 
 from common import Detection, FrameSize, GateFrameMetadata, GroundTruthAnnotation, ROI, ROIMetadata, TriggerType
-from evaluation.comparison_report import (
+from evaluation.reports.comparison import (
     ComparisonInputs,
     build_comparison_report,
     read_detection_jsonl,
     write_report_json,
     write_report_markdown,
 )
-from evaluation.detection_metrics import bbox_iou, match_detections_by_iou
-from evaluation.gt_report import (
+from evaluation.metrics.detection import bbox_iou, match_detections_by_iou
+from evaluation.reports.gt import (
     AnnotationQuality,
     GtReportInputs,
     build_gt_report,
     summarize_detector_gt,
     summarize_gt_roi_containment,
 )
-from evaluation.roi_containment import summarize_roi_containment
-from evaluation.roi_proposal_report import (
+from evaluation.metrics.roi_containment import summarize_roi_containment
+from evaluation.reports.roi_proposal import (
     RoiProposalInputs,
     build_roi_proposal_report,
     write_cost_summary_json,
     write_roi_policy_summary_markdown,
 )
-from evaluation.workload_metrics import reduction_ratio
+from evaluation.metrics.workload import reduction_ratio
 from roi_generator.observability.trace import TileMetadataRecord, TileTrace
 
 

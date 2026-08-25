@@ -41,11 +41,11 @@ Focused A2 tests passed before the additional gate-path assertions:
 
 ```bash
 /Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest \
-  tests.test_roi_budget \
-  tests.test_roi_generator \
-  tests.test_roi_metadata \
-  tests.test_evaluation \
-  tests.test_yolo_roi
+  tests.roi_generator_tests.test_roi_budget \
+  tests.roi_generator_tests.test_roi_generator \
+  tests.roi_generator_tests.test_roi_metadata \
+  tests.evaluation_tests.test_evaluation \
+  tests.gpu_inference_tests.test_yolo_roi
 ```
 
 Result:

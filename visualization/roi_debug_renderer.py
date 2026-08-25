@@ -8,7 +8,7 @@ from typing import Any
 
 from common import GroundTruthAnnotation, ROI
 from common.records import frame_key, group_by_frame
-from evaluation.class_filter import filter_gt_by_target_classes
+from evaluation.metrics.class_filter import filter_gt_by_target_classes
 from roi_generator.core.gate import RoiDebugSnapshot
 from visualization.roi_proposal_renderer import clear_jpgs, frame_stem, load_visualization_dependencies
 

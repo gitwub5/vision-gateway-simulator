@@ -11,14 +11,14 @@ from typing import Any
 from common import Detection, GroundTruthAnnotation, ROIMetadata
 from common.io import write_json, write_text
 from common.records import format_ratio
-from evaluation.class_filter import (
+from evaluation.metrics.class_filter import (
     filter_detections_by_target_classes,
     filter_gt_by_target_classes,
     normalize_class_name,
     normalize_target_classes,
 )
-from evaluation.detection_metrics import bbox_iou
-from evaluation.roi_containment import contains_bbox
+from evaluation.metrics.detection import bbox_iou
+from evaluation.metrics.roi_containment import contains_bbox
 from gpu_inference.yolo_roi import read_roi_metadata_jsonl
 
 

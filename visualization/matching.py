@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from common import Detection, GroundTruthAnnotation
-from evaluation.class_filter import normalize_class_name
-from evaluation.detection_metrics import bbox_iou
+from evaluation.metrics.class_filter import normalize_class_name
+from evaluation.metrics.detection import bbox_iou
 
 
 def find_missed_ground_truth_annotations(

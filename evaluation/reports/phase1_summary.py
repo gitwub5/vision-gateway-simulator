@@ -8,8 +8,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from evaluation.comparison_report import read_detection_jsonl
-from evaluation.detection_metrics import match_detections_by_iou
+from evaluation.reports.comparison import read_detection_jsonl
+from evaluation.metrics.detection import match_detections_by_iou
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
 
 

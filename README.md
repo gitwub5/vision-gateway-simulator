@@ -99,11 +99,11 @@ python -m unittest discover -s tests
 | `data_loader/` | video/image sequence 입력을 `FramePacket`으로 변환 |
 | `roi_generator/` | rule-based ROI generator |
 | `gpu_inference/` | full-frame YOLO, ROI YOLO, 좌표 복원 |
-| `evaluation/` | recall, ROI containment, workload, latency 비교 |
+| `evaluation/` | `metrics/`, `reports/`, `system/`으로 분리된 평가 metric, report builder, hardware snapshot |
 | `visualization/` | ROI overlay, detection comparison, failure case 렌더링 |
 | `experiments/` | 각 모듈을 연결해서 산출물을 생성하는 실행 스크립트 |
 | `tools/` | sample data 다운로드, smoke video 생성 등 보조 도구 |
-| `tests/` | 단위 테스트 |
+| `tests/` | 도메인별 하위 폴더로 나눈 단위 테스트 |
 | `outputs/` | 실험 결과 저장 위치. ROI proposal은 `outputs/roi_proposal_validation/`, E2E inference는 `outputs/e2e_inference_validation/` 아래에 저장 |
 | `data/` | dataset 저장 위치. Git 제외 |
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from evaluation.hardware_metrics import collect_hardware_snapshot
+from evaluation.system.hardware import collect_hardware_snapshot
 
 
 class HardwareMetricsTest(unittest.TestCase):

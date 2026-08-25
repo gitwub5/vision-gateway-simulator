@@ -11,8 +11,8 @@ from typing import Any
 from common import GateFrameMetadata, GroundTruthAnnotation, ROIMetadata, TriggerType
 from common.io import write_json, write_text
 from common.records import format_ratio, group_by_frame
-from evaluation.class_filter import filter_gt_by_target_classes, normalize_target_classes
-from evaluation.roi_containment import contains_bbox
+from evaluation.metrics.class_filter import filter_gt_by_target_classes, normalize_target_classes
+from evaluation.metrics.roi_containment import contains_bbox
 from roi_generator.observability.trace import TileMetadataRecord
 
 

@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from common import FramePacket, GateFrameMetadata, GroundTruthAnnotation, ROIMetadata
-from evaluation.class_filter import filter_gt_by_target_classes
-from evaluation.roi_containment import contains_bbox
+from evaluation.metrics.class_filter import filter_gt_by_target_classes
+from evaluation.metrics.roi_containment import contains_bbox
 
 
 def render_roi_failure_visualizations(

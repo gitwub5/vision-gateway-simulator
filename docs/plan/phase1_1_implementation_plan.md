@@ -107,7 +107,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 | `roi_generator/policies/component_bbox.py` | 기존 baseline policy | `component_bbox_balanced`, noise filter, recall padding 확장 |
 | `roi_generator/policies/tile_mask.py` | tile-first policy | A1에서 신규 추가 |
 | `roi_generator/policies/hybrid_component_tile.py` | component + tile hybrid policy | A1에서 신규 추가 |
-| `evaluation/roi_proposal_report.py` | target-aware ROI proposal report | A0/A2 metric 확장 |
+| `evaluation/reports/roi_proposal.py` | target-aware ROI proposal report | A0/A2 metric 확장 |
 | `visualization/roi_debug_renderer.py` | ROI debug trace visualization | component/tile overlay 확장 |
 | `experiments/run_roi_proposal_validation.py` | policy 공통 validation runner | output artifact path와 manifest 입력 확장 |
 
@@ -120,7 +120,7 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 | `roi_generator/candidates/components.py` | component area, bbox size, aspect ratio, fill density, center 계산 helper 추가 | component metadata |
 | `roi_generator/candidates/tiles.py` | fixed grid, per-tile motion density, GT tile containment 계산 helper 추가 | tile metadata |
 | `roi_generator/observability/metadata.py` | frame/ROI metadata writer가 policy/cost field를 기록하도록 확장 | JSONL metadata |
-| `evaluation/roi_proposal_report.py` | ROI count, tile count, batch slot, estimated tensor cost, size bucket summary 추가 | report JSON/Markdown |
+| `evaluation/reports/roi_proposal.py` | ROI count, tile count, batch slot, estimated tensor cost, size bucket summary 추가 | report JSON/Markdown |
 | `visualization/roi_debug_renderer.py` | component bbox와 tile grid overlay를 함께 렌더링 | ROI debug image |
 | `experiments/run_roi_proposal_validation.py` | `policy_traces.jsonl`, `component_metadata.jsonl`, `tile_metadata.jsonl` path 추가 | run artifact 고정 |
 
@@ -137,10 +137,8 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 | `configs/roi_generator/profile_component_bbox_recall_padding.yaml` | small target recall padding profile | 비교 run config |
 | `configs/roi_generator/profile_tile_mask_balanced.yaml` | tile-first baseline profile | 비교 run config |
 | `configs/roi_generator/profile_hybrid_component_tile_balanced.yaml` | hybrid baseline profile | 비교 run config |
-| `tests/test_roi_generator.py` | gate orchestration regression 유지 | 기존 behavior 보호 |
-| `tests/test_roi_policy_component_bbox.py` | component bbox policy 단위 테스트 | baseline 보호 |
-| `tests/test_roi_policy_tile_mask.py` | tile grid/selection 단위 테스트 | 신규 policy 보호 |
-| `tests/test_roi_policy_hybrid_component_tile.py` | hybrid scoring 단위 테스트 | 신규 policy 보호 |
+| `tests/roi_generator_tests/test_roi_generator.py` | gate orchestration regression 유지 | 기존 behavior 보호 |
+| `tests/roi_generator_tests/test_roi_policy_baselines.py` | component/tile/hybrid policy 단위 테스트 | baseline 보호 |
 
 ### Stage A2 파일 변경 계획
 
@@ -148,10 +146,10 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 |---|---|---|
 | `roi_generator/core/budget.py` | `max_roi_per_frame`을 batch slot budget으로 재해석하고 tile/tensor cost budget 추가 | fallback decision |
 | `roi_generator/core/contract.py` | `roi_batch_slots_used`, `tile_group_count`, `estimated_tensor_pixels`, `tensor_batch_cost`, `effective_input_area` field 추가 | downstream cost contract |
-| `evaluation/roi_proposal_report.py` | fallback reason distribution과 budget overflow case summary 추가 | cost summary |
+| `evaluation/reports/roi_proposal.py` | fallback reason distribution과 budget overflow case summary 추가 | cost summary |
 | `experiments/run_roi_proposal_validation.py` | `reports/cost_summary.json` 생성 | policy 비교 산출물 |
-| `tests/test_roi_budget.py` | area/count/tile/batch fallback unit test 추가 | budget regression guard |
-| `tests/test_roi_contract.py` | contract serialization unit test 추가 | metadata schema guard |
+| `tests/roi_generator_tests/test_roi_budget.py` | area/count/tile/batch fallback unit test 추가 | budget regression guard |
+| `tests/roi_generator_tests/test_roi_metadata.py` | metadata serialization unit test 추가 | metadata schema guard |
 
 ### Output artifact 구조
 
