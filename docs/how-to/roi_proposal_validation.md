@@ -57,14 +57,20 @@ outputs/roi_proposal_validation/<run_id>/
   annotations/ground_truth.jsonl
   roi_metadata/rule_roi.jsonl
   roi_metadata/gate_decisions.jsonl
-  roi_metadata/component_metadata.jsonl
-  roi_metadata/tile_metadata.jsonl
-  roi_metadata/policy_traces.jsonl
+  roi_metadata/component_metadata.jsonl  # diagnostics-level=full only
+  roi_metadata/tile_metadata.jsonl       # diagnostics-level=full only
+  roi_metadata/policy_traces.jsonl       # diagnostics-level=full only
   reports/roi_proposal_report.json
   reports/roi_proposal_report.md
   reports/roi_policy_summary.md
   reports/cost_summary.json
   visualizations/
+```
+
+`component_metadata.jsonl`, `tile_metadata.jsonl`, `policy_traces.jsonl`은 기본 생성하지 않는다. 원인 분석이 필요한 run에서만 아래 옵션을 추가한다.
+
+```bash
+--diagnostics-level full
 ```
 
 실행 결과 요약과 해석은 `docs/runs/`에 기록한다.

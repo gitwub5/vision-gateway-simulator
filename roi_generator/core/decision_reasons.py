@@ -11,7 +11,11 @@ ROI_SELECTED = "roi_selected"
 TEMPORAL_HOLD = "temporal_hold"
 NO_ROI = "no_roi"
 BUDGET_OVERFLOW = "budget_overflow"
+BATCH_SLOT_OVERFLOW = "batch_slot_overflow"
 ROI_AREA_NEAR_FULL_FRAME = "roi_area_near_full_frame"
+TENSOR_BUDGET_OVERFLOW = "tensor_budget_overflow"
+TILE_COUNT_OVERHEAD_EXCEEDS_GAIN = "tile_count_overhead_exceeds_gain"
+TILE_NOT_BENEFICIAL_DENSE_SCENE = "tile_not_beneficial_dense_scene"
 INVALID_FRAME_AREA = "invalid_frame_area"
 
 

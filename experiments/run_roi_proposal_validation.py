@@ -146,6 +146,7 @@ def main() -> None:
             stride=roi_debug_stride,
             max_frames=roi_debug_limit,
         )
+    write_diagnostics = args.diagnostics_level == "full"
     roi_generator_summary = stage_timer.run(
         "roi_generator_metadata",
         lambda: run_roi_generator_metadata(
@@ -153,9 +154,9 @@ def main() -> None:
             roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
-            component_output=paths.component_metadata,
-            tile_output=paths.tile_metadata,
-            policy_trace_output=paths.policy_traces,
+            component_output=paths.component_metadata if write_diagnostics else None,
+            tile_output=paths.tile_metadata if write_diagnostics else None,
+            policy_trace_output=paths.policy_traces if write_diagnostics else None,
             debug_sink=roi_debug_renderer,
         ),
     )
@@ -199,6 +200,7 @@ def main() -> None:
             "render_roi_debug_all": render_roi_debug,
             "render_roi_debug_limit": roi_debug_limit,
             "render_roi_debug_stride": roi_debug_stride,
+            "diagnostics_level": args.diagnostics_level,
             "target_classes": list(target_classes),
             "roi_too_large_ratio": args.roi_too_large_ratio,
         },
@@ -242,7 +244,7 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
         ground_truth=paths.ground_truth,
         roi_metadata=paths.roi_metadata,
         frame_metadata=paths.frame_metadata,
-        tile_metadata=paths.tile_metadata,
+        tile_metadata=paths.tile_metadata if paths.tile_metadata.exists() else None,
         report_json=paths.report_json,
         report_markdown=paths.report_markdown,
     )
@@ -252,7 +254,7 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
         roi_records=read_roi_metadata_jsonl(paths.roi_metadata),
         frame_records=read_gate_frame_metadata_jsonl(paths.frame_metadata),
         target_classes=target_classes,
-        tile_records=read_tile_metadata_jsonl(paths.tile_metadata),
+        tile_records=read_tile_metadata_jsonl(paths.tile_metadata) if paths.tile_metadata.exists() else [],
     )
     write_roi_proposal_report_json(report, paths.report_json)
     write_roi_proposal_report_markdown(report, paths.report_markdown)
@@ -278,6 +280,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render-roi-debug-all", action="store_true")
     parser.add_argument("--render-roi-debug-limit", type=int, default=None)
     parser.add_argument("--render-roi-debug-stride", type=int, default=None)
+    parser.add_argument("--diagnostics-level", choices=["minimal", "full"], default="minimal")
     parser.add_argument("--roi-too-large-ratio", type=float, default=0.30)
     parser.add_argument("--skip-visualization", action="store_true")
     return parser.parse_args()

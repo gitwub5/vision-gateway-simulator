@@ -6,7 +6,12 @@ from time import perf_counter
 from typing import Any
 
 from common import FramePacket, FrameSize, ROI, TriggerType
-from roi_generator.core.budget import BudgetFallbackDecision, evaluate_budget_fallback, should_fallback_to_full_frame
+from roi_generator.core.budget import (
+    BudgetFallbackDecision,
+    estimate_budget_cost,
+    evaluate_budget_fallback,
+    should_fallback_to_full_frame,
+)
 from roi_generator.core.config import RoiGeneratorConfig, load_roi_generator_config
 from roi_generator.core.contract import GateDecision
 from roi_generator.core.decision_reasons import (
@@ -101,7 +106,16 @@ class RuleBasedRoiGenerator:
         generation_trace = self._generate_roi_trace(event_maps, analysis_size, packet.original_size)
         self.last_generation_trace = generation_trace
         current_rois = generation_trace.final_rois
-        budget_fallback = evaluate_budget_fallback(current_rois, packet.original_size, self.config)
+        current_selected_tile_count = policy_selected_tile_count(generation_trace, self.policy.name)
+        current_tile_group_count = tile_group_count(generation_trace, self.policy.name)
+        budget_fallback = evaluate_budget_fallback(
+            current_rois,
+            packet.original_size,
+            self.config,
+            selected_tile_count=current_selected_tile_count,
+            tile_group_count=current_tile_group_count,
+            tile_budget_applies=tile_budget_applies(self.policy.name),
+        )
         if budget_fallback.should_fallback:
             self._temporal_hold.clear()
             decision = self._decision(
@@ -113,8 +127,8 @@ class RuleBasedRoiGenerator:
                 event_maps=event_maps,
                 analysis_size=analysis_size,
                 decision_reason=budget_fallback.reason or "budget_fallback",
-                selected_tile_count=selected_tile_count(generation_trace),
-                tile_group_count=selected_tile_count(generation_trace),
+                selected_tile_count=current_selected_tile_count,
+                tile_group_count=current_tile_group_count,
                 trace=generation_trace,
             )
             self._emit_debug_snapshot(
@@ -139,8 +153,8 @@ class RuleBasedRoiGenerator:
                 event_maps=event_maps,
                 analysis_size=analysis_size,
                 decision_reason=PERIODIC_FULL_FRAME,
-                selected_tile_count=selected_tile_count(generation_trace),
-                tile_group_count=selected_tile_count(generation_trace),
+                selected_tile_count=current_selected_tile_count,
+                tile_group_count=current_tile_group_count,
                 trace=generation_trace,
             )
             self._emit_debug_snapshot(
@@ -163,8 +177,8 @@ class RuleBasedRoiGenerator:
             event_maps=event_maps,
             analysis_size=analysis_size,
             decision_reason=reason_for_trigger(trigger_type),
-            selected_tile_count=selected_tile_count(generation_trace),
-            tile_group_count=selected_tile_count(generation_trace),
+            selected_tile_count=current_selected_tile_count,
+            tile_group_count=current_tile_group_count,
             trace=generation_trace,
         )
         self._emit_debug_snapshot(
@@ -248,10 +262,13 @@ class RuleBasedRoiGenerator:
     ) -> GateDecision:
         if analysis_size is None:
             analysis_size = self.config.analysis_size_for_frame(packet.original_size)
-        estimated_tensor_pixels = sum(roi.area() for roi in rois)
-        effective_input_area = estimated_tensor_pixels
-        if should_run_full_frame:
-            effective_input_area += packet.original_size.area()
+        budget_cost = estimate_budget_cost(
+            rois=rois,
+            frame_size=packet.original_size,
+            selected_tile_count=selected_tile_count,
+            tile_group_count=tile_group_count,
+            should_run_full_frame=should_run_full_frame,
+        )
         return GateDecision(
             camera_id=packet.camera_id,
             frame_id=packet.frame_id,
@@ -264,12 +281,12 @@ class RuleBasedRoiGenerator:
             should_run_full_frame=should_run_full_frame,
             policy_label=self.policy.name,
             decision_reason=decision_reason,
-            roi_batch_slots_used=len(rois),
-            tile_group_count=tile_group_count,
-            selected_tile_count=selected_tile_count,
-            estimated_tensor_pixels=estimated_tensor_pixels,
-            tensor_batch_cost=estimated_tensor_pixels,
-            effective_input_area=effective_input_area,
+            roi_batch_slots_used=budget_cost.roi_batch_slots_used,
+            tile_group_count=budget_cost.tile_group_count,
+            selected_tile_count=budget_cost.selected_tile_count,
+            estimated_tensor_pixels=budget_cost.estimated_tensor_pixels,
+            tensor_batch_cost=budget_cost.tensor_batch_cost,
+            effective_input_area=budget_cost.effective_input_area,
             raw_component_count=(trace.raw_component_count if trace else 0),
             filtered_component_count=(trace.filtered_component_count if trace else 0),
             merged_roi_count=(len(trace.merged_analysis_rois) if trace else 0),
@@ -310,6 +327,24 @@ def is_periodic_full_frame(frame_id: int, interval: int) -> bool:
 
 def selected_tile_count(trace: RoiGenerationTrace) -> int:
     return sum(1 for tile in trace.tile_traces if tile.selected)
+
+
+def policy_selected_tile_count(trace: RoiGenerationTrace, policy_label: str) -> int:
+    if not tile_budget_applies(policy_label):
+        return 0
+    return selected_tile_count(trace)
+
+
+def tile_group_count(trace: RoiGenerationTrace, policy_label: str) -> int:
+    if not tile_budget_applies(policy_label):
+        return 0
+    if selected_tile_count(trace) == 0:
+        return 0
+    return len(trace.final_rois)
+
+
+def tile_budget_applies(policy_label: str) -> bool:
+    return policy_label in {"tile_mask", "hybrid_component_tile"}
 
 
 def final_roi_area_ratio(trace: RoiGenerationTrace, frame_size: FrameSize) -> float:

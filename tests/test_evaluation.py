@@ -141,8 +141,23 @@ class EvaluationMetricsTest(unittest.TestCase):
                 report_markdown=root / "roi_proposal_report.md",
             )
             frames = [
-                _frame_record(should_run_full_frame=False),
-                _frame_record(frame_id=2, should_run_full_frame=True),
+                _frame_record(
+                    should_run_full_frame=False,
+                    roi_batch_slots_used=1,
+                    tile_group_count=1,
+                    estimated_tensor_pixels=144,
+                    tensor_batch_cost=144,
+                    effective_input_area=144,
+                ),
+                _frame_record(
+                    frame_id=2,
+                    should_run_full_frame=True,
+                    roi_batch_slots_used=1,
+                    tile_group_count=1,
+                    estimated_tensor_pixels=144,
+                    tensor_batch_cost=144,
+                    effective_input_area=10144,
+                ),
             ]
             rois = [_roi_record(ROI(0, 0, 12, 12)), _roi_record(ROI(0, 0, 12, 12), frame_id=2)]
 
@@ -171,6 +186,10 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.full_frame_input_pixel_area, 20000)
         self.assertEqual(report.roi_only_input_pixel_area, 288)
         self.assertEqual(report.effective_input_pixel_area, 10288)
+        self.assertEqual(report.average_roi_batch_slots_used_per_frame, 1.0)
+        self.assertEqual(report.average_tile_group_count_per_frame, 1.0)
+        self.assertEqual(report.average_estimated_tensor_pixels_per_frame, 144.0)
+        self.assertEqual(report.average_tensor_batch_cost_per_frame, 144.0)
         self.assertEqual(report.tile_record_count, 4)
         self.assertEqual(report.selected_tile_count, 3)
         self.assertEqual(report.target_gt_tile_contained_count, 1)
@@ -214,6 +233,30 @@ class EvaluationMetricsTest(unittest.TestCase):
             self.assertEqual(data["schema_version"], 1)
             self.assertEqual(data["frame_count"], 1)
             self.assertIn("decision_reason_counts", data)
+
+    def test_roi_proposal_report_uses_frame_tile_counts_without_tile_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            inputs = RoiProposalInputs(
+                ground_truth=root / "ground_truth.jsonl",
+                roi_metadata=root / "rule_roi.jsonl",
+                frame_metadata=root / "gate_decisions.jsonl",
+                report_json=root / "roi_proposal_report.json",
+                report_markdown=root / "roi_proposal_report.md",
+            )
+
+            report = build_roi_proposal_report(
+                inputs=inputs,
+                ground_truth=[_gt_annotation("person", [1, 1, 10, 10])],
+                roi_records=[_roi_record(ROI(0, 0, 12, 12))],
+                frame_records=[_frame_record(selected_tile_count=6)],
+                target_classes=["person"],
+                tile_records=[],
+            )
+
+        self.assertEqual(report.selected_tile_count, 6)
+        self.assertEqual(report.average_selected_tile_count_per_frame, 6.0)
+        self.assertEqual(report.target_gt_tile_containment, 0.0)
 
 
 class ComparisonReportTest(unittest.TestCase):
@@ -331,7 +374,16 @@ def _roi_record(roi: ROI, frame_id: int = 1) -> ROIMetadata:
     )
 
 
-def _frame_record(frame_id: int = 1, should_run_full_frame: bool = False) -> GateFrameMetadata:
+def _frame_record(
+    frame_id: int = 1,
+    should_run_full_frame: bool = False,
+    roi_batch_slots_used: int = 0,
+    tile_group_count: int = 0,
+    selected_tile_count: int = 0,
+    estimated_tensor_pixels: int = 0,
+    tensor_batch_cost: int = 0,
+    effective_input_area: int = 0,
+) -> GateFrameMetadata:
     return GateFrameMetadata(
         camera_id="cam_test",
         frame_id=frame_id,
@@ -343,6 +395,12 @@ def _frame_record(frame_id: int = 1, should_run_full_frame: bool = False) -> Gat
         original_frame_size=FrameSize(width=100, height=100),
         analysis_frame_size=FrameSize(width=10, height=10),
         decision_reason="roi_selected",
+        roi_batch_slots_used=roi_batch_slots_used,
+        tile_group_count=tile_group_count,
+        selected_tile_count=selected_tile_count,
+        estimated_tensor_pixels=estimated_tensor_pixels,
+        tensor_batch_cost=tensor_batch_cost,
+        effective_input_area=effective_input_area,
         raw_component_count=2,
         filtered_component_count=1,
         merged_roi_count=1,

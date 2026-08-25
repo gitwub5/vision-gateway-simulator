@@ -163,9 +163,9 @@ outputs/roi_proposal_validation/<run_id>/
   roi_metadata/
     rule_roi.jsonl
     gate_decisions.jsonl
-    policy_traces.jsonl
-    component_metadata.jsonl
-    tile_metadata.jsonl
+    policy_traces.jsonl          # diagnostics-level=full only
+    component_metadata.jsonl     # diagnostics-level=full only
+    tile_metadata.jsonl          # diagnostics-level=full only
   reports/
     roi_proposal_report.json
     roi_proposal_report.md
@@ -252,9 +252,9 @@ roi_generator:
 
 ### A0 산출물
 
-- [x] `roi_metadata/policy_traces.jsonl`
-- [x] `roi_metadata/component_metadata.jsonl`
-- [x] `roi_metadata/tile_metadata.jsonl`
+- [x] `roi_metadata/policy_traces.jsonl` full diagnostics 산출물
+- [x] `roi_metadata/component_metadata.jsonl` full diagnostics 산출물
+- [x] `roi_metadata/tile_metadata.jsonl` full diagnostics 산출물
 - [x] `reports/roi_policy_summary.md`
 - [x] `reports/cost_summary.json`
 
@@ -369,17 +369,16 @@ ROI area가 줄어도 ROI count, tile count, tensor batch slot이 늘면 실제 
 
 ### 구현 항목
 
-- [ ] `roi_budget.enabled` feature flag 유지/정리
-- [ ] `max_roi_per_frame`을 DeepStream식 batch slot budget으로 재해석
-- [ ] `max_total_roi_area_ratio`를 area budget으로 유지
-- [ ] `max_selected_tile_count` 추가
-- [ ] `max_tensor_batch_cost` 추가
-- [ ] `effective_input_area` 계산
-- [ ] `estimated_preprocess_cost` 계산
-- [ ] `estimated_tensor_cost` 계산
+- [x] `roi_budget.enabled` feature flag 유지/정리
+- [x] `max_roi_per_frame`을 DeepStream식 batch slot budget으로 재해석
+- [x] `max_total_roi_area_ratio`를 area budget으로 유지
+- [x] `max_selected_tile_count` 추가
+- [x] `max_tensor_batch_cost` 추가
+- [x] `effective_input_area` 계산
+- [x] `estimated_tensor_pixels` / `tensor_batch_cost` proxy 계산
 - [ ] `tile_not_beneficial_dense_scene` fallback 추가
-- [ ] `batch_slot_overflow` fallback 추가
-- [ ] budget decision reason을 `gate_decisions.jsonl`에 기록
+- [x] `batch_slot_overflow` fallback 추가
+- [x] budget decision reason을 `gate_decisions.jsonl`에 기록
 - [ ] hybrid policy의 tile history/budget 기반 후보 score 보정 검증
 
 ### A2에서 보류하는 항목
@@ -391,11 +390,80 @@ ROI area가 줄어도 ROI count, tile count, tensor batch slot이 늘면 실제 
 ### Keep 기준
 
 - target GT containment가 Stage A1 best profile보다 악화되지 않는다.
-- `effective_input_area` 또는 `estimated_tensor_cost`가 줄어든다.
+- `effective_input_area` 또는 `tensor_batch_cost`가 줄어든다.
 - fallback reason 분포가 해석 가능하다.
 - ROI/tile/batch budget overflow case가 report에서 분리된다.
 
-## 9. Stage B: Small Object Policy
+## 9. Stage A3: Lean Validation Boundary
+
+### 목표
+
+A0-A2에서 만든 검증 구조를 새 ROI policy 실험에 부담이 되지 않는 최소 검증 contract로 정리한다. 상세 component/tile/policy trace는 기본 산출물이 아니라 diagnostic tier로만 사용한다.
+
+### 가설
+
+Phase 1.1에서는 ROI gate 구조가 계속 바뀔 가능성이 높다. 따라서 모든 실험에 상세 metadata를 강제하면 policy 구현 속도가 느려진다. 공통 비교에 필요한 최소 contract만 기본으로 유지하고, 실패 원인 분석이 필요할 때만 diagnostics를 켠다.
+
+### Minimal validation contract
+
+기본 run은 아래 산출물만 필수로 생성한다.
+
+```text
+roi_metadata/rule_roi.jsonl
+roi_metadata/gate_decisions.jsonl
+reports/roi_proposal_report.json
+reports/roi_proposal_report.md
+reports/roi_policy_summary.md
+reports/cost_summary.json
+visualizations/failures/
+```
+
+기본 판단 metric은 다음만 사용한다.
+
+- target GT ROI containment
+- missed target GT count
+- no-ROI target frame count
+- ROI/frame
+- ROI batch slots/frame
+- selected tiles/frame
+- tile groups/frame
+- effective input area reduction
+- fallback rate / decision reason counts
+- gate latency
+- policy-specific visualization
+
+### Diagnostics tier
+
+아래 산출물과 지표는 `diagnostics-level=full`에서만 생성/해석한다.
+
+- `roi_metadata/policy_traces.jsonl`
+- `roi_metadata/component_metadata.jsonl`
+- `roi_metadata/tile_metadata.jsonl`
+- target GT tile containment
+- false tile ratio
+- raw/filtered component count
+- motion density
+- detailed component/tile failure analysis
+
+### 구현 항목
+
+- [x] duplicated proxy cost field 제거
+  - [x] `estimated_preprocess_cost`
+  - [x] `estimated_tensor_cost`
+- [x] `component_metadata.jsonl`, `tile_metadata.jsonl`, `policy_traces.jsonl` 기본 생성 off
+- [x] `--diagnostics-level minimal|full` 추가
+- [x] minimal mode에서도 `gate_decisions.jsonl`만으로 selected tile count와 tile group count를 report에 집계
+- [x] A3 이후 새 policy 완료 기준을 Minimal validation contract로 제한
+- [x] detailed diagnostics는 이상 징후가 확인된 run에만 사용
+
+### 완료 기준
+
+- 새 ROI policy를 추가할 때 detailed metadata writer를 구현하지 않아도 baseline 비교가 가능하다.
+- main report는 policy 선택에 필요한 metric만 노출한다.
+- diagnostics 산출물은 필요할 때만 생성된다.
+- A1/A2 결과 해석은 유지하되, 다음 stage의 실험 비용은 낮아진다.
+
+## 10. Stage B: Small Object Policy
 
 ### 목표
 
@@ -421,7 +489,7 @@ small target miss를 단순 padding 문제가 아니라 small-object-specific ti
 - small target missed frame count가 줄어든다.
 - tile/ROI count 증가가 tensor cost budget 안에 머문다.
 
-## 10. Stage C: Reference Detector Feedback
+## 11. Stage C: Reference Detector Feedback
 
 ### 목표
 
@@ -452,7 +520,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 - full-frame check count가 과도하게 증가하지 않는다.
 - feedback stale / refresh reason이 report에 분리된다.
 
-## 11. Stage D: Final Policy Selection
+## 12. Stage D: Final Policy Selection
 
 ### 목표
 
@@ -479,7 +547,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 - fallback reason과 policy label이 report에 요약된다.
 - Keep/Tune/Disable/Remove 판정이 기록된다.
 
-## 12. 공통 검증 절차
+## 13. 공통 검증 절차
 
 각 stage는 동일한 절차로 검증한다.
 
@@ -493,7 +561,7 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 8. 결과를 `docs/runs/`의 stage/topic별 run log에 기록
 9. Keep/Tune/Disable/Remove 판정
 
-## 13. Baseline Dataset
+## 14. Baseline Dataset
 
 | 목적 | Baseline |
 |---|---|
@@ -505,7 +573,7 @@ Construction Site Static Camera는 Phase 1.1 active baseline에서 제외한다.
 
 OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation dataset이므로 primary GT dataset으로 쓰지 않는다. 대신 annotated-object lower-bound 보조 평가와 public surveillance sample 확인에 사용한다.
 
-## 14. Deferred to Phase 1.2
+## 15. Deferred to Phase 1.2
 
 아래 항목은 Phase 1.1에서 제외하고 `docs/plan/phase1_2_deferred_research_plan.md`로 이동한다.
 
@@ -519,7 +587,7 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 | non-uniform tile layout optimization | A0/A1에서는 fixed grid baseline이 먼저 |
 | ROI quality/QP action | ROI 생성보다 encoding quality policy에 가까움 |
 
-## 15. Phase 1.1 종료 조건
+## 16. Phase 1.1 종료 조건
 
 ### 성공 종료
 

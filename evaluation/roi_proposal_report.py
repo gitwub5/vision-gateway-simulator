@@ -59,6 +59,10 @@ class RoiProposalReport:
     average_roi_count_per_frame: float
     average_total_roi_area_ratio_per_frame: float
     max_total_roi_area_ratio_per_frame: float
+    average_roi_batch_slots_used_per_frame: float
+    average_tile_group_count_per_frame: float
+    average_estimated_tensor_pixels_per_frame: float
+    average_tensor_batch_cost_per_frame: float
     gate_average_latency_ms: float
     gate_max_latency_ms: float
     tile_record_count: int = 0
@@ -156,6 +160,9 @@ class RoiProposalReport:
             f"- ROI-only input area reduction: {format_ratio(self.roi_only_input_area_reduction)}",
             f"- Effective input area reduction including full-frame checks: {format_ratio(self.effective_input_area_reduction)}",
             f"- Average ROI count per frame: {self.average_roi_count_per_frame:.3f}",
+            f"- Average ROI batch slots per frame: {self.average_roi_batch_slots_used_per_frame:.3f}",
+            f"- Average tile groups per frame: {self.average_tile_group_count_per_frame:.3f}",
+            f"- Average tensor batch cost per frame: {self.average_tensor_batch_cost_per_frame:.3f}",
             f"- Average total ROI area ratio per frame: {format_ratio(self.average_total_roi_area_ratio_per_frame)}",
             f"- Max total ROI area ratio per frame: {format_ratio(self.max_total_roi_area_ratio_per_frame)}",
             f"- Full-frame check rate: {format_ratio(self.full_frame_check_rate)}",
@@ -226,6 +233,7 @@ def build_roi_proposal_report(
     gt_by_frame = group_by_frame(gt_records)
     selected_tiles = [tile for tile in tiles if tile.tile.selected]
     selected_tiles_by_frame = group_by_frame(selected_tiles)
+    selected_tile_count_total = len(selected_tiles) if tiles else sum(frame.selected_tile_count for frame in frames)
 
     contained_gt_count = 0
     missed_target_frames: set[tuple[str, int]] = set()
@@ -264,7 +272,7 @@ def build_roi_proposal_report(
         for key, frame_rois in rois_by_frame.items()
     }
     roi_only_input_area = sum(roi_area_by_frame.values())
-    effective_input_area = 0
+    recalculated_effective_input_area = 0
     area_ratios: list[float] = []
     selected_tile_area_ratios: list[float] = []
     latencies = [frame.gate_latency_ms for frame in frames]
@@ -275,12 +283,14 @@ def build_roi_proposal_report(
         key = (frame.camera_id, frame.frame_id)
         frame_area = frame.original_frame_size.area()
         roi_area = roi_area_by_frame.get(key, 0)
-        effective_input_area += roi_area
+        recalculated_effective_input_area += roi_area
         if frame.should_run_full_frame:
-            effective_input_area += frame_area
+            recalculated_effective_input_area += frame_area
         area_ratios.append(roi_area / frame_area if frame_area else 0.0)
         selected_tile_area = sum(tile.tile.bbox.area() for tile in selected_tiles_by_frame.get(key, []))
         selected_tile_area_ratios.append(selected_tile_area / frame_area if frame_area else 0.0)
+    metadata_effective_input_area = sum(frame.effective_input_area for frame in frames)
+    effective_input_area = metadata_effective_input_area or recalculated_effective_input_area
 
     return RoiProposalReport(
         inputs=inputs,
@@ -302,9 +312,13 @@ def build_roi_proposal_report(
         average_roi_count_per_frame=(len(rois) / len(frames) if frames else 0.0),
         average_total_roi_area_ratio_per_frame=(sum(area_ratios) / len(area_ratios) if area_ratios else 0.0),
         max_total_roi_area_ratio_per_frame=(max(area_ratios) if area_ratios else 0.0),
+        average_roi_batch_slots_used_per_frame=_average(frame.roi_batch_slots_used for frame in frames),
+        average_tile_group_count_per_frame=_average(frame.tile_group_count for frame in frames),
+        average_estimated_tensor_pixels_per_frame=_average(frame.estimated_tensor_pixels for frame in frames),
+        average_tensor_batch_cost_per_frame=_average(frame.tensor_batch_cost for frame in frames),
         tile_record_count=len(tiles),
-        selected_tile_count=len(selected_tiles),
-        average_selected_tile_count_per_frame=(len(selected_tiles) / len(frames) if frames else 0.0),
+        selected_tile_count=selected_tile_count_total,
+        average_selected_tile_count_per_frame=(selected_tile_count_total / len(frames) if frames else 0.0),
         average_selected_tile_area_ratio_per_frame=(
             sum(selected_tile_area_ratios) / len(selected_tile_area_ratios) if selected_tile_area_ratios else 0.0
         ),
@@ -344,7 +358,6 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
         "## Target Coverage",
         "",
         f"- Target GT ROI containment: {format_ratio(report.target_gt_roi_containment)}",
-        f"- Target GT tile containment: {format_ratio(report.target_gt_tile_containment)}",
         f"- Missed target GT objects: {report.missed_gt_count}",
         f"- No-ROI target frames: {report.no_roi_target_frame_count}",
         "",
@@ -352,9 +365,10 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
         "",
         f"- Effective input area reduction: {format_ratio(report.effective_input_area_reduction)}",
         f"- Average ROI count per frame: {report.average_roi_count_per_frame:.3f}",
+        f"- Average ROI batch slots per frame: {report.average_roi_batch_slots_used_per_frame:.3f}",
         f"- Average selected tile count per frame: {report.average_selected_tile_count_per_frame:.3f}",
-        f"- Average final ROI area ratio per frame: {format_ratio(report.average_final_roi_area_ratio_per_frame)}",
-        f"- Average motion density per frame: {format_ratio(report.average_motion_density_per_frame)}",
+        f"- Average tile group count per frame: {report.average_tile_group_count_per_frame:.3f}",
+        f"- Average tensor batch cost per frame: {report.average_tensor_batch_cost_per_frame:.3f}",
         "",
         "## Decision Reasons",
         "",
@@ -376,6 +390,10 @@ def write_cost_summary_json(report: RoiProposalReport, output_path: str | Path) 
             "roi_only_input_area_reduction": report.roi_only_input_area_reduction,
             "effective_input_area_reduction": report.effective_input_area_reduction,
             "average_roi_count_per_frame": report.average_roi_count_per_frame,
+            "average_roi_batch_slots_used_per_frame": report.average_roi_batch_slots_used_per_frame,
+            "average_tile_group_count_per_frame": report.average_tile_group_count_per_frame,
+            "average_estimated_tensor_pixels_per_frame": report.average_estimated_tensor_pixels_per_frame,
+            "average_tensor_batch_cost_per_frame": report.average_tensor_batch_cost_per_frame,
             "average_total_roi_area_ratio_per_frame": report.average_total_roi_area_ratio_per_frame,
             "max_total_roi_area_ratio_per_frame": report.max_total_roi_area_ratio_per_frame,
             "selected_tile_count": report.selected_tile_count,

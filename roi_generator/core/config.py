@@ -27,8 +27,11 @@ class RoiGeneratorConfig:
     margin_ratio: float = 0.25
     hold_frames: int = 15
     full_frame_interval: int = 60
+    budget_enabled: bool = True
     max_roi_per_frame: int = 5
     max_total_roi_area_ratio: float = 0.5
+    max_selected_tile_count: int | None = None
+    max_tensor_batch_cost: int | None = None
     tile_grid_rows: int = 8
     tile_grid_cols: int = 8
     tile_motion_density_threshold: float = 0.0
@@ -70,6 +73,7 @@ class RoiGeneratorConfig:
         roi_generator = config.get("roi_generator", config.get("npx_gate", config))
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
+        budget = roi_generator.get("budget", {}) or {}
         component_filter = roi_generator.get("component_filter", {}) or {}
         recall_padding = roi_generator.get("recall_padding", {}) or {}
         debug = roi_generator.get("debug", {}) or {}
@@ -94,9 +98,21 @@ class RoiGeneratorConfig:
             margin_ratio=float(roi_generator.get("margin_ratio", cls.margin_ratio)),
             hold_frames=int(roi_generator.get("hold_frames", cls.hold_frames)),
             full_frame_interval=int(roi_generator.get("full_frame_interval", cls.full_frame_interval)),
-            max_roi_per_frame=int(roi_generator.get("max_roi_per_frame", cls.max_roi_per_frame)),
+            budget_enabled=bool(roi_generator.get("budget_enabled", budget.get("enabled", cls.budget_enabled))),
+            max_roi_per_frame=int(
+                roi_generator.get("max_roi_per_frame", budget.get("max_roi_per_frame", cls.max_roi_per_frame))
+            ),
             max_total_roi_area_ratio=float(
-                roi_generator.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio)
+                roi_generator.get(
+                    "max_total_roi_area_ratio",
+                    budget.get("max_total_roi_area_ratio", cls.max_total_roi_area_ratio),
+                )
+            ),
+            max_selected_tile_count=_optional_int(
+                roi_generator.get("max_selected_tile_count", budget.get("max_selected_tile_count"))
+            ),
+            max_tensor_batch_cost=_optional_int(
+                roi_generator.get("max_tensor_batch_cost", budget.get("max_tensor_batch_cost"))
             ),
             tile_grid_rows=max(1, int(roi_generator.get("tile_grid_rows", tile_metadata.get("grid_rows", cls.tile_grid_rows)))),
             tile_grid_cols=max(1, int(roi_generator.get("tile_grid_cols", tile_metadata.get("grid_cols", cls.tile_grid_cols)))),

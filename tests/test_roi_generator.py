@@ -65,6 +65,27 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.tile_grid_cols, 6)
         self.assertEqual(config.tile_motion_density_threshold, 0.2)
 
+    def test_config_loads_nested_budget_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "budget": {
+                        "enabled": False,
+                        "max_roi_per_frame": 3,
+                        "max_total_roi_area_ratio": 0.4,
+                        "max_selected_tile_count": 12,
+                        "max_tensor_batch_cost": 12345,
+                    }
+                }
+            }
+        )
+
+        self.assertFalse(config.budget_enabled)
+        self.assertEqual(config.max_roi_per_frame, 3)
+        self.assertEqual(config.max_total_roi_area_ratio, 0.4)
+        self.assertEqual(config.max_selected_tile_count, 12)
+        self.assertEqual(config.max_tensor_batch_cost, 12345)
+
     def test_decision_records_dynamic_analysis_size(self) -> None:
         gate = RuleBasedRoiGenerator(RoiGeneratorConfig(processing_width=1280, full_frame_interval=60))
         packet = _packet(frame_id=0, original_size=FrameSize(width=3840, height=2160))
@@ -159,6 +180,44 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(decision.decision_reason, "roi_area_near_full_frame")
         self.assertEqual(decision.effective_input_area, 10000)
 
+    def test_tile_budget_fallback_applies_to_tile_policy(self) -> None:
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=60, max_selected_tile_count=1),
+            policy=FakePolicy(
+                [ROI(x=0, y=0, w=10, h=10, coord_system="analysis_frame")],
+                name="tile_mask",
+                selected_tile_count=2,
+            ),
+        )
+
+        with _patched_gate_helpers():
+            gate.process(_packet(frame_id=0))
+            decision = gate.process(_packet(frame_id=1))
+
+        self.assertEqual(decision.trigger_type, TriggerType.FALLBACK_FULL_FRAME)
+        self.assertEqual(decision.decision_reason, "tile_count_overhead_exceeds_gain")
+        self.assertEqual(decision.selected_tile_count, 2)
+        self.assertEqual(decision.tile_group_count, 1)
+
+    def test_tile_budget_does_not_apply_to_component_policy_metadata(self) -> None:
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(full_frame_interval=60, max_selected_tile_count=1),
+            policy=FakePolicy(
+                [ROI(x=0, y=0, w=10, h=10, coord_system="analysis_frame")],
+                name="component_bbox",
+                selected_tile_count=2,
+            ),
+        )
+
+        with _patched_gate_helpers():
+            gate.process(_packet(frame_id=0))
+            decision = gate.process(_packet(frame_id=1))
+
+        self.assertEqual(decision.trigger_type, TriggerType.ROI)
+        self.assertEqual(decision.decision_reason, "roi_selected")
+        self.assertEqual(decision.selected_tile_count, 0)
+        self.assertEqual(decision.tile_group_count, 0)
+
     def test_debug_sink_receives_per_frame_generation_trace(self) -> None:
         sink = FakeDebugSink()
         gate = RuleBasedRoiGenerator(
@@ -183,7 +242,7 @@ class GatePolicyTest(unittest.TestCase):
         config = RoiGeneratorConfig(max_roi_per_frame=1)
         rois = [ROI(0, 0, 10, 10), ROI(20, 20, 10, 10)]
         self.assertTrue(should_fallback_to_full_frame(rois, FrameSize(100, 100), config))
-        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "budget_overflow")
+        self.assertEqual(evaluate_budget_fallback(rois, FrameSize(100, 100), config).reason, "batch_slot_overflow")
 
     def test_should_fallback_when_roi_area_exceeds_limit(self) -> None:
         config = RoiGeneratorConfig(max_total_roi_area_ratio=0.25)
@@ -214,23 +273,35 @@ class FakeDebugSink:
 
 
 class FakePolicy:
-    name = "fake_policy"
-
-    def __init__(self, final_rois: list[ROI]) -> None:
+    def __init__(self, final_rois: list[ROI], name: str = "fake_policy", selected_tile_count: int = 0) -> None:
         self.final_rois = final_rois
+        self.name = name
+        self.selected_tile_count = selected_tile_count
 
     def generate(self, event_maps, analysis_size: FrameSize, original_size: FrameSize):
-        from roi_generator.observability.trace import RoiGenerationTrace
+        from roi_generator.observability.trace import RoiGenerationTrace, TileTrace
 
         final_rois = [
             ROI(roi.x, roi.y, roi.w, roi.h, score=roi.score, coord_system="original_frame")
             for roi in self.final_rois
+        ]
+        tile_traces = [
+            TileTrace(
+                tile_id=index,
+                row=0,
+                col=index - 1,
+                bbox=ROI(x=0, y=0, w=1, h=1, coord_system="original_frame"),
+                motion_density=1.0,
+                selected=True,
+            )
+            for index in range(1, self.selected_tile_count + 1)
         ]
         return RoiGenerationTrace(
             filtered_motion_map=event_maps.motion_map,
             candidate_analysis_rois=self.final_rois,
             merged_analysis_rois=self.final_rois,
             final_rois=final_rois,
+            tile_traces=tile_traces,
         )
 
 
