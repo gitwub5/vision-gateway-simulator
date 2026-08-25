@@ -73,6 +73,8 @@ class RoiMetadataConversionTest(unittest.TestCase):
         self.assertEqual(data["merged_roi_count"], 1)
         self.assertEqual(data["motion_density"], 0.25)
         self.assertEqual(data["final_roi_area_ratio"], 0.12)
+        self.assertEqual(data["feedback_candidate_count"], 2)
+        self.assertEqual(data["feedback_assisted_roi_count"], 1)
 
     def test_policy_trace_from_gate_decision_records_policy_summary(self) -> None:
         decision = _decision(trigger_type=TriggerType.ROI, rois=[ROI(1, 2, 3, 4)])
@@ -88,6 +90,8 @@ class RoiMetadataConversionTest(unittest.TestCase):
         self.assertEqual(data["raw_component_count"], 2)
         self.assertEqual(data["selected_tile_count"], 0)
         self.assertEqual(data["effective_input_area"], 12)
+        self.assertEqual(data["feedback_candidate_count"], 2)
+        self.assertEqual(data["feedback_assisted_roi_count"], 1)
 
     def test_component_metadata_from_trace_records_component_fields(self) -> None:
         decision = _decision(trigger_type=TriggerType.ROI, rois=[ROI(1, 2, 3, 4)])
@@ -268,6 +272,10 @@ def _decision(
         merged_roi_count=len(rois),
         motion_density=0.25,
         final_roi_area_ratio=0.12,
+        feedback_candidate_count=2,
+        feedback_assisted_roi_count=1,
+        feedback_active_track_count=2,
+        feedback_stale_track_count=0,
     )
 
 

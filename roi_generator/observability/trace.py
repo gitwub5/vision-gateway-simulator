@@ -134,6 +134,10 @@ class PolicyTraceRecord:
     estimated_tensor_pixels: int
     tensor_batch_cost: int
     effective_input_area: int
+    feedback_candidate_count: int = 0
+    feedback_assisted_roi_count: int = 0
+    feedback_active_track_count: int = 0
+    feedback_stale_track_count: int = 0
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -156,6 +160,10 @@ class PolicyTraceRecord:
             "estimated_tensor_pixels": self.estimated_tensor_pixels,
             "tensor_batch_cost": self.tensor_batch_cost,
             "effective_input_area": self.effective_input_area,
+            "feedback_candidate_count": self.feedback_candidate_count,
+            "feedback_assisted_roi_count": self.feedback_assisted_roi_count,
+            "feedback_active_track_count": self.feedback_active_track_count,
+            "feedback_stale_track_count": self.feedback_stale_track_count,
         }
 
 

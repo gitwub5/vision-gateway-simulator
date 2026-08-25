@@ -16,6 +16,11 @@ from evaluation.metrics.roi_containment import contains_bbox
 from roi_generator.observability.trace import TileMetadataRecord
 
 
+SIZE_BUCKET_ORDER = ("small", "medium", "large", "unknown")
+SMALL_OBJECT_AREA_RATIO = 0.01
+MEDIUM_OBJECT_AREA_RATIO = 0.05
+
+
 @dataclass(frozen=True)
 class RoiProposalInputs:
     ground_truth: Path
@@ -36,6 +41,31 @@ class RoiProposalInputs:
         if self.tile_metadata is not None:
             data["tile_metadata"] = str(self.tile_metadata)
         return data
+
+
+@dataclass(frozen=True)
+class ObjectSizeBucketSummary:
+    bucket: str
+    target_gt_count: int = 0
+    contained_gt_count: int = 0
+    missed_gt_count: int = 0
+    missed_target_frame_count: int = 0
+
+    @property
+    def containment(self) -> float:
+        if self.target_gt_count == 0:
+            return 0.0
+        return self.contained_gt_count / self.target_gt_count
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return {
+            "bucket": self.bucket,
+            "target_gt_count": self.target_gt_count,
+            "contained_gt_count": self.contained_gt_count,
+            "missed_gt_count": self.missed_gt_count,
+            "missed_target_frame_count": self.missed_target_frame_count,
+            "containment": self.containment,
+        }
 
 
 @dataclass(frozen=True)
@@ -76,6 +106,11 @@ class RoiProposalReport:
     average_merged_roi_count_per_frame: float = 0.0
     average_motion_density_per_frame: float = 0.0
     average_final_roi_area_ratio_per_frame: float = 0.0
+    object_size_buckets: dict[str, ObjectSizeBucketSummary] = field(default_factory=dict)
+    average_feedback_candidate_count_per_frame: float = 0.0
+    average_feedback_assisted_roi_count_per_frame: float = 0.0
+    average_feedback_active_track_count_per_frame: float = 0.0
+    average_feedback_stale_track_count_per_frame: float = 0.0
     policy_label_counts: dict[str, int] = field(default_factory=dict)
     decision_reason_counts: dict[str, int] = field(default_factory=dict)
 
@@ -132,6 +167,10 @@ class RoiProposalReport:
         data["schema_version"] = 1
         data["inputs"] = self.inputs.to_json_dict()
         data["target_classes"] = list(self.target_classes)
+        data["object_size_buckets"] = {
+            bucket: summary.to_json_dict()
+            for bucket, summary in self.object_size_buckets.items()
+        }
         data["missed_gt_count"] = self.missed_gt_count
         data["target_gt_roi_containment"] = self.target_gt_roi_containment
         data["false_roi_rate"] = self.false_roi_rate
@@ -177,12 +216,30 @@ class RoiProposalReport:
             f"- Average merged ROI count per frame: {self.average_merged_roi_count_per_frame:.3f}",
             f"- Average motion density per frame: {format_ratio(self.average_motion_density_per_frame)}",
             f"- Average final ROI area ratio per frame: {format_ratio(self.average_final_roi_area_ratio_per_frame)}",
+            f"- Average feedback candidate count per frame: {self.average_feedback_candidate_count_per_frame:.3f}",
+            f"- Average feedback-assisted ROI count per frame: {self.average_feedback_assisted_roi_count_per_frame:.3f}",
+            f"- Average feedback active track count per frame: {self.average_feedback_active_track_count_per_frame:.3f}",
+            f"- Average feedback stale track count per frame: {self.average_feedback_stale_track_count_per_frame:.3f}",
             f"- Gate average latency: {self.gate_average_latency_ms:.3f} ms",
             f"- Gate max latency: {self.gate_max_latency_ms:.3f} ms",
             "",
-            "## Policy Labels",
+            "## Object Size Buckets",
             "",
         ]
+        for bucket in SIZE_BUCKET_ORDER:
+            summary = self.object_size_buckets.get(bucket)
+            if summary is None:
+                continue
+            lines.append(
+                f"- `{bucket}`: containment {format_ratio(summary.containment)}, "
+                f"target GT {summary.target_gt_count}, missed GT {summary.missed_gt_count}, "
+                f"missed frames {summary.missed_target_frame_count}"
+            )
+        lines.extend([
+            "",
+            "## Policy Labels",
+            "",
+        ])
         for policy_label, count in sorted(self.policy_label_counts.items()):
             lines.append(f"- `{policy_label}`: {count}")
         lines.extend([
@@ -234,16 +291,40 @@ def build_roi_proposal_report(
     selected_tiles = [tile for tile in tiles if tile.tile.selected]
     selected_tiles_by_frame = group_by_frame(selected_tiles)
     selected_tile_count_total = len(selected_tiles) if tiles else sum(frame.selected_tile_count for frame in frames)
+    frame_size_by_key = {
+        (frame.camera_id, frame.frame_id): frame.original_frame_size
+        for frame in frames
+    }
 
     contained_gt_count = 0
     missed_target_frames: set[tuple[str, int]] = set()
+    bucket_counts: dict[str, dict[str, Any]] = {
+        bucket: {"target": 0, "contained": 0, "missed_frames": set()}
+        for bucket in SIZE_BUCKET_ORDER
+    }
     for gt in gt_records:
         key = (gt.camera_id, gt.frame_id)
         frame_rois = rois_by_frame.get(key, [])
-        if any(contains_bbox(roi_record.roi, gt.bbox_xyxy) for roi_record in frame_rois):
+        bucket = _object_size_bucket(gt, frame_size_by_key.get(key))
+        bucket_counts[bucket]["target"] += 1
+        contained = any(contains_bbox(roi_record.roi, gt.bbox_xyxy) for roi_record in frame_rois)
+        if contained:
             contained_gt_count += 1
+            bucket_counts[bucket]["contained"] += 1
         else:
             missed_target_frames.add(key)
+            bucket_counts[bucket]["missed_frames"].add(key)
+
+    object_size_buckets = {
+        bucket: ObjectSizeBucketSummary(
+            bucket=bucket,
+            target_gt_count=int(counts["target"]),
+            contained_gt_count=int(counts["contained"]),
+            missed_gt_count=int(counts["target"] - counts["contained"]),
+            missed_target_frame_count=len(counts["missed_frames"]),
+        )
+        for bucket, counts in bucket_counts.items()
+    }
 
     no_roi_target_frame_count = sum(
         1 for key in gt_by_frame if not rois_by_frame.get(key)
@@ -329,6 +410,17 @@ def build_roi_proposal_report(
         average_merged_roi_count_per_frame=_average(frame.merged_roi_count for frame in frames),
         average_motion_density_per_frame=_average(frame.motion_density for frame in frames),
         average_final_roi_area_ratio_per_frame=_average(frame.final_roi_area_ratio for frame in frames),
+        object_size_buckets=object_size_buckets,
+        average_feedback_candidate_count_per_frame=_average(frame.feedback_candidate_count for frame in frames),
+        average_feedback_assisted_roi_count_per_frame=_average(
+            frame.feedback_assisted_roi_count for frame in frames
+        ),
+        average_feedback_active_track_count_per_frame=_average(
+            frame.feedback_active_track_count for frame in frames
+        ),
+        average_feedback_stale_track_count_per_frame=_average(
+            frame.feedback_stale_track_count for frame in frames
+        ),
         policy_label_counts=dict(policy_label_counts),
         decision_reason_counts=dict(decision_reason_counts),
         gate_average_latency_ms=(sum(latencies) / len(latencies) if latencies else 0.0),
@@ -360,6 +452,14 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
         f"- Target GT ROI containment: {format_ratio(report.target_gt_roi_containment)}",
         f"- Missed target GT objects: {report.missed_gt_count}",
         f"- No-ROI target frames: {report.no_roi_target_frame_count}",
+    ])
+    small_summary = report.object_size_buckets.get("small")
+    if small_summary is not None:
+        lines.extend([
+            f"- Small-object ROI containment: {format_ratio(small_summary.containment)}",
+            f"- Missed small GT objects: {small_summary.missed_gt_count}",
+        ])
+    lines.extend([
         "",
         "## Policy Cost",
         "",
@@ -369,6 +469,7 @@ def write_roi_policy_summary_markdown(report: RoiProposalReport, output_path: st
         f"- Average selected tile count per frame: {report.average_selected_tile_count_per_frame:.3f}",
         f"- Average tile group count per frame: {report.average_tile_group_count_per_frame:.3f}",
         f"- Average tensor batch cost per frame: {report.average_tensor_batch_cost_per_frame:.3f}",
+        f"- Average feedback-assisted ROI count per frame: {report.average_feedback_assisted_roi_count_per_frame:.3f}",
         "",
         "## Decision Reasons",
         "",
@@ -404,6 +505,16 @@ def write_cost_summary_json(report: RoiProposalReport, output_path: str | Path) 
             "average_merged_roi_count_per_frame": report.average_merged_roi_count_per_frame,
             "average_motion_density_per_frame": report.average_motion_density_per_frame,
             "average_final_roi_area_ratio_per_frame": report.average_final_roi_area_ratio_per_frame,
+            "average_feedback_candidate_count_per_frame": report.average_feedback_candidate_count_per_frame,
+            "average_feedback_assisted_roi_count_per_frame": (
+                report.average_feedback_assisted_roi_count_per_frame
+            ),
+            "average_feedback_active_track_count_per_frame": report.average_feedback_active_track_count_per_frame,
+            "average_feedback_stale_track_count_per_frame": report.average_feedback_stale_track_count_per_frame,
+            "object_size_buckets": {
+                bucket: summary.to_json_dict()
+                for bucket, summary in report.object_size_buckets.items()
+            },
             "policy_label_counts": report.policy_label_counts,
             "decision_reason_counts": report.decision_reason_counts,
         },
@@ -422,3 +533,20 @@ def _average(values: Iterable[float]) -> float:
     if not items:
         return 0.0
     return sum(items) / len(items)
+
+
+def _object_size_bucket(gt: GroundTruthAnnotation, frame_size: Any) -> str:
+    frame_area = frame_size.area() if frame_size is not None else 0
+    if frame_area <= 0:
+        return "unknown"
+    area_ratio = _bbox_area(gt.bbox_xyxy) / frame_area
+    if area_ratio < SMALL_OBJECT_AREA_RATIO:
+        return "small"
+    if area_ratio < MEDIUM_OBJECT_AREA_RATIO:
+        return "medium"
+    return "large"
+
+
+def _bbox_area(bbox_xyxy: list[float]) -> float:
+    x1, y1, x2, y2 = bbox_xyxy
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)

@@ -23,6 +23,8 @@ Phase 1.2 후보는 다음 조건 중 하나를 만족할 때 착수한다.
 | Advanced ROI packing/batching | ROI/tile을 downstream tensor batch에 맞게 최적 packing | Phase 1.1에서는 metric과 budget check만 필요 | `roi_batch_slots_used`, `tensor_batch_cost`가 실제 병목으로 확인될 때 |
 | Large merged ROI split | 큰 merged ROI를 여러 유효 region으로 분할 | tile policy baseline 비교 전에는 필요 여부 불명확 | `component_bbox`가 Keep이고 large merge만 반복 실패할 때 |
 | Non-uniform tile layout optimization | scene prior에 맞는 non-uniform tile grid 설계 | A0/A1에서는 fixed grid baseline이 먼저 | fixed `tile_mask`가 Keep/Tune이고 tile overhead가 병목일 때 |
+| Feedback confidence decay / stale refresh | 실제 detector feedback의 오래된/불확실한 bbox를 비용 효율적으로 관리 | Phase 1.1에서는 feedback 후보 효과 확인까지만 수행 | `feedback_assisted_*`가 Keep/Tune이고 actual detector feedback 비용이 병목일 때 |
+| No-ROI target risk refresh | ROI가 비는 구간에서 target miss 위험을 보고 full-frame refresh를 조정 | scene/controller logic이 필요해 Phase 1.1 범위를 넘음 | reference feedback과 refresh reason schema가 안정화된 뒤 |
 | ROI quality / QP action | ROI와 non-ROI의 encoding quality를 다르게 제어 | ROI 생성보다 encoding policy에 가까움 | bandwidth/encoding PoC가 Phase scope에 들어올 때 |
 | ROI enhancement / idle GPU reuse | 절약한 GPU budget을 low-quality ROI enhancement에 재투자 | ROI Gate baseline 전에는 범위가 큼 | ROI gate가 안정적으로 cost를 절감한 뒤 |
 

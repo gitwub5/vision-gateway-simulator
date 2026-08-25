@@ -32,4 +32,8 @@ class GateDecision:
     merged_roi_count: int = 0
     motion_density: float = 0.0
     final_roi_area_ratio: float = 0.0
+    feedback_candidate_count: int = 0
+    feedback_assisted_roi_count: int = 0
+    feedback_active_track_count: int = 0
+    feedback_stale_track_count: int = 0
     event_maps: EventMaps | None = field(default=None, repr=False, compare=False)

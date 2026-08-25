@@ -29,6 +29,7 @@ from evaluation.reports.roi_proposal import (
     write_roi_policy_summary_markdown,
 )
 from evaluation.metrics.workload import reduction_ratio
+from experiments.run_roi_proposal_validation import build_reference_feedback_by_frame
 from roi_generator.observability.trace import TileMetadataRecord, TileTrace
 
 
@@ -203,6 +204,9 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.average_merged_roi_count_per_frame, 1.0)
         self.assertEqual(report.average_motion_density_per_frame, 0.25)
         self.assertEqual(report.average_final_roi_area_ratio_per_frame, 0.12)
+        self.assertEqual(report.object_size_buckets["small"].target_gt_count, 1)
+        self.assertEqual(report.object_size_buckets["small"].contained_gt_count, 1)
+        self.assertEqual(report.object_size_buckets["small"].containment, 1.0)
         self.assertEqual(report.decision_reason_counts, {"roi_selected": 2})
 
     def test_roi_policy_and_cost_summary_writers(self) -> None:
@@ -232,6 +236,7 @@ class EvaluationMetricsTest(unittest.TestCase):
             data = json.loads(cost_summary.read_text(encoding="utf-8"))
             self.assertEqual(data["schema_version"], 1)
             self.assertEqual(data["frame_count"], 1)
+            self.assertEqual(data["object_size_buckets"]["small"]["containment"], 1.0)
             self.assertIn("decision_reason_counts", data)
 
     def test_roi_proposal_report_uses_frame_tile_counts_without_tile_metadata(self) -> None:
@@ -257,6 +262,31 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.selected_tile_count, 6)
         self.assertEqual(report.average_selected_tile_count_per_frame, 6.0)
         self.assertEqual(report.target_gt_tile_containment, 0.0)
+
+    def test_reference_feedback_proxy_uses_target_ground_truth(self) -> None:
+        feedback = build_reference_feedback_by_frame(
+            source="ground_truth",
+            ground_truth=[
+                _gt_annotation("person", [1, 1, 10, 10]),
+                _gt_annotation("car", [20, 20, 40, 40], annotation_id=2),
+            ],
+            target_classes=("person",),
+        )
+
+        self.assertIsNotNone(feedback)
+        detections = feedback[("cam_test", 1)]
+        self.assertEqual(len(detections), 1)
+        self.assertEqual(detections[0].class_name, "person")
+        self.assertEqual(detections[0].source, "ground_truth_reference_feedback")
+
+    def test_reference_feedback_proxy_can_be_disabled(self) -> None:
+        self.assertIsNone(
+            build_reference_feedback_by_frame(
+                source="none",
+                ground_truth=[_gt_annotation("person", [1, 1, 10, 10])],
+                target_classes=("person",),
+            )
+        )
 
 
 class ComparisonReportTest(unittest.TestCase):

@@ -473,13 +473,27 @@ small target miss를 단순 padding 문제가 아니라 small-object-specific ti
 
 ### 구현 항목
 
-- [ ] GT/object small/medium/large bucket 기준 확정
-- [ ] bucket별 containment/miss report 추가
-- [ ] `small_object_boost` config 추가
-- [ ] `min_roi_width/height` config를 size bucket과 연결
-- [ ] `tile_overlap_ratio` 실험 추가
-- [ ] `small_object_tile_recall` profile 추가
-- [ ] `full_frame_lowres_context + selected_tile_highres` 후보 구현 여부 결정
+- [x] GT/object small/medium/large bucket 기준 확정
+  - frame area 대비 GT bbox area ratio 기준: small `< 0.01`, medium `< 0.05`, large `>= 0.05`
+- [x] bucket별 containment/miss report 추가
+- [x] `small_object_boost` config 추가
+- [x] `min_roi_width/height` config를 size bucket과 연결하지 않기로 결정
+  - online gate는 GT size bucket을 알 수 없으므로 Stage B에서는 tile overlap profile로 small-object recall을 처리
+  - 기존 `min_final_roi_width/height`는 component bbox tuning option으로 유지
+- [x] `tile_overlap_ratio` 실험 추가
+- [x] `small_object_tile_recall` profile 추가
+- [x] `full_frame_lowres_context + selected_tile_highres` 후보 구현 여부 결정
+  - Stage B에서는 구현하지 않고, Stage C reference detector feedback 이후 필요 시 재검토
+
+### Stage B 판정
+
+| Profile | 판정 | 역할 |
+|---|---|---|
+| `tile_mask_recall_12x12` | Keep | tile-first practical baseline |
+| `small_object_tile_recall_12x12_overlap` | Keep/Tune | small-object practical candidate |
+| `small_object_tile_recall` | Tune | high-recall, non-default candidate |
+
+`small_object_tile_recall_12x12_overlap`은 ROI/tile/fallback count 증가 없이 small-object containment를 개선하므로 Stage B의 practical candidate로 유지한다. 다만 tensor cost가 증가하므로 기본 profile로 승격하지 않고, Stage D 최종 비교 후보로 넘긴다.
 
 ### Keep 기준
 
@@ -499,24 +513,51 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 
 ### 구현 항목
 
-- [ ] `reference_feedback.enabled` feature flag 추가
-- [ ] periodic full-frame detection bbox cache 추가
-  - [ ] class id/name
-  - [ ] confidence
-  - [ ] bbox
-  - [ ] last seen frame
-  - [ ] lifetime/age
-- [ ] component/tile과 feedback bbox overlap scoring 추가
-- [ ] feedback confidence decay 추가
-- [ ] `feedback_stale` fallback 추가
-- [ ] no-ROI target risk refresh 추가
-- [ ] 기존 adaptive refresh 조건은 feedback refresh reason으로 흡수
+- [x] C0 `reference_feedback.enabled` feature flag 추가
+- [x] C0 full-frame detection bbox cache contract 추가
+  - [x] class id/name
+  - [x] confidence
+  - [x] bbox
+  - [x] last seen frame
+  - [x] TTL 기반 age
+- [x] C0 feedback bbox를 ROI 후보로 추가하는 기본 path 구현
+- [x] C0 feedback metadata/report count 추가
+- [x] C0 `feedback_assisted_tile_12x12_overlap` profile 추가
+- [x] C1 validation runner에 reference feedback source 주입 연결
+  - ROI proposal validation에서는 `--reference-feedback-source ground_truth` oracle proxy로 contract 효과 검증
+  - 실제 full-frame detector output 연결은 E2E validation에서 별도 진행
+- [x] C1.1 feedback candidate limit tuning
+- [x] C2 actual full-frame YOLO feedback proposal smoke validation
+- [x] C1 component/tile과 feedback bbox overlap scoring 추가 여부 결정
+  - `duplicate_overlap_ratio` config를 추가하고 120-frame에서 검증
+  - aggressive dedup은 actual YOLO feedback recall 이득을 대부분 제거하므로 default로 쓰지 않음
+- [x] C1 feedback confidence decay 추가 여부 결정
+  - Phase 1.1에서는 구현하지 않고 Phase 1.2 feedback tuning 후보로 보류
+- [x] C1 `feedback_stale` refresh/fallback reason 추가 여부 결정
+  - refresh/fallback policy는 full-frame check cost를 직접 바꾸므로 Phase 1.2 feedback tuning 후보로 보류
+- [x] C1 no-ROI target risk refresh 추가 여부 결정
+  - detector feedback coverage와 scene-level controller가 필요하므로 Phase 1.2 후보로 보류
+- [x] C1 기존 adaptive refresh 조건은 feedback refresh reason으로 흡수
+  - Phase 1.1에서는 흡수하지 않고, refresh reason redesign과 함께 Phase 1.2에서 재검토
 
 ### Keep 기준
 
 - 정지/느린 target miss가 줄어든다.
 - full-frame check count가 과도하게 증가하지 않는다.
 - feedback stale / refresh reason이 report에 분리된다.
+
+### Stage C 중간 판정
+
+| Profile | 판정 | 역할 |
+|---|---|---|
+| `feedback_assisted_tile_12x12_overlap_top2` | Keep/Tune | feedback practical candidate |
+| `feedback_assisted_tile_12x12_overlap` | Tune | high-recall, higher-cost feedback candidate |
+
+`feedback_assisted_tile_12x12_overlap_top2`는 feedback 후보를 frame당 2개로 제한해 batch overflow 증가를 줄이면서 target/small-object containment 개선을 유지한다. 실제 detector output 연결 전 practical candidate로 유지한다.
+
+C2 actual YOLO feedback smoke에서도 `feedback_assisted_tile_12x12_overlap_top2`는 Stage B practical candidate보다 target/small-object containment를 개선한다. Oracle feedback보다 효과는 낮고 tensor cost/fallback은 증가하므로, Stage C 최종 후보는 Keep/Tune 상태로 Stage D에 넘긴다.
+
+Stage C는 Phase 1.1 범위에서 종료한다. 남은 confidence decay, stale refresh, no-ROI risk refresh는 새 policy complexity와 detector cost를 만들기 때문에 Phase 1.1 채택 조건이 아니라 Phase 1.2 feedback tuning backlog로 넘긴다.
 
 ## 12. Stage D: Final Policy Selection
 
@@ -529,12 +570,26 @@ Motion-only ROI는 정지 객체, 느린 객체, sparse motion target에 취약�
 | Policy/Profile | 설명 |
 |---|---|
 | `component_bbox_balanced` | 기존 baseline |
-| `component_bbox_noise_filter` | component path noise filtering |
-| `component_bbox_recall_padding` | component path 작은 target 보존 |
-| `tile_mask_balanced` | tile-first baseline |
-| `hybrid_component_tile_balanced` | component + tile hybrid |
-| `small_object_tile_recall` | small object recall profile |
-| `feedback_assisted_hybrid` | reference feedback 적용 hybrid |
+| `hybrid_component_tile_cost` | component + tile gate cost candidate |
+| `tile_mask_recall_12x12` | tile-first recall baseline |
+| `small_object_tile_recall_12x12_overlap` | small object practical candidate |
+| `small_object_tile_recall` | high-recall, non-default small object candidate |
+| `feedback_assisted_tile_12x12_overlap_top2` | actual detector feedback practical candidate |
+| `feedback_assisted_tile_12x12_overlap` | high-recall, higher-cost feedback candidate |
+
+### Stage D 판정
+
+| Policy/Profile | 판정 | 역할 |
+|---|---|---|
+| `component_bbox_balanced` | Keep | low-cost baseline |
+| `hybrid_component_tile_cost` | Disable | component baseline 대비 recall 개선 없음 |
+| `tile_mask_recall_12x12` | Keep | practical tile baseline |
+| `small_object_tile_recall_12x12_overlap` | Keep | Phase 1.1 practical default candidate |
+| `small_object_tile_recall` | Tune | high-recall, non-default small-object reference |
+| `feedback_assisted_tile_12x12_overlap_top2` | Keep/Tune | strongest realistic candidate, cost tuning 필요 |
+| `feedback_assisted_tile_12x12_overlap` | Tune | high-recall, higher-cost feedback reference |
+
+`small_object_tile_recall_12x12_overlap`을 Phase 1.1의 practical default candidate로 둔다. `feedback_assisted_tile_12x12_overlap_top2`는 actual YOLO feedback에서도 개선이 있지만 ROI/tensor/fallback 비용이 증가하므로 Stage C 재검토 후 default 승격 여부를 판단한다.
 
 ### 완료 기준
 
@@ -584,6 +639,8 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 | large merged ROI split 알고리즘 | tile policy baseline 비교 후 필요 여부 판단 |
 | non-uniform tile layout optimization | A0/A1에서는 fixed grid baseline이 먼저 |
 | ROI quality/QP action | ROI 생성보다 encoding quality policy에 가까움 |
+| feedback confidence decay / stale refresh | actual detector feedback 후보는 Keep/Tune이나 refresh policy는 detector cost와 controller 범위를 키움 |
+| no-ROI target risk refresh | scene/controller logic이 필요해 Phase 1.1 policy family 비교 범위를 넘음 |
 
 ## 16. Phase 1.1 종료 조건
 
@@ -595,6 +652,17 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 - small object bucket에서 regression이 없다.
 - DeepStream과 겹치지 않는 frontend gate 방향성이 설명 가능하다.
 - OD-VIRAT Tiny annotated-object report에서 명확한 regression이 없다.
+
+### Phase 1.1 판정
+
+Phase 1.1은 policy selection 관점에서 성공 종료한다.
+
+- practical default candidate: `small_object_tile_recall_12x12_overlap`
+- challenger: `feedback_assisted_tile_12x12_overlap_top2`
+- low-cost baseline: `component_bbox_balanced`
+- disabled candidate: `hybrid_component_tile_cost`
+
+E2E/OD-VIRAT 보조 검증과 Jetson/DeepStream latency 계수 보정은 Phase 1.1 code closure 이후 별도 verification/backlog로 진행한다.
 
 ### 보류 종료
 

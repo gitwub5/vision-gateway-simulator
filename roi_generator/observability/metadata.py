@@ -74,6 +74,10 @@ def frame_metadata_from_gate_decision(decision: GateDecision) -> GateFrameMetada
         merged_roi_count=decision.merged_roi_count,
         motion_density=decision.motion_density,
         final_roi_area_ratio=decision.final_roi_area_ratio,
+        feedback_candidate_count=decision.feedback_candidate_count,
+        feedback_assisted_roi_count=decision.feedback_assisted_roi_count,
+        feedback_active_track_count=decision.feedback_active_track_count,
+        feedback_stale_track_count=decision.feedback_stale_track_count,
     )
 
 
@@ -98,6 +102,10 @@ def policy_trace_from_gate_decision(decision: GateDecision) -> PolicyTraceRecord
         estimated_tensor_pixels=decision.estimated_tensor_pixels,
         tensor_batch_cost=decision.tensor_batch_cost,
         effective_input_area=decision.effective_input_area,
+        feedback_candidate_count=decision.feedback_candidate_count,
+        feedback_assisted_roi_count=decision.feedback_assisted_roi_count,
+        feedback_active_track_count=decision.feedback_active_track_count,
+        feedback_stale_track_count=decision.feedback_stale_track_count,
     )
 
 

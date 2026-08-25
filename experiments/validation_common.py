@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from common import Detection, FramePacket
 from common.io import load_yaml_config, write_json
 from data_loader import create_dataset_stream
 from roi_generator import (
@@ -37,6 +38,8 @@ def run_roi_generator_metadata(
     tile_output: Path | None = None,
     policy_trace_output: Path | None = None,
     debug_sink=None,
+    reference_feedback_by_frame: dict[tuple[str, int], list[Detection]] | None = None,
+    reference_feedback_provider: Callable[[FramePacket], list[Detection]] | None = None,
 ) -> dict[str, Any]:
     stream = create_dataset_stream(dataset_config)
     generator = RuleBasedRoiGenerator(roi_generator_config, debug_sink=debug_sink)
@@ -49,9 +52,19 @@ def run_roi_generator_metadata(
     roi_records_count = 0
     component_records_count = 0
     tile_records_count = 0
+    reference_feedback_updates = 0
 
     for packet in stream:
         decision = generator.process(packet)
+        if decision.should_run_full_frame:
+            feedback_detections = []
+            if reference_feedback_by_frame:
+                feedback_detections.extend(reference_feedback_by_frame.get((packet.camera_id, packet.frame_id), []))
+            if reference_feedback_provider is not None:
+                feedback_detections.extend(reference_feedback_provider(packet))
+            if feedback_detections:
+                generator.update_reference_feedback(feedback_detections)
+                reference_feedback_updates += len(feedback_detections)
         roi_records = roi_metadata_from_gate_decision(decision)
         frame_record = frame_metadata_from_gate_decision(decision)
         component_records = component_metadata_from_trace(decision, generator.last_generation_trace)
@@ -74,6 +87,7 @@ def run_roi_generator_metadata(
         "roi_records": roi_records_count,
         "component_records": component_records_count,
         "tile_records": tile_records_count,
+        "reference_feedback_updates": reference_feedback_updates,
         "debug": debug_sink.summary() if debug_sink and hasattr(debug_sink, "summary") else None,
     }
 

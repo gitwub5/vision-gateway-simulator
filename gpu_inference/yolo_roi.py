@@ -313,6 +313,10 @@ def read_gate_frame_metadata_jsonl(input_path: str | Path) -> list[GateFrameMeta
                 merged_roi_count=int(data.get("merged_roi_count", data.get("roi_count", 0))),
                 motion_density=float(data.get("motion_density", 0.0)),
                 final_roi_area_ratio=float(data.get("final_roi_area_ratio", 0.0)),
+                feedback_candidate_count=int(data.get("feedback_candidate_count", 0)),
+                feedback_assisted_roi_count=int(data.get("feedback_assisted_roi_count", 0)),
+                feedback_active_track_count=int(data.get("feedback_active_track_count", 0)),
+                feedback_stale_track_count=int(data.get("feedback_stale_track_count", 0)),
             )
         )
     return records

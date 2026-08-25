@@ -23,7 +23,9 @@ from data_loader.annotation_loader import (
     read_ground_truth_jsonl,
     write_ground_truth_jsonl,
 )
+from common import Detection, GroundTruthAnnotation
 from evaluation import collect_hardware_snapshot
+from evaluation.metrics.class_filter import filter_gt_by_target_classes
 from evaluation.reports.roi_proposal import (
     RoiProposalInputs,
     build_roi_proposal_report,
@@ -33,6 +35,12 @@ from evaluation.reports.roi_proposal import (
     write_roi_proposal_report_markdown,
 )
 from gpu_inference.yolo_roi import read_gate_frame_metadata_jsonl, read_roi_metadata_jsonl
+from gpu_inference.yolo_full_frame import (
+    FullFrameYoloRunner,
+    load_model_config,
+    write_detection_jsonl,
+)
+from common.io import write_json
 from roi_generator import load_roi_generator_config
 from roi_generator.observability.metadata import read_tile_metadata_jsonl
 from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
@@ -50,6 +58,7 @@ class RoiProposalPaths:
         self.root = root
         self.roi_metadata_dir = root / "roi_metadata"
         self.annotations_dir = root / "annotations"
+        self.detections_dir = root / "detections"
         self.reports_dir = root / "reports"
         self.visualizations_dir = root / "visualizations"
         self.failures_dir = self.visualizations_dir / "failures"
@@ -62,6 +71,8 @@ class RoiProposalPaths:
         self.tile_metadata = self.roi_metadata_dir / "tile_metadata.jsonl"
         self.policy_traces = self.roi_metadata_dir / "policy_traces.jsonl"
         self.ground_truth = self.annotations_dir / "ground_truth.jsonl"
+        self.reference_feedback_detections = self.detections_dir / "reference_feedback_full_frame.jsonl"
+        self.reference_feedback_metrics = self.reports_dir / "reference_feedback_metrics.json"
         self.report_json = self.reports_dir / "roi_proposal_report.json"
         self.report_markdown = self.reports_dir / "roi_proposal_report.md"
         self.roi_policy_summary = self.reports_dir / "roi_policy_summary.md"
@@ -75,6 +86,7 @@ class RoiProposalPaths:
         for path in [
             self.roi_metadata_dir,
             self.annotations_dir,
+            self.detections_dir,
             self.reports_dir,
             self.failures_dir,
             self.cache,
@@ -91,6 +103,8 @@ class RoiProposalPaths:
             "tile_metadata": str(self.tile_metadata),
             "policy_traces": str(self.policy_traces),
             "ground_truth": str(self.ground_truth),
+            "reference_feedback_detections": str(self.reference_feedback_detections),
+            "reference_feedback_metrics": str(self.reference_feedback_metrics),
             "report_json": str(self.report_json),
             "report_markdown": str(self.report_markdown),
             "roi_policy_summary": str(self.roi_policy_summary),
@@ -123,6 +137,12 @@ def main() -> None:
     validation_config = load_validation_config(args.dataset_config)
     target_classes = tuple(str(item) for item in validation_config.get("target_classes", []) if item is not None)
     roi_generator_config = load_roi_generator_config(args.roi_generator_config)
+    feedback_provider = None
+    if args.reference_feedback_source == "full_frame_yolo":
+        model_config, _ = load_model_config(args.model_config)
+        if args.model is not None:
+            model_config = replace(model_config, model=args.model)
+        feedback_provider = FullFrameYoloFeedbackProvider(model_config)
 
     gt_summary = stage_timer.run(
         "ground_truth",
@@ -158,8 +178,20 @@ def main() -> None:
             tile_output=paths.tile_metadata if write_diagnostics else None,
             policy_trace_output=paths.policy_traces if write_diagnostics else None,
             debug_sink=roi_debug_renderer,
+            reference_feedback_by_frame=build_reference_feedback_by_frame(
+                source=args.reference_feedback_source,
+                ground_truth=read_ground_truth_jsonl(paths.ground_truth),
+                target_classes=target_classes,
+            ),
+            reference_feedback_provider=feedback_provider,
         ),
     )
+    feedback_summary = None
+    if feedback_provider is not None:
+        feedback_summary = feedback_provider.write_outputs(
+            detections_output=paths.reference_feedback_detections,
+            metrics_output=paths.reference_feedback_metrics,
+        )
     report_summary = stage_timer.run(
         "roi_proposal_report",
         lambda: run_report(paths=paths, target_classes=target_classes),
@@ -195,12 +227,15 @@ def main() -> None:
             "pipeline_type": PIPELINE_TYPE,
             "dataset_config": args.dataset_config,
             "roi_generator_config": args.roi_generator_config,
+            "model_config": args.model_config,
+            "model": args.model,
             "limit": args.limit,
             "render_limit": args.render_limit,
             "render_roi_debug_all": render_roi_debug,
             "render_roi_debug_limit": roi_debug_limit,
             "render_roi_debug_stride": roi_debug_stride,
             "diagnostics_level": args.diagnostics_level,
+            "reference_feedback_source": args.reference_feedback_source,
             "target_classes": list(target_classes),
             "roi_too_large_ratio": args.roi_too_large_ratio,
         },
@@ -209,6 +244,7 @@ def main() -> None:
         "summaries": {
             "ground_truth": gt_summary,
             "roi_generator": roi_generator_summary,
+            "reference_feedback": feedback_summary,
             "roi_proposal": report_summary,
             "visualization": visualization_summary,
         },
@@ -263,6 +299,68 @@ def run_report(paths: RoiProposalPaths, target_classes: tuple[str, ...]) -> dict
     return report.to_json_dict()
 
 
+def build_reference_feedback_by_frame(
+    source: str,
+    ground_truth: list[GroundTruthAnnotation],
+    target_classes: tuple[str, ...],
+) -> dict[tuple[str, int], list[Detection]] | None:
+    if source == "none":
+        return None
+    if source == "full_frame_yolo":
+        return None
+    if source != "ground_truth":
+        raise ValueError(f"Unsupported reference feedback source: {source}")
+
+    grouped: dict[tuple[str, int], list[Detection]] = {}
+    target_ground_truth = filter_gt_by_target_classes(ground_truth, target_classes)
+    for gt in target_ground_truth:
+        key = (gt.camera_id, gt.frame_id)
+        grouped.setdefault(key, []).append(
+            Detection(
+                camera_id=gt.camera_id,
+                frame_id=gt.frame_id,
+                class_id=gt.class_id,
+                class_name=gt.class_name,
+                confidence=1.0,
+                bbox_xyxy=gt.bbox_xyxy,
+                source="ground_truth_reference_feedback",
+                roi_id=f"gt_{gt.annotation_id}",
+            )
+        )
+    return grouped
+
+
+class FullFrameYoloFeedbackProvider:
+    def __init__(self, model_config) -> None:
+        self.runner = FullFrameYoloRunner.from_config(model_config)
+        self.detections: list[Detection] = []
+        self.call_count = 0
+        self.input_pixel_area = 0
+        self.latency_ms: list[float] = []
+
+    def __call__(self, packet) -> list[Detection]:
+        detections = self.runner.run([packet])
+        metrics = self.runner.last_metrics
+        self.call_count += metrics.yolo_call_count
+        self.input_pixel_area += metrics.yolo_input_pixel_area
+        self.latency_ms.extend(metrics.latency_ms)
+        self.detections.extend(detections)
+        return detections
+
+    def write_outputs(self, detections_output: Path, metrics_output: Path) -> dict[str, Any]:
+        write_detection_jsonl(self.detections, detections_output)
+        metrics = {
+            "schema_version": 1,
+            "source": "full_frame_yolo_reference_feedback",
+            "detection_count": len(self.detections),
+            "yolo_call_count": self.call_count,
+            "yolo_input_pixel_area": self.input_pixel_area,
+            "average_latency_ms": sum(self.latency_ms) / len(self.latency_ms) if self.latency_ms else 0.0,
+        }
+        write_json(metrics, metrics_output)
+        return metrics
+
+
 def make_run_id(started_at: datetime, experiment_name: str) -> str:
     return make_prefixed_run_id(started_at, experiment_name, prefix="roi_proposal")
 
@@ -272,6 +370,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-config", required=True)
     parser.add_argument("--roi-generator-config", default="configs/roi_generator/profile_balanced.yaml")
     parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)
+    parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--experiment-name", default=None)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=None)
@@ -281,6 +381,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render-roi-debug-limit", type=int, default=None)
     parser.add_argument("--render-roi-debug-stride", type=int, default=None)
     parser.add_argument("--diagnostics-level", choices=["minimal", "full"], default="minimal")
+    parser.add_argument("--reference-feedback-source", choices=["none", "ground_truth", "full_frame_yolo"], default="none")
     parser.add_argument("--roi-too-large-ratio", type=float, default=0.30)
     parser.add_argument("--skip-visualization", action="store_true")
     return parser.parse_args()

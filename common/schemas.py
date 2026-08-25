@@ -120,6 +120,10 @@ class GateFrameMetadata:
     merged_roi_count: int = 0
     motion_density: float = 0.0
     final_roi_area_ratio: float = 0.0
+    feedback_candidate_count: int = 0
+    feedback_assisted_roi_count: int = 0
+    feedback_active_track_count: int = 0
+    feedback_stale_track_count: int = 0
 
     def to_json_dict(self) -> dict[str, Any]:
         data = {
@@ -146,6 +150,10 @@ class GateFrameMetadata:
             "merged_roi_count": self.merged_roi_count,
             "motion_density": self.motion_density,
             "final_roi_area_ratio": self.final_roi_area_ratio,
+            "feedback_candidate_count": self.feedback_candidate_count,
+            "feedback_assisted_roi_count": self.feedback_assisted_roi_count,
+            "feedback_active_track_count": self.feedback_active_track_count,
+            "feedback_stale_track_count": self.feedback_stale_track_count,
         }
         if self.decision_reason is not None:
             data["decision_reason"] = self.decision_reason

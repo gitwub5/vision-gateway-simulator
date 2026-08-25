@@ -5,7 +5,7 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
-from common import FramePacket, FrameSize, ROI, TriggerType
+from common import Detection, FramePacket, FrameSize, ROI, TriggerType
 from roi_generator.core.budget import (
     BudgetFallbackDecision,
     estimate_budget_cost,
@@ -18,8 +18,10 @@ from roi_generator.core.decision_reasons import (
     ANALYSIS_SIZE_CHANGED,
     INITIAL_FRAME,
     PERIODIC_FULL_FRAME,
+    REFERENCE_FEEDBACK,
     reason_for_trigger,
 )
+from roi_generator.core.feedback import ReferenceFeedbackCache, ReferenceFeedbackResult
 from roi_generator.signals.event_encoder import EventMaps, encode_event_maps
 from roi_generator.policies import RoiPolicy, create_roi_policy
 from roi_generator.signals.preprocess import resize_for_analysis, to_gray
@@ -43,6 +45,10 @@ class RuleBasedRoiGenerator:
         self._previous_analysis_gray = None
         self._previous_analysis_size: FrameSize | None = None
         self.last_generation_trace: RoiGenerationTrace | None = None
+        self._reference_feedback = ReferenceFeedbackCache()
+
+    def update_reference_feedback(self, detections: list[Detection]) -> None:
+        self._reference_feedback.update(detections, self.config)
 
     def process(self, packet: FramePacket) -> GateDecision:
         started = perf_counter()
@@ -105,7 +111,17 @@ class RuleBasedRoiGenerator:
 
         generation_trace = self._generate_roi_trace(event_maps, analysis_size, packet.original_size)
         self.last_generation_trace = generation_trace
-        current_rois = generation_trace.final_rois
+        feedback_result = self._reference_feedback.candidates(
+            camera_id=packet.camera_id,
+            frame_id=packet.frame_id,
+            frame_size=packet.original_size,
+            config=self.config,
+        )
+        current_rois = merge_feedback_rois(
+            generation_trace.final_rois,
+            feedback_result,
+            duplicate_overlap_ratio=self.config.reference_feedback_duplicate_overlap_ratio,
+        )
         current_selected_tile_count = policy_selected_tile_count(generation_trace, self.policy.name)
         current_tile_group_count = tile_group_count(generation_trace, self.policy.name)
         budget_fallback = evaluate_budget_fallback(
@@ -130,6 +146,8 @@ class RuleBasedRoiGenerator:
                 selected_tile_count=current_selected_tile_count,
                 tile_group_count=current_tile_group_count,
                 trace=generation_trace,
+                feedback_result=feedback_result,
+                feedback_assisted_roi_count=feedback_roi_count(feedback_result, current_rois),
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -156,6 +174,8 @@ class RuleBasedRoiGenerator:
                 selected_tile_count=current_selected_tile_count,
                 tile_group_count=current_tile_group_count,
                 trace=generation_trace,
+                feedback_result=feedback_result,
+                feedback_assisted_roi_count=feedback_roi_count(feedback_result, rois),
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -176,10 +196,12 @@ class RuleBasedRoiGenerator:
             should_run_full_frame=False,
             event_maps=event_maps,
             analysis_size=analysis_size,
-            decision_reason=reason_for_trigger(trigger_type),
+            decision_reason=decision_reason_for_rois(trigger_type, generation_trace.final_rois, rois),
             selected_tile_count=current_selected_tile_count,
             tile_group_count=current_tile_group_count,
             trace=generation_trace,
+            feedback_result=feedback_result,
+            feedback_assisted_roi_count=feedback_roi_count(feedback_result, rois),
         )
         self._emit_debug_snapshot(
             packet=packet,
@@ -231,6 +253,8 @@ class RuleBasedRoiGenerator:
         selected_tile_count: int = 0,
         tile_group_count: int = 0,
         trace: RoiGenerationTrace | None = None,
+        feedback_result: ReferenceFeedbackResult | None = None,
+        feedback_assisted_roi_count: int = 0,
     ) -> GateDecision:
         return self._decision(
             packet=packet,
@@ -244,6 +268,8 @@ class RuleBasedRoiGenerator:
             selected_tile_count=selected_tile_count,
             tile_group_count=tile_group_count,
             trace=trace,
+            feedback_result=feedback_result,
+            feedback_assisted_roi_count=feedback_assisted_roi_count,
         )
 
     def _decision(
@@ -259,6 +285,8 @@ class RuleBasedRoiGenerator:
         selected_tile_count: int = 0,
         tile_group_count: int = 0,
         trace: RoiGenerationTrace | None = None,
+        feedback_result: ReferenceFeedbackResult | None = None,
+        feedback_assisted_roi_count: int = 0,
     ) -> GateDecision:
         if analysis_size is None:
             analysis_size = self.config.analysis_size_for_frame(packet.original_size)
@@ -292,6 +320,10 @@ class RuleBasedRoiGenerator:
             merged_roi_count=(len(trace.merged_analysis_rois) if trace else 0),
             motion_density=(trace.motion_density if trace else 0.0),
             final_roi_area_ratio=final_roi_area_ratio(trace, packet.original_size) if trace else 0.0,
+            feedback_candidate_count=(len(feedback_result.candidates) if feedback_result else 0),
+            feedback_assisted_roi_count=feedback_assisted_roi_count,
+            feedback_active_track_count=(feedback_result.active_track_count if feedback_result else 0),
+            feedback_stale_track_count=(feedback_result.stale_track_count if feedback_result else 0),
             event_maps=event_maps,
         )
 
@@ -352,6 +384,48 @@ def final_roi_area_ratio(trace: RoiGenerationTrace, frame_size: FrameSize) -> fl
     if frame_area <= 0:
         return 0.0
     return sum(roi.area() for roi in trace.final_rois) / frame_area
+
+
+def merge_feedback_rois(
+    policy_rois: list[ROI],
+    feedback_result: ReferenceFeedbackResult,
+    duplicate_overlap_ratio: float = 1.0,
+) -> list[ROI]:
+    merged = list(policy_rois)
+    for candidate in feedback_result.candidates:
+        if not any(roi_overlap_ratio(existing, candidate.roi) >= duplicate_overlap_ratio for existing in merged):
+            merged.append(candidate.roi)
+    return sort_rois_by_area(merged)
+
+
+def feedback_roi_count(feedback_result: ReferenceFeedbackResult, decision_rois: list[ROI]) -> int:
+    return sum(
+        1
+        for candidate in feedback_result.candidates
+        if any(same_roi(candidate.roi, roi) for roi in decision_rois)
+    )
+
+
+def decision_reason_for_rois(trigger_type: TriggerType, policy_rois: list[ROI], decision_rois: list[ROI]) -> str:
+    if trigger_type == TriggerType.ROI and not policy_rois and decision_rois:
+        return REFERENCE_FEEDBACK
+    return reason_for_trigger(trigger_type)
+
+
+def roi_overlap_ratio(existing: ROI, candidate: ROI) -> float:
+    candidate_area = candidate.area()
+    if candidate_area <= 0:
+        return 0.0
+    x1 = max(existing.x, candidate.x)
+    y1 = max(existing.y, candidate.y)
+    x2 = min(existing.x + existing.w, candidate.x + candidate.w)
+    y2 = min(existing.y + existing.h, candidate.y + candidate.h)
+    intersection = max(0, x2 - x1) * max(0, y2 - y1)
+    return intersection / candidate_area
+
+
+def same_roi(left: ROI, right: ROI) -> bool:
+    return left.xywh() == right.xywh() and left.coord_system == right.coord_system
 
 
 def sort_rois_by_area(rois: list[ROI]) -> list[ROI]:

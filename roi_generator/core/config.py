@@ -35,6 +35,14 @@ class RoiGeneratorConfig:
     tile_grid_rows: int = 8
     tile_grid_cols: int = 8
     tile_motion_density_threshold: float = 0.0
+    small_object_boost_enabled: bool = False
+    tile_overlap_ratio: float = 0.0
+    reference_feedback_enabled: bool = False
+    reference_feedback_ttl_frames: int = 30
+    reference_feedback_min_confidence: float = 0.25
+    reference_feedback_margin_ratio: float = 0.2
+    reference_feedback_max_candidates_per_frame: int = 3
+    reference_feedback_duplicate_overlap_ratio: float = 1.0
     component_filter_enabled: bool = False
     component_filter_min_area_ratio: float | None = None
     component_filter_max_aspect_ratio: float | None = None
@@ -74,6 +82,8 @@ class RoiGeneratorConfig:
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
         budget = roi_generator.get("budget", {}) or {}
+        small_object_boost = roi_generator.get("small_object_boost", {}) or {}
+        reference_feedback = roi_generator.get("reference_feedback", {}) or {}
         component_filter = roi_generator.get("component_filter", {}) or {}
         recall_padding = roi_generator.get("recall_padding", {}) or {}
         debug = roi_generator.get("debug", {}) or {}
@@ -122,6 +132,66 @@ class RoiGeneratorConfig:
                     tile_metadata.get("motion_density_threshold", cls.tile_motion_density_threshold),
                 )
             ),
+            small_object_boost_enabled=bool(
+                roi_generator.get(
+                    "small_object_boost_enabled",
+                    small_object_boost.get("enabled", cls.small_object_boost_enabled),
+                )
+            ),
+            tile_overlap_ratio=_ratio(
+                roi_generator.get(
+                    "tile_overlap_ratio",
+                    small_object_boost.get("tile_overlap_ratio", cls.tile_overlap_ratio),
+                )
+            ),
+            reference_feedback_enabled=bool(
+                roi_generator.get(
+                    "reference_feedback_enabled",
+                    reference_feedback.get("enabled", cls.reference_feedback_enabled),
+                )
+            ),
+            reference_feedback_ttl_frames=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "reference_feedback_ttl_frames",
+                        reference_feedback.get("ttl_frames", cls.reference_feedback_ttl_frames),
+                    )
+                ),
+            ),
+            reference_feedback_min_confidence=float(
+                roi_generator.get(
+                    "reference_feedback_min_confidence",
+                    reference_feedback.get("min_confidence", cls.reference_feedback_min_confidence),
+                )
+            ),
+            reference_feedback_margin_ratio=_ratio(
+                roi_generator.get(
+                    "reference_feedback_margin_ratio",
+                    reference_feedback.get("margin_ratio", cls.reference_feedback_margin_ratio),
+                )
+            ),
+            reference_feedback_max_candidates_per_frame=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "reference_feedback_max_candidates_per_frame",
+                        reference_feedback.get(
+                            "max_candidates_per_frame",
+                            cls.reference_feedback_max_candidates_per_frame,
+                        ),
+                    )
+                ),
+            ),
+            reference_feedback_duplicate_overlap_ratio=_bounded_ratio(
+                roi_generator.get(
+                    "reference_feedback_duplicate_overlap_ratio",
+                    reference_feedback.get(
+                        "duplicate_overlap_ratio",
+                        cls.reference_feedback_duplicate_overlap_ratio,
+                    ),
+                )
+            ),
             component_filter_enabled=bool(component_filter.get("enabled", cls.component_filter_enabled)),
             component_filter_min_area_ratio=_optional_float(component_filter.get("min_area_ratio")),
             component_filter_max_aspect_ratio=_optional_float(component_filter.get("max_aspect_ratio")),
@@ -165,3 +235,11 @@ def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _ratio(value: Any) -> float:
+    return max(0.0, float(value))
+
+
+def _bounded_ratio(value: Any) -> float:
+    return min(1.0, max(0.0, float(value)))

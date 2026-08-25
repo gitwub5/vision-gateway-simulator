@@ -92,6 +92,32 @@ class RoiPolicyBaselineTest(unittest.TestCase):
         self.assertEqual(trace.final_rois[0].xywh(), [0, 0, 20, 20])
         self.assertEqual(sum(1 for tile in trace.tile_traces if tile.selected), 1)
 
+    def test_tile_mask_small_object_boost_expands_selected_tile_roi(self) -> None:
+        motion_map = np.zeros((4, 4), dtype="uint8")
+        motion_map[0:2, 0:2] = 255
+        policy = TileMaskPolicy(
+            RoiGeneratorConfig(
+                morphology_kernel_size=1,
+                tile_grid_rows=2,
+                tile_grid_cols=2,
+                tile_motion_density_threshold=0.5,
+                small_object_boost_enabled=True,
+                tile_overlap_ratio=1.0,
+            )
+        )
+
+        trace = policy.generate(
+            _event_maps(motion_map),
+            analysis_size=FrameSize(4, 4),
+            original_size=FrameSize(40, 40),
+        )
+
+        self.assertEqual(len(trace.final_rois), 1)
+        self.assertEqual(trace.final_rois[0].xywh(), [0, 0, 30, 30])
+        selected_tiles = [tile for tile in trace.tile_traces if tile.selected]
+        self.assertEqual(len(selected_tiles), 1)
+        self.assertEqual(selected_tiles[0].bbox.xywh(), [0, 0, 20, 20])
+
     def test_hybrid_keeps_component_that_overlaps_selected_tile(self) -> None:
         motion_map = np.zeros((4, 4), dtype="uint8")
         motion_map[0:2, 0:2] = 255

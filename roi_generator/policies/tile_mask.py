@@ -35,7 +35,12 @@ class TileMaskPolicy:
             grid_cols=self.config.tile_grid_cols,
             motion_density_threshold=self.config.tile_motion_density_threshold,
         )
-        selected_analysis_rois = selected_tile_rois(tile_traces)
+        tile_overlap_ratio = self.config.tile_overlap_ratio if self.config.small_object_boost_enabled else 0.0
+        selected_analysis_rois = selected_tile_rois(
+            tile_traces,
+            overlap_ratio=tile_overlap_ratio,
+            frame_size=analysis_size,
+        )
         merged_analysis_rois = merge_rois(
             selected_analysis_rois,
             distance_ratio=0.0,
