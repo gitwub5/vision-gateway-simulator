@@ -318,7 +318,7 @@ roi_generator:
 - [x] `hybrid_component_tile_balanced` profile 추가
   - [x] component bbox 후보 생성
   - [x] selected tile activity로 component 후보 gating
-  - [ ] tile history/budget 기반 후보 score 보정
+  - [x] A1 baseline에서는 tile overlap gating까지만 검증
 - [x] 공통 report에 `policy_label` 추가
 - [x] debug renderer에서 component ROI와 selected tile overlay를 함께 표시
 
@@ -380,6 +380,7 @@ ROI area가 줄어도 ROI count, tile count, tensor batch slot이 늘면 실제 
 - [ ] `tile_not_beneficial_dense_scene` fallback 추가
 - [ ] `batch_slot_overflow` fallback 추가
 - [ ] budget decision reason을 `gate_decisions.jsonl`에 기록
+- [ ] hybrid policy의 tile history/budget 기반 후보 score 보정 검증
 
 ### A2에서 보류하는 항목
 

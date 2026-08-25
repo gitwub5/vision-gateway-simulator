@@ -68,14 +68,52 @@ The 600-frame result keeps the same broad direction as the 120-frame run, but th
 
 ## Interpretation
 
-`tile_mask_recall_12x12` is the best A1 recall candidate on PhysicalAI after3m. It improves ROI containment from the component baseline 0.618 to 0.758, but it spends more selected tiles and lowers effective input area reduction to 0.810.
+`tile_mask_recall_12x12` is the best A1 recall candidate on PhysicalAI after3m. In the 120-frame run it improves ROI containment from the component baseline 0.618 to 0.758, but it spends more selected tiles and lowers effective input area reduction to 0.810. In the 600-frame recheck the absolute containment drops for all policies, but tile_mask keeps a clear advantage over component_bbox: 0.544 vs 0.441 ROI containment.
 
-`hybrid_component_tile_cost` keeps roughly the same ROI containment as component baseline while preserving high effective input area reduction and avoiding fallback. This is the better candidate when cost stability matters more than recall gain.
+`hybrid_component_tile_cost` keeps roughly the same ROI containment as component baseline while preserving high effective input area reduction and avoiding fallback. On the 600-frame run it does not improve ROI containment, but it reduces selected tile metadata from 36.83 tiles/frame to 9.62 tiles/frame while keeping effective reduction nearly unchanged. This makes it a cost-observability/control candidate, not a recall candidate.
 
 `component_bbox_noise_filter` reduces area but loses too much containment. `component_bbox_recall_padding` is invalid under the current area budget because fallback becomes dominant.
 
 `UA-DETRAC MVI_40204` should be treated as a dense-scene/fallback diagnostic for now. The scene is vehicle-only and label-clean, but current motion-based profiles select too much area and fall back almost every frame.
 
-## Next Step
+## Visual Review
 
-Run `tile_mask_recall_12x12` and `hybrid_component_tile_cost` on a longer PhysicalAI after3m segment, then decide whether A1 can close with two candidate profiles or needs more threshold tuning.
+Latest comparison visualization:
+
+```text
+outputs/roi_proposal_validation/a1_compare_visual_policy_methods_f5401_100/
+```
+
+Representative frame:
+
+```text
+outputs/roi_proposal_validation/a1_compare_visual_policy_methods_f5401_100/Camera_0002_f005401_policy_methods.jpg
+```
+
+Visual review confirms the metric direction:
+
+- `component_bbox_balanced` shows only final ROI. Its ROI is compact, but it repeatedly misses distant/small person boxes when motion components merge around a nearer subject.
+- `tile_mask_recall_12x12` shows selected tiles plus final ROI. It expands over active tile groups and includes more distant/small person boxes, but this comes from larger rectangular ROI groups and still misses some low-motion or edge targets.
+- `hybrid_component_tile_cost` shows selected tiles plus final ROI, but final ROI mostly tracks component_bbox because the current hybrid policy only gates component candidates by tile overlap. It does not create tile-first recall ROIs.
+- The visualization is policy-discriminative enough for A1: common gray/heatmap/motion preprocessing is not the focus; the visible difference is final ROI shape plus selected tiles for tile/hybrid policies.
+
+## A1 Decision
+
+| Profile | Decision | Reason |
+|---|---|---|
+| `component_bbox_balanced` | Keep as baseline | Stable compact baseline, but not enough recall on PhysicalAI after3m. |
+| `tile_mask_recall_12x12` | Keep/Tune | Best A1 recall profile. It improves 600-frame ROI containment by +0.103 over component_bbox, at the cost of more ROI area, more ROI/frame, and 3.3% fallback. |
+| `hybrid_component_tile_cost` | Keep as cost candidate | Does not improve recall, but preserves component_bbox containment/effective reduction while reducing selected tile count. Carry forward only as a budget/control candidate. |
+| `component_bbox_noise_filter` | Disable for now | Area reduction loses too much containment. |
+| `component_bbox_recall_padding` | Disable for now | Current budget makes fallback dominant. |
+| `UA-DETRAC current profiles` | Diagnostic only | Dense vehicle scene causes near-total fallback/no-ROI behavior; do not use it to pick A1 winner. |
+
+## Remaining Work
+
+No additional A1 baseline experiment is required before moving to the next policy question. The 120-frame sweep, 600-frame recheck, and policy-method visualization agree on the direction.
+
+Recommended next step:
+
+1. Move to A2 budget/cost policy using `tile_mask_recall_12x12` as the recall candidate and `hybrid_component_tile_cost` as the cost-control candidate.
+2. Keep `component_bbox_balanced` as the comparison baseline.
+3. Defer small/edge target miss reduction to Stage B, because the remaining tile_mask misses are not solved by the current component-gated hybrid implementation.
