@@ -1,21 +1,21 @@
 # Vision Frontend Simulator
 
-Vision Frontend Simulator는 카메라와 GPU 사이에 위치할 Vision Frontend Gate 또는 NPX Gate의 효과를 소프트웨어로 먼저 검증하기 위한 사내 시뮬레이션 프로젝트입니다.
+Vision Frontend Simulator는 카메라와 GPU 사이에 위치할 Vision Frontend Gate 또는 ROI Generator의 효과를 소프트웨어로 먼저 검증하기 위한 사내 시뮬레이션 프로젝트입니다.
 
 목표는 실제 하드웨어, 보드, 칩 구현 전에 **ROI 기반 전처리 게이트가 객체 탐지 성능을 유지하면서 GPU inference workload를 줄일 수 있는지** 확인하는 것입니다.
 
-초기 검증에서는 실제 NPX 하드웨어나 SNN 모델을 사용하지 않고, OpenCV 기반 rule-based 영상처리로 ROI Gate를 에뮬레이션합니다.
+초기 검증에서는 실제 ROI generator 하드웨어나 SNN 모델을 사용하지 않고, OpenCV 기반 rule-based 영상처리로 ROI generator를 에뮬레이션합니다.
 
 ## 현재 범위
 
-현재 우선순위는 **Phase 1. Rule-based ROI Gate 검증**입니다.
+현재 우선순위는 **Phase 1. Rule-based ROI generator 검증**입니다.
 
 Phase 1에서는 다음 흐름을 비교합니다.
 
 ```text
 A. Full-frame YOLOv8
-B. Rule-based ROI Gate + ROI YOLOv8
-C. Rule-based ROI Gate + ROI YOLOv8 + Periodic Full-frame Check
+B. Rule-based ROI generator + ROI YOLOv8
+C. Rule-based ROI generator + ROI YOLOv8 + Periodic Full-frame Check
 ```
 
 Phase 1의 구현 현황, 체크리스트, R&R은 [docs/plan/phase1_implementation_plan.md](docs/plan/phase1_implementation_plan.md)를 기준으로 관리합니다.
@@ -44,28 +44,38 @@ Synthetic fixed-camera smoke video 생성:
 python tools/create_smoke_video.py
 ```
 
-Rule-based ROI Gate smoke 실행:
+Rule-based ROI generator smoke 실행:
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/dataset.smoke.yaml \
-  --gate-config configs/npx_gate.smoke.yaml \
+  --dataset-config configs/datasets/base/smoke.yaml \
+  --roi-generator-config configs/roi_generator/base/smoke.yaml \
   --limit 60
 ```
 
-전체 Phase 1 실험 실행:
+ROI Proposal Validation 실행:
 
 ```bash
-python experiments/run_phase1_experiment.py \
-  --dataset-config configs/dataset.opencv_vtest.yaml \
-  --gate-config configs/npx_gate.yaml \
-  --yolo-config configs/yolo.yaml \
+python experiments/run_roi_proposal_validation.py \
+  --dataset-config configs/datasets/physicalai/physicalai_row0709.yaml \
+  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
+  --experiment-name physicalai_row0709_balanced \
+  --limit 120
+```
+
+E2E Inference Validation 실행:
+
+```bash
+python experiments/run_e2e_inference_validation.py \
+  --dataset-config configs/datasets/samples/opencv_vtest.yaml \
+  --roi-generator-config configs/roi_generator/base/default.yaml \
+  --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest \
   --limit 120
 ```
 
-실험 결과는 `outputs/experiments/<timestamp>_<experiment_name>/` 아래에 묶어서 저장됩니다.
-Oxford Town Centre를 실행할 때는 `--gate-config configs/npx_gate.oxford.yaml`을 사용합니다.
+ROI proposal 결과는 `outputs/roi_proposal_validation/<run_id>/`, E2E inference 결과는 `outputs/e2e_inference_validation/<run_id>/` 아래에 묶어서 저장됩니다.
+Phase 1.1 public validation은 target-aware ROI 기준으로 판단합니다. `physicalai-smartspaces` row 단위 dataset은 산업/창고 person ROI proposal 후보로, `ua-detrac`은 실사 vehicle ROI proposal 후보로, `od-virat-tiny`는 partial annotation 보조 검증으로 사용합니다.
 
 테스트:
 
@@ -84,17 +94,17 @@ python -m unittest discover -s tests
 | `docs/runs/` | 공유 가능한 검증 실행 기록과 report 위치 |
 | `docs/idea/` | 개인 기술 고민, 전략 메모, 의사결정 초안. Git 제외 |
 | `docs/assets/` | 문서에서 사용하는 대표 이미지와 시각화 예시 |
-| `configs/` | dataset, gate, YOLO 실험 설정 |
+| `configs/` | `datasets/`, `roi_generator/`, `models/`로 분리된 실험 설정 |
 | `common/` | loader, gate, inference, evaluation이 공유하는 schema |
 | `data_loader/` | video/image sequence 입력을 `FramePacket`으로 변환 |
-| `npx_emulator/` | rule-based ROI Gate emulator |
+| `roi_generator/` | rule-based ROI generator |
 | `gpu_inference/` | full-frame YOLO, ROI YOLO, 좌표 복원 |
-| `evaluation/` | recall, ROI containment, workload, latency 비교 |
+| `evaluation/` | `metrics/`, `reports/`, `system/`으로 분리된 평가 metric, report builder, hardware snapshot |
 | `visualization/` | ROI overlay, detection comparison, failure case 렌더링 |
 | `experiments/` | 각 모듈을 연결해서 산출물을 생성하는 실행 스크립트 |
 | `tools/` | sample data 다운로드, smoke video 생성 등 보조 도구 |
-| `tests/` | 단위 테스트 |
-| `outputs/` | 실험 결과 저장 위치. 실행 단위 결과는 `outputs/experiments/` 아래에 저장 |
+| `tests/` | 도메인별 하위 폴더로 나눈 단위 테스트 |
+| `outputs/` | 실험 결과 저장 위치. ROI proposal은 `outputs/roi_proposal_validation/`, E2E inference는 `outputs/e2e_inference_validation/` 아래에 저장 |
 | `data/` | dataset 저장 위치. Git 제외 |
 
 ## 주요 문서
@@ -105,13 +115,13 @@ python -m unittest discover -s tests
 | [docs/plan/phase1_validation_plan.md](docs/plan/phase1_validation_plan.md) | Phase 1 공유용 검증 실행 절차와 산출물 규칙 |
 | [docs/plan/vision_frontend_validation_roadmap.md](docs/plan/vision_frontend_validation_roadmap.md) | Phase 2 이후 장기 로드맵 |
 | [docs/README.md](docs/README.md) | 문서 디렉터리 운영 규칙 |
-| [docs/sample_data.md](docs/sample_data.md) | 공개 sample data 준비 방법 |
-| [docs/smoke_test.md](docs/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
-| [docs/smoke_test_visualization_result.md](docs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |
+| [docs/how-to/dataset_setup.md](docs/how-to/dataset_setup.md) | 공개 sample data 준비 방법 |
+| [docs/how-to/smoke_test.md](docs/how-to/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
+| [docs/runs/smoke_test_visualization_result.md](docs/runs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |
 
 ## 협업 메모
 
 - `common/schemas.py` 변경은 전체 pipeline에 영향을 주므로 사전에 공유합니다.
-- `configs/*.yaml` 변경은 실험 결과에 영향을 주므로 report 또는 plan 문서에 이유를 남깁니다.
+- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로 report 또는 plan 문서에 이유를 남깁니다.
 - ROI metadata schema는 inference, evaluation, visualization이 공유하는 계약으로 취급합니다.
-- Phase 1에서는 SNN, 실제 NPX 하드웨어, RTSP, DeepStream, TensorRT를 직접 구현하지 않습니다.
+- Phase 1에서는 SNN, 실제 ROI generator 하드웨어, RTSP, DeepStream, TensorRT를 직접 구현하지 않습니다.

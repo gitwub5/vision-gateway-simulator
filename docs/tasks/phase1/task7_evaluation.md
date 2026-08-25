@@ -110,7 +110,7 @@ python experiments/compare_results.py --iou-threshold 0.4
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator gpu_inference evaluation experiments tests tools
+python3 -m compileall common data_loader roi_generator gpu_inference evaluation experiments tests tools
 python3 -m unittest tests.test_evaluation
 python3 experiments/compare_results.py --help
 ```

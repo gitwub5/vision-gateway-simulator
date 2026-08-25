@@ -1,0 +1,53 @@
+"""Rule-based ROI generator emulator."""
+
+from roi_generator.core.gate import (
+    BudgetFallbackDecision,
+    GateDecision,
+    RoiDebugSnapshot,
+    RoiGenerationTrace,
+    RoiGeneratorConfig,
+    RuleBasedRoiGenerator,
+    evaluate_budget_fallback,
+    is_periodic_full_frame,
+    load_roi_generator_config,
+    should_fallback_to_full_frame,
+)
+from roi_generator.observability.metadata import (
+    ComponentMetadataWriter,
+    GateFrameMetadataWriter,
+    PolicyTraceWriter,
+    ROIMetadataWriter,
+    TileMetadataWriter,
+    build_roi_id,
+    component_metadata_from_trace,
+    frame_metadata_from_gate_decision,
+    policy_trace_from_gate_decision,
+    read_tile_metadata_jsonl,
+    roi_metadata_from_gate_decision,
+    tile_metadata_from_trace,
+)
+
+__all__ = [
+    "GateDecision",
+    "BudgetFallbackDecision",
+    "RoiDebugSnapshot",
+    "RoiGenerationTrace",
+    "RoiGeneratorConfig",
+    "RuleBasedRoiGenerator",
+    "evaluate_budget_fallback",
+    "is_periodic_full_frame",
+    "load_roi_generator_config",
+    "should_fallback_to_full_frame",
+    "GateFrameMetadataWriter",
+    "ComponentMetadataWriter",
+    "TileMetadataWriter",
+    "PolicyTraceWriter",
+    "ROIMetadataWriter",
+    "build_roi_id",
+    "component_metadata_from_trace",
+    "policy_trace_from_gate_decision",
+    "tile_metadata_from_trace",
+    "read_tile_metadata_jsonl",
+    "frame_metadata_from_gate_decision",
+    "roi_metadata_from_gate_decision",
+]

@@ -34,37 +34,20 @@ SAMPLES: dict[str, SampleDataset] = {
         key="opencv-vtest",
         description="OpenCV fixed-camera pedestrian sample video.",
         output_path=Path("data/opencv_vtest/vtest.avi"),
-        config_path=Path("configs/dataset.opencv_vtest.yaml"),
+        config_path=Path("configs/datasets/samples/opencv_vtest.yaml"),
         url="https://raw.githubusercontent.com/opencv/opencv/master/samples/data/vtest.avi",
         expected_size_bytes=None,
         usage_note=(
             "OpenCV vtest.avi is a small fixed-camera pedestrian sample. Use it for "
-            "local Phase 1 pipeline validation before preparing Oxford Town Centre, "
-            "OD-VIRAT, or internal CCTV data."
+            "local Phase 1 pipeline validation before preparing OD-VIRAT, a selected "
+            "temporal GT dataset, or internal CCTV data."
         ),
-    ),
-    "oxford-town-centre": SampleDataset(
-        key="oxford-town-centre",
-        description="Oxford Town Centre fixed CCTV pedestrian dataset.",
-        output_path=Path("data/oxford_town_centre/TownCentreXVID.mp4"),
-        config_path=Path("configs/dataset.oxford_town_centre.yaml"),
-        url=None,
-        expected_size_bytes=None,
-        usage_note=(
-            "Oxford Town Centre is a fixed CCTV pedestrian dataset and is a good "
-            "Phase 1 validation candidate, but the original publisher page is no "
-            "longer reliably available and public mirrors may require terms, login, "
-            "or torrent tooling. Download it manually only after checking whether "
-            "your intended use is allowed. Place the video at "
-            "data/oxford_town_centre/TownCentreXVID.mp4."
-        ),
-        auto_download=False,
     ),
     "od-virat-tiny": SampleDataset(
         key="od-virat-tiny",
         description="OD-VIRAT Tiny or a small OD-VIRAT subset.",
         output_path=Path("data/od_virat_tiny/"),
-        config_path=Path("configs/dataset.od_virat_tiny.yaml"),
+        config_path=Path("configs/datasets/od_virat/od_virat_tiny.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -84,11 +67,47 @@ SAMPLES: dict[str, SampleDataset] = {
         ),
         auto_download=False,
     ),
+    "ua-detrac": SampleDataset(
+        key="ua-detrac",
+        description="UA-DETRAC fixed traffic-camera vehicle detection/tracking dataset.",
+        output_path=Path("data/ua_detrac/"),
+        config_path=Path("configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Preferred public temporal GT dataset for ROI proposal validation. UA-DETRAC "
+            "contains fixed traffic-camera image sequences with vehicle bounding boxes. "
+            "Download and extract the image and annotation XML archives under "
+            "data/ua_detrac/. The current default quick config matches the zip-expanded "
+            "layout where images are under "
+            "data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_40204 and annotations are "
+            "under data/ua_detrac/DETRAC-Train-Annotations-XML/DETRAC-Train-Annotations-XML/MVI_40204.xml."
+        ),
+        auto_download=False,
+    ),
+    "physicalai-smartspaces": SampleDataset(
+        key="physicalai-smartspaces",
+        description="NVIDIA PhysicalAI Smart Spaces synthetic fixed-camera industrial dataset.",
+        output_path=Path("data/physicalai_smartspaces/"),
+        config_path=Path("configs/datasets/physicalai/physicalai_row0709_after3m.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Use row-level selective download only; the full dataset is several TB. "
+            "Resolve and download one row video plus its scene ground_truth.json with "
+            "`python tools/download_physicalai_row.py --row-id 709 --dry-run`, then run "
+            "without `--dry-run` when the resolved paths look correct. Repeat for rows "
+            "726 and 962. The helper writes configs/datasets/physicalai/physicalai_row<row>.yaml "
+            "after download; Phase 1.1 uses configs/datasets/physicalai/physicalai_row0709_after3m.yaml "
+            "as the crowded person validation segment."
+        ),
+        auto_download=False,
+    ),
     "internal-cctv": SampleDataset(
         key="internal-cctv",
         description="Internal fixed-camera CCTV sample.",
         output_path=Path("data/internal_cctv/"),
-        config_path=Path("configs/dataset.internal_cctv_sample.yaml"),
+        config_path=Path("configs/datasets/samples/internal_cctv_sample.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
@@ -182,7 +201,7 @@ def print_next_steps(sample: SampleDataset) -> None:
     print(
         "Run ROI metadata smoke test:\n"
         f"  python experiments/run_rule_roi_baseline.py --dataset-config {sample.config_path} "
-        "--gate-config configs/npx_gate.yaml --limit 30"
+        "--roi-generator-config configs/roi_generator/base/default.yaml --limit 30"
     )
 
 

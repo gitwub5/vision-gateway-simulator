@@ -1,0 +1,22 @@
+roi_generator:
+  roi_policy: tile_mask
+  analysis_width: 384
+  analysis_height: 216
+  threshold_motion: 8
+  threshold_on: 8
+  threshold_off: 8
+  morphology_kernel_size: 1
+  hold_frames: 12
+  full_frame_interval: 120
+  budget:
+    enabled: true
+    max_roi_per_frame: 8
+    max_total_roi_area_ratio: 0.58
+    max_selected_tile_count: 24
+  tile_metadata:
+    grid_rows: 12
+    grid_cols: 12
+    motion_density_threshold: 0.01
+  small_object_boost:
+    enabled: true
+    tile_overlap_ratio: 0.25

@@ -7,11 +7,9 @@
 | 경로 | 용도 |
 |---|---|
 | `plan/` | Phase별 구현 계획, 검증 계획, 로드맵 |
+| `how-to/` | 실행 방법, 재현 명령, dataset 준비 절차 |
 | `tasks/phase*/` | Phase별 Task 구현 기록 |
 | `runs/` | 공유 가능한 검증 실행 기록과 report 위치 |
-| `sample_data.md` | 검증용 sample data 준비 방법 |
-| `smoke_test.md` | smoke test 실행 방법 |
-| `smoke_test_visualization_result.md` | smoke visualization 결과 |
 | `assets/` | 문서에서 사용하는 이미지 |
 
 ## 로컬 문서

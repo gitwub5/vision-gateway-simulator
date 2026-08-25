@@ -6,7 +6,7 @@ Task 구현 기록은 Phase별 하위 폴더에 둔다.
 docs/tasks/
   phase1/
     task2_dataset_stream_loader.md
-    task3_rule_based_roi_gate.md
+    task3_rule_based_roi_generator.md
     ...
 ```
 

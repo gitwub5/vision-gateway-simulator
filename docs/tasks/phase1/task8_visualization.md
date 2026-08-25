@@ -74,7 +74,7 @@ python experiments/compare_results.py
 
 ```bash
 python experiments/render_visualizations.py \
-  --dataset-config configs/dataset.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
   --full-frame-detections outputs/detections/full_frame.jsonl \
   --roi-detections outputs/detections/roi_yolo.jsonl \
@@ -96,12 +96,10 @@ python experiments/render_visualizations.py --iou-threshold 0.4
 ## 검증 방법
 
 ```bash
-python3 -m compileall common data_loader npx_emulator gpu_inference evaluation visualization experiments tests tools
+python3 -m compileall common data_loader roi_generator gpu_inference evaluation visualization experiments tests tools
 python3 -m unittest tests.test_visualization
 python3 experiments/render_visualizations.py --help
 ```
-
-실제 smoke 실행 결과와 대표 이미지는 `docs/smoke_test_visualization_result.md`에 기록했다.
 
 검증 항목:
 

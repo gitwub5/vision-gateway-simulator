@@ -6,11 +6,13 @@
 
 `vision-frontend-simulator`는 카메라와 GPU 사이의 Vision Frontend / NPX Gate 아이디어를 소프트웨어로 검증하는 Python 프로젝트다.
 
-현재 공유 구현 범위는 **Phase 1. Rule-based ROI Gate pipeline**이다.
+이 파일은 특정 phase의 구현 계획이 아니라, phase가 바뀌어도 유지되어야 하는 공통 컨텍스트를 정리한다. 현재 진행 중인 phase나 세부 작업은 `docs/plan/`, `docs/tasks/`, `docs/runs/`, `docs/idea/`의 해당 문서를 따라간다.
+
+공통 검증 파이프라인의 기본 형태는 다음과 같다.
 
 ```text
 Dataset stream
-  -> rule-based ROI gate
+  -> ROI / gate policy
   -> ROI metadata
   -> full-frame / ROI YOLO inference
   -> evaluation report
@@ -25,14 +27,17 @@ Dataset stream
 2. `docs/README.md`
    - 공유 문서와 로컬 idea 문서의 경계를 확인한다.
 
-3. `docs/plan/phase1_implementation_plan.md`
-   - Phase 1 구현 체크리스트, R&R, 구현 순서, 파일 구조를 확인한다.
+3. `docs/plan/README.md`
+   - 현재 공유 plan 문서 목록과 문서별 용도를 확인한다.
 
-4. `docs/tasks/README.md`
+4. 현재 작업 phase의 plan 문서
+   - 예: `docs/plan/phase1_implementation_plan.md`, `docs/plan/phase1_1_implementation_plan.md`, `docs/plan/phase1_validation_plan.md`
+
+5. `docs/tasks/README.md`
    - Task 문서가 Phase별로 정리되는 규칙을 확인한다.
 
-5. 필요한 Task 문서
-   - Phase 1 구현 세부 내용은 `docs/tasks/phase1/` 아래에 있다.
+6. 필요한 Task 문서
+   - Phase별 구현 세부 내용은 `docs/tasks/phase*/` 아래에 있다.
 
 ## 문서 구조
 
@@ -42,6 +47,7 @@ docs/
   plan/
     README.md
     phase1_implementation_plan.md
+    phase1_1_implementation_plan.md
     phase1_validation_plan.md
     vision_frontend_validation_roadmap.md
   tasks/
@@ -69,10 +75,13 @@ docs/
 
 ## 현재 상태
 
-- Phase 1 Task 1~8 구현 문서는 작성되어 있다.
-- 공유 validation 문서는 상세 판단 기준이 아니라 실행 절차와 산출물 규칙만 남긴 상태다.
-- Phase 1.1 후보 고민은 ROI crop/gate policy 개선이다.
-- Phase 2 SNN 전환, DeepStream과의 경계, 사업성 판단은 `docs/idea/`에서 로컬 메모로 관리한다.
+이 섹션은 phase별 세부 구현 상태를 길게 복제하지 않고, 새 agent가 어디를 보면 되는지만 안내한다.
+
+- Phase별 구현 계획은 `docs/plan/phase*_implementation_plan.md`를 확인한다.
+- 공통 검증 파이프라인은 `docs/plan/phase1_validation_plan.md`를 확인한다.
+- 실제 run 기록과 report 위치는 `docs/runs/phase1_validation_runs.md`를 확인한다.
+- Phase 1.1 ROI/gate policy 개선 계획은 `docs/plan/phase1_1_implementation_plan.md`를 확인한다.
+- Phase 2 SNN 전환, DeepStream과의 경계, 사업성 판단처럼 아직 공유하기 이른 내용은 `docs/idea/`에서 로컬 메모로 관리한다.
 
 ## 주요 코드 위치
 
@@ -96,7 +105,7 @@ docs/
 python3 -m unittest discover -s tests
 ```
 
-전체 Phase 1 실험 예시는 `README.md`와 `docs/plan/phase1_validation_plan.md`를 따른다.
+실험 실행 예시는 `README.md`와 `docs/plan/phase1_validation_plan.md`를 따른다.
 
 ## 작업 원칙
 
@@ -106,3 +115,4 @@ python3 -m unittest discover -s tests
 - 대용량 dataset, model weight, 실험 output은 Git에 포함하지 않는다.
 - 전략성 판단은 먼저 `docs/idea/`에 둔다. 공유 가능한 결론으로 정리된 경우에만 `docs/plan/`으로 승격한다.
 - DeepStream과 겹치는 단순 ROI crop/inference 재구현보다, dynamic ROI proposal, policy controller, tracking-assisted ROI, batching/fallback decision 같은 차별화 지점을 우선 검토한다.
+- phase별 상세 구현 상태를 이 파일에 길게 복사하지 않는다. 이 파일은 공통 맥락과 문서 탐색 경로만 유지한다.

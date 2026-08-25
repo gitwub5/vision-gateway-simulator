@@ -8,13 +8,13 @@
 
 ## 2. 현재 구현 우선순위
 
-현재 우선순위는 `Phase 1. Rule-based ROI Gate 검증`이다.
+현재 우선순위는 `Phase 1. Rule-based ROI generator 검증`이다.
 
 Phase 1에서는 다음을 구현한다.
 
 - Dataset video 또는 image sequence loader
 - Full-frame YOLOv8 baseline
-- Rule-based ROI Gate emulator
+- Rule-based ROI generator emulator
 - ROI crop 생성
 - ROI crop 기반 YOLOv8 inference
 - detection 좌표 복원
@@ -29,16 +29,16 @@ Phase 1에서는 다음을 구현한다.
 
 | 역할 | 담당 영역 | 주요 책임 |
 |---|---|---|
-| Owner A | 데이터 입력 + ROI Gate pipeline | dataset loader, frame schema 사용, rule-based ROI 생성, ROI metadata 생성 |
+| Owner A | 데이터 입력 + ROI generator pipeline | dataset loader, frame schema 사용, rule-based ROI 생성, ROI metadata 생성 |
 | Owner B | GPU inference + evaluation pipeline | YOLO baseline, ROI YOLO, 좌표 복원, metric 계산, report/visualization |
-| Shared | 공통 계약 + 실험 설정 | `common/schemas.py`, `configs/*.yaml`, `docs/plan/phase1_implementation_plan.md`, README, 문서 |
+| Shared | 공통 계약 + 실험 설정 | `common/schemas.py`, `configs/**/*.yaml`, `docs/plan/phase1_implementation_plan.md`, README, 문서 |
 
 ### 파일 Ownership
 
 | 경로 | Primary Owner | Secondary Reviewer | 비고 |
 |---|---|---|---|
 | `data_loader/` | Owner A | Owner B | Dataset stream, annotation loader |
-| `npx_emulator/` | Owner A | Owner B | Rule-based gate, event map, ROI 생성 |
+| `roi_generator/` | Owner A | Owner B | Rule-based gate, event map, ROI 생성 |
 | `gpu_inference/` | Owner B | Owner A | YOLO full-frame, ROI YOLO, coordinate restore |
 | `evaluation/` | Owner B | Owner A | recall, containment, workload, latency metric |
 | `experiments/` | Owner B | Owner A | 실행 script, comparison report orchestration |
@@ -54,7 +54,7 @@ Phase 1에서는 다음을 구현한다.
 
 - 각자 Primary Owner인 디렉터리를 우선 수정한다.
 - `common/schemas.py` 변경은 두 사람 모두에게 영향을 주므로, 변경 전에 필요한 필드와 호환성을 먼저 합의한다.
-- `configs/*.yaml` 변경은 실험 결과에 영향을 주므로, 변경 이유와 기본값을 `docs/plan/phase1_implementation_plan.md` 또는 report에 남긴다.
+- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로, 변경 이유와 기본값을 `docs/plan/phase1_implementation_plan.md` 또는 report에 남긴다.
 - 한 Task가 여러 ownership을 건드리면 PR 또는 커밋 설명에 변경 범위를 명확히 적는다.
 - 같은 파일을 동시에 수정해야 하면 먼저 작은 interface 변경 커밋을 만든 뒤 각자 구현을 이어간다.
 - 체크박스는 해당 Task의 Primary Owner가 갱신하고, Secondary Reviewer가 결과를 확인한다.
@@ -74,7 +74,7 @@ docs/tasks/phase{Phase번호}/task{번호}_{짧은_설명}.md
 
 ```text
 docs/tasks/phase1/task2_dataset_stream_loader.md
-docs/tasks/phase1/task3_rule_based_roi_gate.md
+docs/tasks/phase1/task3_rule_based_roi_generator.md
 ```
 
 각 Task 문서에는 최소한 다음 내용을 포함한다.
@@ -92,20 +92,20 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 | Task | Primary Owner | Secondary Reviewer | 주요 파일 |
 |---|---|---|---|
 | Task 1. 프로젝트 스캐폴딩 | Shared | Shared | `common/`, `configs/`, skeleton 전체 |
-| Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/dataset.yaml` |
-| Task 3. Rule-based ROI Gate Emulator | Owner A | Owner B | `npx_emulator/`, `configs/npx_gate.yaml` |
-| Task 4. ROI Metadata 저장 | Owner A | Owner B | `npx_emulator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
-| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/yolo.yaml` |
+| Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/datasets/base/default.yaml` |
+| Task 3. Rule-based ROI generator Emulator | Owner A | Owner B | `roi_generator/`, `configs/roi_generator/base/default.yaml` |
+| Task 4. ROI Metadata 저장 | Owner A | Owner B | `roi_generator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
+| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/models/yolo_default.yaml` |
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
 | Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
 | Task 8. Visualization | Owner B | Owner A | `outputs/visualizations/`, visualization helper modules |
-| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/sample_data.md`, `configs/dataset.*.yaml` |
+| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/how-to/dataset_setup.md`, `configs/datasets/**/*.yaml` |
 
 ## 4. 구현 체크리스트
 
 체크박스는 실제 구현, 최소 동작 확인, `docs/tasks/phase*/` 구현 설명 문서 작성이 모두 끝났을 때 갱신한다. 단순 파일 생성만으로 완료 처리하지 않고, 해당 단계의 산출물이 생성되거나 다음 단계에서 사용할 수 있는 인터페이스가 준비되었을 때 완료로 본다.
 
-### Phase 1. Rule-based ROI Gate 검증
+### Phase 1. Rule-based ROI generator 검증
 
 - [x] Task 1. 프로젝트 스캐폴딩
   - [x] 기본 디렉터리 생성
@@ -117,7 +117,7 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
   - [x] image sequence loader 구현
   - [x] `FramePacket` 생성
   - [x] annotation loader 확장 지점 준비
-- [x] Task 3. Rule-based ROI Gate Emulator
+- [x] Task 3. Rule-based ROI generator Emulator
   - [x] gray 변환 및 resize
   - [x] frame difference
   - [x] ON/OFF event-like map 생성
@@ -176,7 +176,7 @@ docs/tasks/phase1/task3_rule_based_roi_gate.md
 
 ## 5. Phase 1 구현 범위 메모
 
-Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, evaluation, visualization을 연결하는 데 집중한다.
+Phase 1 구현은 full-frame baseline, rule-based ROI generator, ROI YOLO inference, evaluation, visualization을 연결하는 데 집중한다.
 
 비공개 검증 기준과 다음 단계 판단 메모는 `docs/idea/`에서 관리한다.
 
@@ -195,8 +195,11 @@ Phase 1 구현은 full-frame baseline, rule-based ROI gate, ROI YOLO inference, 
 
 ```text
 configs/
+├── datasets/
+├── roi_generator/
+└── models/
 data_loader/
-npx_emulator/
+roi_generator/
 gpu_inference/
 evaluation/
 experiments/
@@ -212,9 +215,9 @@ outputs/
 - `frame_id`, `timestamp`, `camera_id`, `frame`을 포함한 frame packet 생성
 - 추후 annotation loader를 붙일 수 있는 구조 유지
 
-초기 입력 데이터 준비 방법은 `docs/sample_data.md`를 따른다.
+초기 입력 데이터 준비 방법은 `docs/how-to/dataset_setup.md`를 따른다.
 
-### [x] Task 3. Rule-based ROI Gate Emulator
+### [x] Task 3. Rule-based ROI generator Emulator
 
 목표:
 
@@ -262,7 +265,7 @@ outputs/roi_metadata/gate_decisions.jsonl
   "analysis_frame_size": [256, 144],
   "roi_xywh": [640, 320, 420, 560],
   "score": 0.82,
-  "source": "rule_based_roi_gate",
+  "source": "rule_based_roi_generator",
   "trigger_type": "roi"
 }
 ```
@@ -345,13 +348,12 @@ vision-frontend-simulator/
 │   │   ├── phase1_implementation_plan.md
 │   │   ├── phase1_validation_plan.md
 │   │   └── vision_frontend_validation_roadmap.md
-│   ├── sample_data.md
-│   ├── smoke_test.md
+│   ├── how-to/
 │   ├── idea/                 # local only, gitignored
 │   └── tasks/
 │       └── phase1/
 │           ├── task2_dataset_stream_loader.md
-│           ├── task3_rule_based_roi_gate.md
+│           ├── task3_rule_based_roi_generator.md
 │           ├── task4_roi_metadata.md
 │           ├── task5_full_frame_yolo_baseline.md
 │           ├── task6_roi_yolo_inference.md
@@ -360,17 +362,20 @@ vision-frontend-simulator/
 ├── .agents/
 │   └── project_context.md
 ├── configs/
-│   ├── dataset.yaml
-│   ├── dataset.smoke.yaml
-│   ├── npx_gate.yaml
-│   ├── npx_gate.smoke.yaml
-│   └── yolo.yaml
+│   ├── datasets/
+│   │   ├── default.yaml
+│   │   └── smoke.yaml
+│   ├── roi_generator/
+│   │   ├── default.yaml
+│   │   └── smoke.yaml
+│   └── models/
+│       └── yolo_default.yaml
 ├── common/
 │   └── schemas.py
 ├── data_loader/
 │   ├── dataset_stream.py
 │   └── annotation_loader.py
-├── npx_emulator/
+├── roi_generator/
 │   ├── preprocess.py
 │   ├── event_encoder.py
 │   ├── motion_detector.py
@@ -399,7 +404,7 @@ vision-frontend-simulator/
 │   └── compare_results.py
 ├── tests/
 │   ├── test_dataset_stream.py
-│   ├── test_npx_gate.py
+│   ├── test_roi_generator.py
 │   ├── test_roi_metadata.py
 │   ├── test_yolo_full_frame.py
 │   ├── test_yolo_roi.py
@@ -428,10 +433,10 @@ dataset:
   frame_limit: null
 ```
 
-### NPX Gate
+### ROI Generator
 
 ```yaml
-npx_gate:
+roi_generator:
   analysis_width: 256
   analysis_height: 144
   threshold_motion: 25
@@ -486,8 +491,8 @@ Phase 1 성공 기준, 다음 단계 진입 조건, ROI crop 개선 여부, SNN 
 - `docs/plan/`: 다음 Phase 계획과 세부 검증 문서를 정리하는 위치
 - `docs/tasks/phase*/`: Phase별 Task 구현 설명 문서
 - `docs/idea/`: 개인 기술 고민과 공유 전 의사결정 초안. Git 제외
-- `docs/sample_data.md`: 공개 sample data 다운로드와 수동 준비 안내
-- `docs/smoke_test.md`: 고정 카메라 synthetic smoke test 생성 및 실행 방법
+- `docs/how-to/dataset_setup.md`: 공개 sample data 다운로드와 수동 준비 안내
+- `docs/how-to/smoke_test.md`: 고정 카메라 synthetic smoke test 생성 및 실행 방법
 - `docs/plan/vision_frontend_validation_roadmap.md`: 전체 장기 로드맵
 - `.agents/project_context.md`: Codex 또는 자동화 agent가 먼저 확인할 문서 목록과 작업 원칙
 
