@@ -8,8 +8,8 @@ Repo root에서 실행한다.
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai_row0709_after3m.yaml \
-  --roi-generator-config configs/roi_generator/profile_tile_mask_recall_12x12.yaml \
+  --dataset-config configs/datasets/physicalai/physicalai_row0709_after3m.yaml \
+  --roi-generator-config configs/roi_generator/phase1_1/tile/profile_tile_mask_recall_12x12.yaml \
   --experiment-name physicalai_tile_mask_recall_12x12 \
   --limit 120 \
   --render-limit 30
@@ -19,8 +19,8 @@ python experiments/run_roi_proposal_validation.py \
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai_row0709_after3m.yaml \
-  --roi-generator-config configs/roi_generator/profile_hybrid_component_tile_cost.yaml \
+  --dataset-config configs/datasets/physicalai/physicalai_row0709_after3m.yaml \
+  --roi-generator-config configs/roi_generator/phase1_1/hybrid/profile_hybrid_component_tile_cost.yaml \
   --experiment-name physicalai_hybrid_component_tile_cost \
   --limit 120 \
   --render-limit 30
@@ -30,8 +30,8 @@ python experiments/run_roi_proposal_validation.py \
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/ua_detrac_mvi_40204.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
+  --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml \
+  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
   --experiment-name uadetrac_mvi40204_component_bbox_balanced \
   --limit 120 \
   --render-limit 30
@@ -43,8 +43,8 @@ python experiments/run_roi_proposal_validation.py \
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai_row0709_after3m.yaml \
-  --roi-generator-config configs/roi_generator/profile_tile_mask_recall_12x12.yaml \
+  --dataset-config configs/datasets/physicalai/physicalai_row0709_after3m.yaml \
+  --roi-generator-config configs/roi_generator/phase1_1/tile/profile_tile_mask_recall_12x12.yaml \
   --experiment-name physicalai_tile_mask_recall_12x12_no_viz \
   --limit 120 \
   --skip-visualization

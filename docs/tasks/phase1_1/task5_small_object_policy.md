@@ -43,8 +43,8 @@ docs/runs/phase1_1_stage_b_small_object_policy_20260825.md
 Retained profiles:
 
 ```text
-configs/roi_generator/profile_small_object_tile_recall.yaml
-configs/roi_generator/profile_small_object_tile_recall_12x12_overlap.yaml
+configs/roi_generator/phase1_1/small_object/profile_small_object_tile_recall.yaml
+configs/roi_generator/phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap.yaml
 ```
 
 ## Verification

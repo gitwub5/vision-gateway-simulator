@@ -133,10 +133,10 @@ Phase 1.1의 모든 변경은 가설 단위로 구현한다. 각 가설은 featu
 | `roi_generator/policies/component_bbox.py` | noise filter, recall padding profile 지원 | `component_bbox_*` profiles |
 | `roi_generator/policies/tile_mask.py` | fixed grid tile activity 기반 ROI 생성 | `tile_mask_balanced` |
 | `roi_generator/policies/hybrid_component_tile.py` | component candidate를 tile score/history/budget으로 보정 | `hybrid_component_tile_balanced` |
-| `configs/roi_generator/profile_component_bbox_noise_filter.yaml` | component noise filtering profile | 비교 run config |
-| `configs/roi_generator/profile_component_bbox_recall_padding.yaml` | small target recall padding profile | 비교 run config |
-| `configs/roi_generator/profile_tile_mask_balanced.yaml` | tile-first baseline profile | 비교 run config |
-| `configs/roi_generator/profile_hybrid_component_tile_balanced.yaml` | hybrid baseline profile | 비교 run config |
+| `configs/roi_generator/phase1_1/component/profile_component_bbox_noise_filter.yaml` | component noise filtering profile | 비교 run config |
+| `configs/roi_generator/phase1_1/component/profile_component_bbox_recall_padding.yaml` | small target recall padding profile | 비교 run config |
+| `configs/roi_generator/phase1_1/tile/profile_tile_mask_balanced.yaml` | tile-first baseline profile | 비교 run config |
+| `configs/roi_generator/phase1_1/hybrid/profile_hybrid_component_tile_balanced.yaml` | hybrid baseline profile | 비교 run config |
 | `tests/roi_generator_tests/test_roi_generator.py` | gate orchestration regression 유지 | 기존 behavior 보호 |
 | `tests/roi_generator_tests/test_roi_policy_baselines.py` | component/tile/hybrid policy 단위 테스트 | baseline 보호 |
 

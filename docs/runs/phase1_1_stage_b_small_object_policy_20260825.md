@@ -34,7 +34,7 @@ Note: system `python3` does not have `numpy`; project `.venv/bin/python` has req
 
 Dataset config:
 
-- `configs/datasets/physicalai_row0709_after3m.yaml`
+- `configs/datasets/physicalai/physicalai_row0709_after3m.yaml`
 
 Runs:
 

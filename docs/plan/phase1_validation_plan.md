@@ -28,10 +28,10 @@ Phase 1.1부터 검증 파이프라인은 역할 기준으로 분리한다.
 
 | Tier | Dataset | Config | 목적 | 판단 범위 |
 |---|---|---|---|---|
-| Tier 0 | `opencv-vtest` | `configs/datasets/opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
-| Tier 1 | `physicalai-smartspaces` | `configs/datasets/physicalai_row0709_after3m.yaml` | 산업/창고 crowded person synthetic fixed-camera target-aware ROI proposal validation | person GT ROI containment, ROI count/area, fallback/full-frame check, gate latency, ROI failure visualization |
-| Tier 1 | `ua-detrac` | `configs/datasets/ua_detrac_mvi_40204.yaml` | 실사 차량 전용 교통 CCTV ROI proposal validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
-| Tier 2 | `od-virat-tiny` | `configs/datasets/od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
+| Tier 0 | `opencv-vtest` | `configs/datasets/samples/opencv_vtest.yaml` | 빠른 smoke, end-to-end 확인 | 성능 판단 제외 |
+| Tier 1 | `physicalai-smartspaces` | `configs/datasets/physicalai/physicalai_row0709_after3m.yaml` | 산업/창고 crowded person synthetic fixed-camera target-aware ROI proposal validation | person GT ROI containment, ROI count/area, fallback/full-frame check, gate latency, ROI failure visualization |
+| Tier 1 | `ua-detrac` | `configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml` | 실사 차량 전용 교통 CCTV ROI proposal validation | vehicle GT ROI containment, ROI count/area, latency, failure visualization |
+| Tier 2 | `od-virat-tiny` | `configs/datasets/od_virat/od_virat_tiny.yaml` | partial annotation 포함 surveillance 보조 검증 | annotation 누락 한계를 명시한 annotated-object lower-bound 보조 평가 |
 | Tier 3 | `internal-cctv` | 추가 필요 | 실제 PoC/사업성 검증 | 보안/annotation 기준 이후 |
 
 우선순위는 Tier 0 smoke 이후, 산업 도메인 후보인 PhysicalAI row 709의 3분 이후 crowded person 구간과 실사 vehicle-only GT인 UA-DETRAC MVI_40204를 함께 고정하는 것이다.
@@ -44,11 +44,11 @@ Construction Site Static Camera는 검토 후 active validation dataset에서 �
 
 | Run | ROI generator config | Full-frame checks | 목적 |
 |---|---|---|---|
-| `roi_aggressive` | `configs/roi_generator/profile_aggressive.yaml` | on | 절감 우선 profile |
-| `roi_balanced` | `configs/roi_generator/profile_balanced.yaml` | on | 기본 profile |
-| `roi_balanced_highres` | `configs/roi_generator/profile_balanced_highres.yaml` | on | 작은 객체가 많은 4K/static scene용 high-res ROI analysis |
-| `roi_recall` | `configs/roi_generator/profile_recall.yaml` | on | 검출 유지 우선 profile |
-| `roi_balanced_no_refresh` | `configs/roi_generator/profile_balanced.yaml` | off | periodic full-frame check 효과 분리 |
+| `roi_aggressive` | `configs/roi_generator/legacy/profile_aggressive.yaml` | on | 절감 우선 profile |
+| `roi_balanced` | `configs/roi_generator/legacy/profile_balanced.yaml` | on | 기본 profile |
+| `roi_balanced_highres` | `configs/roi_generator/legacy/profile_balanced_highres.yaml` | on | 작은 객체가 많은 4K/static scene용 high-res ROI analysis |
+| `roi_recall` | `configs/roi_generator/legacy/profile_recall.yaml` | on | 검출 유지 우선 profile |
+| `roi_balanced_no_refresh` | `configs/roi_generator/legacy/profile_balanced.yaml` | off | periodic full-frame check 효과 분리 |
 | `roi_dataset_specific` | dataset-specific config | on | dataset별 tuned config 비교 |
 
 Full-frame baseline은 각 run 내부에서 동일하게 생성된다.
@@ -251,7 +251,7 @@ Bucket:
   - `tools/benchmark_roi_count_latency.py`
   - `roi_metadata`, `gate_decisions`, `roi_yolo_metrics`, `comparison_report`를 읽어 ROI count bucket별 report 생성
 - [x] OD-VIRAT Tiny config 추가
-  - `configs/datasets/od_virat_tiny.yaml`
+  - `configs/datasets/od_virat/od_virat_tiny.yaml`
   - partial annotation 품질 metadata 포함
 - [x] Pipeline 실행 결과 기록 방식 정리
   - `docs/runs/phase1_validation_runs.md` 또는 output manifest 기준으로 관리

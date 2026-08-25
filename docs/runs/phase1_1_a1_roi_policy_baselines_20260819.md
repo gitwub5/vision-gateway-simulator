@@ -8,8 +8,8 @@ Phase 1.1 A1의 목적은 `component_bbox`, `tile_mask`, `hybrid_component_tile`
 
 | Dataset | Segment | Config | Target |
 |---|---|---|---|
-| PhysicalAI Smart Spaces row 709 | `Warehouse_000/Camera_0002` f5400-5519 | `configs/datasets/physicalai_row0709_after3m.yaml` | `person` |
-| UA-DETRAC | `MVI_40204` f0000-0119 | `configs/datasets/ua_detrac_mvi_40204.yaml` | `car`, `bus`, `truck` |
+| PhysicalAI Smart Spaces row 709 | `Warehouse_000/Camera_0002` f5400-5519 | `configs/datasets/physicalai/physicalai_row0709_after3m.yaml` | `person` |
+| UA-DETRAC | `MVI_40204` f0000-0119 | `configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml` | `car`, `bus`, `truck` |
 
 ## A1 Matrix
 

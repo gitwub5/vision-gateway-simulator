@@ -48,8 +48,8 @@ Rule-based ROI generator smoke 실행:
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/datasets/smoke.yaml \
-  --roi-generator-config configs/roi_generator/smoke.yaml \
+  --dataset-config configs/datasets/base/smoke.yaml \
+  --roi-generator-config configs/roi_generator/base/smoke.yaml \
   --limit 60
 ```
 
@@ -57,8 +57,8 @@ ROI Proposal Validation 실행:
 
 ```bash
 python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai_row0709.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
+  --dataset-config configs/datasets/physicalai/physicalai_row0709.yaml \
+  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
   --experiment-name physicalai_row0709_balanced \
   --limit 120
 ```
@@ -67,8 +67,8 @@ E2E Inference Validation 실행:
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/opencv_vtest.yaml \
-  --roi-generator-config configs/roi_generator/default.yaml \
+  --dataset-config configs/datasets/samples/opencv_vtest.yaml \
+  --roi-generator-config configs/roi_generator/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest \
   --limit 120

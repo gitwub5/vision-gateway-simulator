@@ -21,7 +21,7 @@ UA-DETRAC은 수동으로 image archive와 annotation XML archive를 받아 `dat
 Phase 1.1 vehicle-only baseline config:
 
 ```text
-configs/datasets/ua_detrac_mvi_40204.yaml
+configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml
 ```
 
 Expected paths:
@@ -43,13 +43,13 @@ python tools/download_physicalai_row.py --row-id 709
 Phase 1.1 person crowded baseline config:
 
 ```text
-configs/datasets/physicalai_row0709_after3m.yaml
+configs/datasets/physicalai/physicalai_row0709_after3m.yaml
 ```
 
 ## Inspect Dataset Stream
 
 ```bash
 python experiments/inspect_dataset_stream.py \
-  --config configs/datasets/physicalai_row0709_after3m.yaml \
+  --config configs/datasets/physicalai/physicalai_row0709_after3m.yaml \
   --limit 5
 ```

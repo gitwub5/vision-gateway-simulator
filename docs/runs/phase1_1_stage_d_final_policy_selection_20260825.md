@@ -6,7 +6,7 @@ Stage D compares the 600-frame PhysicalAI after3m ROI proposal results gathered 
 
 Dataset:
 
-- `configs/datasets/physicalai_row0709_after3m.yaml`
+- `configs/datasets/physicalai/physicalai_row0709_after3m.yaml`
 
 Comparison runs:
 

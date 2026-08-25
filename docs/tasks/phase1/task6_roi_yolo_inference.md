@@ -87,8 +87,8 @@ Task 7에서는 이 값을 Task 5의 full-frame baseline과 비교해 workload r
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/datasets/default.yaml \
-  --roi-generator-config configs/roi_generator/default.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
+  --roi-generator-config configs/roi_generator/base/default.yaml \
   --roi-output outputs/roi_metadata/rule_roi.jsonl \
   --frame-output outputs/roi_metadata/gate_decisions.jsonl
 ```
@@ -97,7 +97,7 @@ python experiments/run_rule_roi_baseline.py \
 
 ```bash
 python experiments/run_roi_yolo_inference.py \
-  --dataset-config configs/datasets/default.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
   --frame-metadata outputs/roi_metadata/gate_decisions.jsonl
@@ -107,7 +107,7 @@ python experiments/run_roi_yolo_inference.py \
 
 ```bash
 python experiments/run_roi_yolo_inference.py \
-  --dataset-config configs/datasets/default.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --limit 10
 ```

@@ -59,7 +59,7 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run YOLOv8 inference on saved ROI crops.")
-    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/base/default.yaml")
     parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
     parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)
     parser.add_argument("--roi-metadata", default="outputs/roi_metadata/rule_roi.jsonl")

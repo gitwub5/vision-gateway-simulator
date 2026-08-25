@@ -368,7 +368,7 @@ def make_run_id(started_at: datetime, experiment_name: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run target-aware ROI proposal validation.")
     parser.add_argument("--dataset-config", required=True)
-    parser.add_argument("--roi-generator-config", default="configs/roi_generator/profile_balanced.yaml")
+    parser.add_argument("--roi-generator-config", default="configs/roi_generator/legacy/profile_balanced.yaml")
     parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)
     parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
     parser.add_argument("--model", default=None)

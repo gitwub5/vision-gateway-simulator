@@ -23,10 +23,10 @@ from roi_generator import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run rule-based ROI generator metadata generation.")
-    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml", help="Path to dataset YAML config.")
+    parser.add_argument("--dataset-config", default="configs/datasets/base/default.yaml", help="Path to dataset YAML config.")
     parser.add_argument(
         "--roi-generator-config",
-        default="configs/roi_generator/default.yaml",
+        default="configs/roi_generator/base/default.yaml",
         help="Path to ROI generator YAML config.",
     )
     parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)

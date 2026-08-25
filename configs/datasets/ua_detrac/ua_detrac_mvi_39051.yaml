@@ -21,7 +21,7 @@ annotations:
     unreliable_metrics: []
     notes:
       - UA-DETRAC MVI_39051 is retained for historical debug-run reproduction.
-      - The active Phase 1.1 vehicle-only baseline is configs/datasets/ua_detrac_mvi_40204.yaml.
+      - The active Phase 1.1 vehicle-only baseline is configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml.
       - UA-DETRAC classes are mapped to COCO-compatible YOLOv8 names where possible: car->car, bus->bus, van->car, others->truck.
 
 validation:

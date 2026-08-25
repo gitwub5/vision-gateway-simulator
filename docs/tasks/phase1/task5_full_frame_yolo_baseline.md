@@ -79,7 +79,7 @@ pip install -r requirements.txt
 
 ```bash
 python experiments/run_full_frame_baseline.py \
-  --dataset-config configs/datasets/default.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml
 ```
 
@@ -87,7 +87,7 @@ python experiments/run_full_frame_baseline.py \
 
 ```bash
 python experiments/run_full_frame_baseline.py \
-  --dataset-config configs/datasets/default.yaml \
+  --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --limit 10
 ```

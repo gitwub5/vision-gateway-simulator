@@ -20,7 +20,7 @@ data/smoke/fixed_camera_motion.mp4
 
 ```bash
 python experiments/inspect_dataset_stream.py \
-  --config configs/datasets/smoke.yaml \
+  --config configs/datasets/base/smoke.yaml \
   --limit 5
 ```
 
@@ -28,8 +28,8 @@ python experiments/inspect_dataset_stream.py \
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
-  --dataset-config configs/datasets/smoke.yaml \
-  --roi-generator-config configs/roi_generator/smoke.yaml \
+  --dataset-config configs/datasets/base/smoke.yaml \
+  --roi-generator-config configs/roi_generator/base/smoke.yaml \
   --roi-output outputs/roi_metadata/smoke_rule_roi.jsonl \
   --frame-output outputs/roi_metadata/smoke_gate_decisions.jsonl \
   --limit 60

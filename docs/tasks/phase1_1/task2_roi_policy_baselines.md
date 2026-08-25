@@ -21,8 +21,8 @@ Compared policies:
 - Added tile candidate helpers and tile trace metadata.
 - Added policy selection through `roi_policy`.
 - Added or stabilized policy profiles:
-  - `configs/roi_generator/profile_tile_mask_recall_12x12.yaml`
-  - `configs/roi_generator/profile_hybrid_component_tile_cost.yaml`
+  - `configs/roi_generator/phase1_1/tile/profile_tile_mask_recall_12x12.yaml`
+  - `configs/roi_generator/phase1_1/hybrid/profile_hybrid_component_tile_cost.yaml`
 - Kept component-bbox tile metadata as observability only, not as decision input.
 - Updated visual comparison so policy differences are visible:
   - component bbox: final ROI only

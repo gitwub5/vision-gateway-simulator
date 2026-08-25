@@ -385,8 +385,8 @@ def resolve_experiment_name(args: argparse.Namespace) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ROI-gated end-to-end inference validation.")
-    parser.add_argument("--dataset-config", default="configs/datasets/default.yaml")
-    parser.add_argument("--roi-generator-config", default="configs/roi_generator/default.yaml")
+    parser.add_argument("--dataset-config", default="configs/datasets/base/default.yaml")
+    parser.add_argument("--roi-generator-config", default="configs/roi_generator/base/default.yaml")
     parser.add_argument("--gate-config", dest="roi_generator_config", help=argparse.SUPPRESS)
     parser.add_argument("--model-config", default="configs/models/yolo_default.yaml")
     parser.add_argument("--yolo-config", dest="model_config", help=argparse.SUPPRESS)

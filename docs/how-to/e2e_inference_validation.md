@@ -8,8 +8,8 @@ Repo root에서 실행한다.
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/opencv_vtest.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
+  --dataset-config configs/datasets/samples/opencv_vtest.yaml \
+  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name opencv_vtest_balanced \
   --limit 120 \
@@ -20,8 +20,8 @@ python experiments/run_e2e_inference_validation.py \
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
-  --dataset-config configs/datasets/ua_detrac_mvi_40204.yaml \
-  --roi-generator-config configs/roi_generator/profile_balanced.yaml \
+  --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_40204.yaml \
+  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
   --model-config configs/models/yolo_default.yaml \
   --experiment-name ua_detrac_mvi_40204_balanced \
   --limit 120 \
