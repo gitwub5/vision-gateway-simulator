@@ -78,7 +78,7 @@ class RoiGeneratorConfig:
 
     @classmethod
     def from_mapping(cls, config: dict[str, Any]) -> "RoiGeneratorConfig":
-        roi_generator = config.get("roi_generator", config.get("npx_gate", config))
+        roi_generator = config.get("roi_generator", config)
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
         budget = roi_generator.get("budget", {}) or {}

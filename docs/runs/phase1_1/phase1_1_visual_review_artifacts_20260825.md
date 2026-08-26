@@ -17,6 +17,9 @@ Dataset:
 | Stage C feedback effect | `outputs/roi_proposal_validation/stage_c_compare_visual_feedback_effect_f5400_80` | 80 | Compare small-object default candidate against oracle and actual feedback-assisted candidates |
 | Stage D default failure album | `outputs/roi_proposal_validation/stage_d_default_failure_album_small_object_f5400_600/visualizations/failures` | 47 | Inspect remaining miss/failure types for the practical default |
 | Stage D default ROI debug album | `outputs/roi_proposal_validation/stage_d_default_failure_album_small_object_f5400_600/visualizations/roi_debug` | 80 | Inspect default candidate ROI generation behavior frame by frame |
+| Stage B tile dilation tuning | `outputs/roi_proposal_validation/stage_b_compare_visual_tile_dilation_f5400_80` | 80 | Compare overlap, margin-plus, downward tile dilation, and symmetric vertical tile dilation |
+| Stage B true tile trace | `outputs/roi_proposal_validation/stage_b_compare_visual_true_tile_trace_f5400_600` | 80 | Compare Stage B tuning candidates with actual selected tile positions from full diagnostics |
+| Phase 1.1 Stage B/C true tile overview | `outputs/roi_proposal_validation/phase1_1_stage_b_c_true_tile_overview_f5400_600` | 100 | Compare A1 tile baseline, Stage B overlap/margin, and Stage C oracle/actual feedback with actual selected tile positions |
 
 ## Notes
 

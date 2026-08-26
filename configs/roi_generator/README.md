@@ -6,6 +6,7 @@ ROI generator configs are grouped by lifecycle and policy family.
 
 ```text
 configs/roi_generator/
+  profiles.yaml
   base/
     default.yaml
     smoke.yaml
@@ -34,6 +35,7 @@ configs/roi_generator/
 
 ## Notes
 
+- `profiles.yaml` is the registry consumed by validation matrix experiments. Disabled profiles cannot be scheduled.
 - `base/` is for generic defaults and smoke tests.
 - `legacy/` preserves earlier Phase 1 profiles.
 - `phase1_1/` contains policy-family comparison profiles from Phase 1.1.

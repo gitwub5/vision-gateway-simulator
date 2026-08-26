@@ -4,7 +4,7 @@
 
 ## 프로젝트 한 줄 요약
 
-`vision-frontend-simulator`는 카메라와 GPU 사이의 Vision Frontend / NPX Gate 아이디어를 소프트웨어로 검증하는 Python 프로젝트다.
+`vision-frontend-simulator`는 카메라와 GPU 사이의 Vision Frontend / ROI Generator 아이디어를 소프트웨어로 검증하는 Python 프로젝트다.
 
 이 파일은 특정 phase의 구현 계획이 아니라, phase가 바뀌어도 유지되어야 하는 공통 컨텍스트를 정리한다. 현재 진행 중인 phase나 세부 작업은 `docs/plan/`, `docs/tasks/`, `docs/runs/`, `docs/idea/`의 해당 문서를 따라간다.
 
@@ -89,7 +89,7 @@ docs/
 |---|---|
 | `common/` | 공유 schema |
 | `data_loader/` | video/image sequence loader |
-| `npx_emulator/` | rule-based ROI gate, event map, ROI metadata |
+| `roi_generator/` | rule-based ROI generation, event map, ROI metadata |
 | `gpu_inference/` | full-frame YOLO, ROI YOLO, coordinate restore |
 | `evaluation/` | recall, containment, workload, latency report |
 | `visualization/` | ROI overlay, comparison, failure case render |

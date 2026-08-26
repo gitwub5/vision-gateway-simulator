@@ -8,7 +8,12 @@ from pathlib import Path
 from common import Detection
 from common.io import read_json, read_jsonl, write_json, write_jsonl
 from common.records import format_ratio, frame_key, group_by_frame
-from experiments.runner_common import StageTimer, make_prefixed_run_id
+from experiments.runner_common import (
+    StageTimer,
+    file_provenance,
+    make_prefixed_run_id,
+    read_manifest,
+)
 
 
 class CommonIoTest(unittest.TestCase):
@@ -61,6 +66,33 @@ class RunnerCommonTest(unittest.TestCase):
         self.assertGreaterEqual(timer.stage_seconds["stage"], 0.0)
         run_id = make_prefixed_run_id(__import__("datetime").datetime(2026, 8, 7, 1, 2, 3), "sample", "e2e")
         self.assertEqual(run_id, "20260807_010203_e2e_sample")
+
+    def test_manifest_reader_and_file_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config_path = root / "config.yaml"
+            manifest_path = root / "manifest.json"
+            config_path.write_text("value: 1\n", encoding="utf-8")
+            write_json(
+                {
+                    "schema_version": 1,
+                    "pipeline_type": "roi_proposal_validation",
+                },
+                manifest_path,
+            )
+
+            provenance = file_provenance(config_path)
+            manifest = read_manifest(manifest_path, expected_pipeline_type="roi_proposal_validation")
+
+        self.assertEqual(len(provenance["sha256"]), 64)
+        self.assertEqual(manifest["schema_version"], 1)
+
+    def test_manifest_reader_rejects_incompatible_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "manifest.json"
+            write_json({"schema_version": 2, "pipeline_type": "roi_proposal_validation"}, path)
+            with self.assertRaises(ValueError):
+                read_manifest(path)
 
 
 if __name__ == "__main__":

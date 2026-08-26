@@ -29,7 +29,11 @@ from evaluation.reports.roi_proposal import (
     write_roi_policy_summary_markdown,
 )
 from evaluation.metrics.workload import reduction_ratio
-from experiments.run_roi_proposal_validation import build_reference_feedback_by_frame
+from experiments.run_roi_proposal_validation import (
+    build_reference_feedback_by_frame,
+    diagnostics_output_flags,
+    reference_feedback_mode,
+)
 from roi_generator.observability.trace import TileMetadataRecord, TileTrace
 
 
@@ -140,6 +144,7 @@ class EvaluationMetricsTest(unittest.TestCase):
                 frame_metadata=root / "gate_decisions.jsonl",
                 report_json=root / "roi_proposal_report.json",
                 report_markdown=root / "roi_proposal_report.md",
+                tile_metadata=root / "tile_metadata.jsonl",
             )
             frames = [
                 _frame_record(
@@ -197,6 +202,7 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.target_gt_tile_containment, 1.0)
         self.assertEqual(report.false_tile_count, 2)
         self.assertEqual(report.false_tile_ratio, 2 / 3)
+        self.assertTrue(report.tile_metrics_available)
         self.assertEqual(report.average_selected_tile_count_per_frame, 1.5)
         self.assertEqual(report.average_selected_tile_area_ratio_per_frame, 0.375)
         self.assertEqual(report.average_raw_component_count_per_frame, 2.0)
@@ -262,6 +268,20 @@ class EvaluationMetricsTest(unittest.TestCase):
         self.assertEqual(report.selected_tile_count, 6)
         self.assertEqual(report.average_selected_tile_count_per_frame, 6.0)
         self.assertEqual(report.target_gt_tile_containment, 0.0)
+        self.assertFalse(report.tile_metrics_available)
+        self.assertIn("Tile-level containment metrics: unavailable", report.to_markdown())
+
+    def test_diagnostics_output_flags_separate_tile_trace_from_full(self) -> None:
+        self.assertEqual(diagnostics_output_flags("minimal"), (False, False))
+        self.assertEqual(diagnostics_output_flags("tile_trace"), (True, False))
+        self.assertEqual(diagnostics_output_flags("full"), (True, True))
+        with self.assertRaises(ValueError):
+            diagnostics_output_flags("unknown")
+
+    def test_reference_feedback_mode_labels_oracle_and_actual_runs(self) -> None:
+        self.assertEqual(reference_feedback_mode("none"), "none")
+        self.assertEqual(reference_feedback_mode("ground_truth"), "oracle_gt")
+        self.assertEqual(reference_feedback_mode("full_frame_yolo"), "actual_yolo")
 
     def test_reference_feedback_proxy_uses_target_ground_truth(self) -> None:
         feedback = build_reference_feedback_by_frame(

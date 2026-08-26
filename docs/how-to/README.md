@@ -12,6 +12,8 @@
 | `roi_proposal_validation.md` | ROI proposal validation 실행 방법 |
 | `e2e_inference_validation.md` | ROI gate + YOLO E2E validation 실행 방법 |
 | `smoke_test.md` | synthetic smoke test 생성과 빠른 pipeline 확인 |
+| `visualization.md` | ROI generation debug, single-run review, multi-run comparison |
+| `phase1_2_experiment_automation.md` | profile registry, matrix runner, boundary taxonomy |
 
 ## Command Style
 

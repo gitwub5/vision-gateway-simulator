@@ -21,21 +21,6 @@
 
 ## Summary Artifacts
 
-Profile summary:
-
-```bash
-python3 tools/summarize_phase1_profiles.py \
-  outputs/experiments/<run_id_1> \
-  outputs/experiments/<run_id_2> \
-  --output-json outputs/experiments/phase1_profile_summary.json \
-  --output-markdown outputs/experiments/phase1_profile_summary.md
-```
-
-ROI count latency benchmark:
-
-```bash
-python3 tools/benchmark_roi_count_latency.py \
-  outputs/experiments/<run_id> \
-  --output-json outputs/experiments/<run_id>/reports/roi_count_latency.json \
-  --output-markdown outputs/experiments/<run_id>/reports/roi_count_latency.md
-```
+Legacy Phase 1 profile summary와 ROI-count latency 추정 도구는 제거되었다.
+기존 산출물은 과거 실행 기록으로만 보존하며, 현재 ROI proposal 비교는
+`tools/summarize_roi_proposal_runs.py`를 사용한다.

@@ -1,0 +1,34 @@
+schema_version: 1
+
+profiles:
+  tile_baseline:
+    config: phase1_1/tile/profile_tile_mask_recall_12x12.yaml
+    status: active
+    role: baseline
+
+  practical_default:
+    config: phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap.yaml
+    status: active
+    role: default_candidate
+
+  margin_plus:
+    config: phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap_margin_plus.yaml
+    status: active
+    role: tuning_reference
+
+  feedback_actual_yolo:
+    config: phase1_1/feedback/profile_feedback_assisted_tile_12x12_overlap_top2.yaml
+    status: active
+    role: feedback_challenger
+    reference_feedback_source: full_frame_yolo
+
+  feedback_oracle_gt:
+    config: phase1_1/feedback/profile_feedback_assisted_tile_12x12_overlap_top2.yaml
+    status: reference_only
+    role: oracle_reference
+    reference_feedback_source: ground_truth
+
+  hybrid_cost:
+    config: phase1_1/hybrid/profile_hybrid_component_tile_cost.yaml
+    status: disabled
+    role: archived_cost_candidate

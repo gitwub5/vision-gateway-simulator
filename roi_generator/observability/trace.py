@@ -177,6 +177,7 @@ class RoiDebugSnapshot:
     generation_trace: RoiGenerationTrace
     decision: GateDecision
     budget_fallback: BudgetFallbackDecision
+    feedback_rois: list[ROI] = field(default_factory=list)
 
 
 class RoiDebugSink(Protocol):
