@@ -1,0 +1,13 @@
+schema_version: 1
+name: phase1_2_baselines
+dataset: configs/datasets/physicalai/physicalai_row0709_after3m.yaml
+limit: 600
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - tile_baseline
+  - practical_default
+  - margin_plus
+  - feedback_actual_yolo

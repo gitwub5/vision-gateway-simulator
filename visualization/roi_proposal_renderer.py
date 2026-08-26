@@ -4,12 +4,173 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from common import FramePacket, GateFrameMetadata, GroundTruthAnnotation, ROIMetadata
+from common.io import write_json
+from common.records import frame_key
 from evaluation.metrics.class_filter import filter_gt_by_target_classes
 from evaluation.metrics.roi_containment import contains_bbox
+from visualization.artifacts import FrameKey, RoiRunArtifacts
+from visualization.frame_selection import review_failure_reasons, select_review_frame_keys
+from visualization.primitives import (
+    COLOR_ROI,
+    COLOR_TILE,
+    clear_images,
+    draw_gt_record,
+    draw_roi_record,
+    draw_title as draw_shared_title,
+    draw_xyxy,
+    frame_stem as shared_frame_stem,
+    load_visualization_dependencies as load_shared_dependencies,
+)
+
+
+REVIEW_VIEWS = ("overlay", "containment", "failures")
+REVIEW_SUBDIRECTORIES = {
+    "overlay": "roi_overlay",
+    "containment": "containment",
+    "failures": "failures",
+}
+
+
+@dataclass
+class RoiRunReviewSummary:
+    source_run_id: str
+    selection_preset: str
+    tile_trace_available: bool
+    selected_frames: list[list[Any]]
+    rendered_by_view: dict[str, int]
+    output_root: str
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def render_roi_run_review(
+    run: RoiRunArtifacts,
+    frames: Iterable[FramePacket],
+    output_root: str | Path,
+    views: tuple[str, ...] = REVIEW_VIEWS,
+    selection_preset: str = "missed",
+    max_frames: int = 80,
+    explicit_frames: Iterable[FrameKey] = (),
+) -> RoiRunReviewSummary:
+    unknown_views = set(views) - set(REVIEW_VIEWS)
+    if unknown_views:
+        raise ValueError(f"Unsupported review views: {sorted(unknown_views)}")
+    cv2, _ = load_shared_dependencies()
+    root = Path(output_root)
+    output_dirs = {view: root / REVIEW_SUBDIRECTORIES[view] for view in views}
+    for directory in output_dirs.values():
+        directory.mkdir(parents=True, exist_ok=True)
+        clear_images(directory)
+
+    selected = select_review_frame_keys(
+        run,
+        preset=selection_preset,
+        max_frames=max_frames,
+        explicit=explicit_frames,
+    )
+    selected_set = set(selected)
+    rendered = {view: 0 for view in views}
+    for packet in frames:
+        key = frame_key(packet.camera_id, packet.frame_id)
+        if key not in selected_set:
+            continue
+        rois = run.rois_by_frame.get(key, [])
+        tiles = run.tiles_by_frame.get(key, [])
+        gt_records = run.ground_truth_by_frame.get(key, [])
+        stem = shared_frame_stem(packet.camera_id, packet.frame_id)
+        if "overlay" in output_dirs:
+            image = draw_run_overlay(cv2, packet.frame, rois, tiles, gt_records, run.tile_trace_available)
+            cv2.imwrite(str(output_dirs["overlay"] / f"{stem}_roi_overlay.jpg"), image)
+            rendered["overlay"] += 1
+        if "containment" in output_dirs:
+            image = draw_run_containment(cv2, packet.frame, rois, gt_records)
+            cv2.imwrite(str(output_dirs["containment"] / f"{stem}_containment.jpg"), image)
+            rendered["containment"] += 1
+        failure_reasons = review_failure_reasons(run, key)
+        if "failures" in output_dirs and failure_reasons:
+            image = draw_run_containment(
+                cv2,
+                packet.frame,
+                rois,
+                gt_records,
+                title=f"ROI Failure: {', '.join(failure_reasons)}",
+            )
+            cv2.imwrite(str(output_dirs["failures"] / f"{stem}_failure.jpg"), image)
+            rendered["failures"] += 1
+
+    summary = RoiRunReviewSummary(
+        source_run_id=run.run_id,
+        selection_preset=selection_preset,
+        tile_trace_available=run.tile_trace_available,
+        selected_frames=[[camera_id, frame_id] for camera_id, frame_id in selected],
+        rendered_by_view=rendered,
+        output_root=str(root),
+    )
+    write_json(summary.to_json_dict(), root / "manifest.json")
+    return summary
+
+
+def draw_run_overlay(
+    cv2: Any,
+    frame: Any,
+    rois: list[dict[str, Any]],
+    tiles: list[dict[str, Any]],
+    gt_records: list[dict[str, Any]],
+    tile_trace_available: bool,
+) -> Any:
+    canvas = frame.copy()
+    draw_shared_title(
+        cv2,
+        canvas,
+        "Final ROI + GT" + ("" if tile_trace_available else " (tile trace unavailable)"),
+    )
+    if tile_trace_available:
+        for tile in tiles:
+            if tile.get("selected"):
+                x, y, width, height = tile["bbox_xywh"]
+                draw_xyxy(cv2, canvas, [x, y, x + width, y + height], COLOR_TILE, "")
+    for roi in rois:
+        draw_roi_record(cv2, canvas, roi, COLOR_ROI, "ROI")
+    for gt in gt_records:
+        draw_gt_record(cv2, canvas, gt, raw_gt_contained(gt, rois))
+    return canvas
+
+
+def draw_run_containment(
+    cv2: Any,
+    frame: Any,
+    rois: list[dict[str, Any]],
+    gt_records: list[dict[str, Any]],
+    title: str = "GT Containment",
+) -> Any:
+    canvas = frame.copy()
+    draw_shared_title(cv2, canvas, title)
+    for roi in rois:
+        draw_roi_record(cv2, canvas, roi, COLOR_ROI, "ROI")
+    for gt in gt_records:
+        draw_gt_record(cv2, canvas, gt, raw_gt_contained(gt, rois))
+    return canvas
+
+
+def raw_gt_contained(gt_record: dict[str, Any], roi_records: list[dict[str, Any]]) -> bool:
+    return any(raw_roi_contains(roi, gt_record["bbox_xyxy"]) for roi in roi_records)
+
+
+def raw_roi_contains(roi_record: dict[str, Any], bbox_xyxy: list[float]) -> bool:
+    x, y, width, height = roi_record["roi_xywh"]
+
+    class RawRoi:
+        pass
+
+    roi = RawRoi()
+    roi.x, roi.y, roi.w, roi.h = int(x), int(y), int(width), int(height)
+    return contains_bbox(roi, bbox_xyxy)
 
 
 def render_roi_failure_visualizations(
@@ -194,23 +355,12 @@ def group_by_frame(records):
 
 
 def clear_jpgs(directory: Path) -> None:
-    for path in directory.glob("*.jpg"):
-        if path.is_file():
-            path.unlink()
+    clear_images(directory, suffixes=(".jpg",))
 
 
 def load_visualization_dependencies():
-    try:
-        import cv2
-        import numpy as np
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "OpenCV and NumPy are required for ROI proposal visualization rendering. "
-            "Install project dependencies with `pip install -r requirements.txt`."
-        ) from exc
-    return cv2, np
+    return load_shared_dependencies()
 
 
 def frame_stem(packet: FramePacket) -> str:
-    safe_camera_id = packet.camera_id.replace("/", "_").replace(" ", "_")
-    return f"{safe_camera_id}_f{packet.frame_id:06d}"
+    return shared_frame_stem(packet.camera_id, packet.frame_id)

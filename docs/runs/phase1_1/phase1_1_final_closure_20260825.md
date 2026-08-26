@@ -18,7 +18,7 @@ The phase compared:
 |---|---|---|
 | `component_bbox_balanced` | Keep | low-cost baseline |
 | `tile_mask_recall_12x12` | Keep | practical tile baseline |
-| `small_object_tile_recall_12x12_overlap` | Keep | Phase 1.1 practical default candidate |
+| `small_object_tile_recall_12x12_overlap` | Keep/Tune | Phase 1.1 practical default candidate; overlap/margin tuning remains open |
 | `feedback_assisted_tile_12x12_overlap_top2` | Keep/Tune | strongest realistic challenger, needs cost tuning before default |
 | `feedback_assisted_tile_12x12_overlap` | Tune | high-recall feedback reference |
 | `small_object_tile_recall` | Tune | high-recall small-object reference |
@@ -26,13 +26,14 @@ The phase compared:
 
 ## Practical Default
 
-Use `small_object_tile_recall_12x12_overlap` as the current practical default candidate.
+Use `small_object_tile_recall_12x12_overlap` as the current practical default candidate with Keep/Tune status.
 
 Reason:
 
 - improves target and small-object containment over `tile_mask_recall_12x12`
 - keeps ROI/frame, tile/frame, and fallback count unchanged relative to `tile_mask_recall_12x12`
 - does not require an actual detector feedback dependency
+- remains open for overlap/margin tuning because `margin_plus 0.35` improves containment at higher tensor cost
 
 ## Challenger
 

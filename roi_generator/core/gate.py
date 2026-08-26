@@ -157,6 +157,7 @@ class RuleBasedRoiGenerator:
                 generation_trace=generation_trace,
                 decision=decision,
                 budget_fallback=budget_fallback,
+                feedback_result=feedback_result,
             )
             return decision
 
@@ -185,6 +186,7 @@ class RuleBasedRoiGenerator:
                 generation_trace=generation_trace,
                 decision=decision,
                 budget_fallback=budget_fallback,
+                feedback_result=feedback_result,
             )
             return decision
 
@@ -211,6 +213,7 @@ class RuleBasedRoiGenerator:
             generation_trace=generation_trace,
             decision=decision,
             budget_fallback=budget_fallback,
+            feedback_result=feedback_result,
         )
         return decision
 
@@ -336,6 +339,7 @@ class RuleBasedRoiGenerator:
         generation_trace: RoiGenerationTrace,
         decision: GateDecision,
         budget_fallback: BudgetFallbackDecision,
+        feedback_result: ReferenceFeedbackResult | None = None,
     ) -> None:
         if self.debug_sink is None:
             return
@@ -349,6 +353,11 @@ class RuleBasedRoiGenerator:
                 generation_trace=generation_trace,
                 decision=decision,
                 budget_fallback=budget_fallback,
+                feedback_rois=(
+                    [candidate.roi for candidate in feedback_result.candidates]
+                    if feedback_result is not None
+                    else []
+                ),
             )
         )
 

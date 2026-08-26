@@ -59,7 +59,7 @@ Deferred to Phase 1.2/backlog:
 Run log:
 
 ```text
-docs/runs/phase1_1_stage_c_reference_feedback_20260825.md
+docs/runs/phase1_1/phase1_1_stage_c_reference_feedback_20260825.md
 ```
 
 ## Verification

@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -43,7 +43,14 @@ from gpu_inference.yolo_full_frame import (
 from common.io import write_json
 from roi_generator import load_roi_generator_config
 from roi_generator.observability.metadata import read_tile_metadata_jsonl
-from experiments.runner_common import StageTimer, make_prefixed_run_id, write_manifest
+from experiments.runner_common import (
+    StageTimer,
+    collect_git_provenance,
+    file_provenance,
+    make_prefixed_run_id,
+    optional_file_provenance,
+    write_manifest,
+)
 from experiments.validation_common import load_validation_config, run_roi_generator_metadata
 from visualization.roi_debug_renderer import RoiDebugRenderer
 from visualization.roi_proposal_renderer import render_roi_failure_visualizations
@@ -51,6 +58,7 @@ from visualization.roi_proposal_renderer import render_roi_failure_visualization
 
 PIPELINE_TYPE = "roi_proposal_validation"
 DEFAULT_OUTPUT_ROOT = "outputs/roi_proposal_validation"
+DIAGNOSTICS_LEVELS = ("minimal", "tile_trace", "full")
 
 
 class RoiProposalPaths:
@@ -61,8 +69,8 @@ class RoiProposalPaths:
         self.detections_dir = root / "detections"
         self.reports_dir = root / "reports"
         self.visualizations_dir = root / "visualizations"
-        self.failures_dir = self.visualizations_dir / "failures"
-        self.roi_debug_dir = self.visualizations_dir / "roi_debug"
+        self.failures_dir = self.visualizations_dir / "review" / "failures"
+        self.roi_debug_dir = self.visualizations_dir / "debug" / "generation"
         self.cache = root / "cache"
         self.manifest = root / "manifest.json"
         self.roi_metadata = self.roi_metadata_dir / "rule_roi.jsonl"
@@ -153,6 +161,8 @@ def main() -> None:
         ),
     )
     render_roi_debug = args.render_roi_debug_all or roi_generator_config.debug_enabled
+    if render_roi_debug and args.diagnostics_level != "full":
+        raise ValueError("ROI generation debug rendering requires --diagnostics-level full.")
     roi_debug_limit = args.render_roi_debug_limit
     if roi_debug_limit is None:
         roi_debug_limit = roi_generator_config.debug_max_frames
@@ -166,7 +176,7 @@ def main() -> None:
             stride=roi_debug_stride,
             max_frames=roi_debug_limit,
         )
-    write_diagnostics = args.diagnostics_level == "full"
+    write_tile_trace, write_full_diagnostics = diagnostics_output_flags(args.diagnostics_level)
     roi_generator_summary = stage_timer.run(
         "roi_generator_metadata",
         lambda: run_roi_generator_metadata(
@@ -174,9 +184,9 @@ def main() -> None:
             roi_generator_config=roi_generator_config,
             roi_output=paths.roi_metadata,
             frame_output=paths.frame_metadata,
-            component_output=paths.component_metadata if write_diagnostics else None,
-            tile_output=paths.tile_metadata if write_diagnostics else None,
-            policy_trace_output=paths.policy_traces if write_diagnostics else None,
+            component_output=paths.component_metadata if write_full_diagnostics else None,
+            tile_output=paths.tile_metadata if write_tile_trace else None,
+            policy_trace_output=paths.policy_traces if write_full_diagnostics else None,
             debug_sink=roi_debug_renderer,
             reference_feedback_by_frame=build_reference_feedback_by_frame(
                 source=args.reference_feedback_source,
@@ -236,8 +246,22 @@ def main() -> None:
             "render_roi_debug_stride": roi_debug_stride,
             "diagnostics_level": args.diagnostics_level,
             "reference_feedback_source": args.reference_feedback_source,
+            "reference_feedback_mode": reference_feedback_mode(args.reference_feedback_source),
             "target_classes": list(target_classes),
             "roi_too_large_ratio": args.roi_too_large_ratio,
+        },
+        "provenance": {
+            "git": collect_git_provenance(PROJECT_ROOT),
+            "configs": {
+                "dataset": file_provenance(args.dataset_config),
+                "roi_generator": file_provenance(args.roi_generator_config),
+                "model": optional_file_provenance(args.model_config),
+            },
+            "resolved": {
+                "dataset": resolved_dataset_snapshot(dataset_config),
+                "roi_generator": asdict(roi_generator_config),
+                "target_classes": list(target_classes),
+            },
         },
         "hardware": collect_hardware_snapshot(),
         "outputs": paths.to_json_dict(),
@@ -365,6 +389,36 @@ def make_run_id(started_at: datetime, experiment_name: str) -> str:
     return make_prefixed_run_id(started_at, experiment_name, prefix="roi_proposal")
 
 
+def diagnostics_output_flags(level: str) -> tuple[bool, bool]:
+    if level not in DIAGNOSTICS_LEVELS:
+        raise ValueError(f"Unsupported diagnostics level: {level}")
+    return level in {"tile_trace", "full"}, level == "full"
+
+
+def reference_feedback_mode(source: str) -> str:
+    modes = {
+        "none": "none",
+        "ground_truth": "oracle_gt",
+        "full_frame_yolo": "actual_yolo",
+    }
+    try:
+        return modes[source]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported reference feedback source: {source}") from exc
+
+
+def resolved_dataset_snapshot(dataset_config) -> dict[str, Any]:
+    return {
+        "type": dataset_config.type,
+        "input_path": str(dataset_config.input_path),
+        "camera_id": dataset_config.camera_id,
+        "fps_override": dataset_config.fps_override,
+        "start_frame": dataset_config.start_frame,
+        "effective_frame_limit": dataset_config.frame_limit,
+        "image_extensions": list(dataset_config.image_extensions),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run target-aware ROI proposal validation.")
     parser.add_argument("--dataset-config", required=True)
@@ -380,7 +434,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render-roi-debug-all", action="store_true")
     parser.add_argument("--render-roi-debug-limit", type=int, default=None)
     parser.add_argument("--render-roi-debug-stride", type=int, default=None)
-    parser.add_argument("--diagnostics-level", choices=["minimal", "full"], default="minimal")
+    parser.add_argument("--diagnostics-level", choices=DIAGNOSTICS_LEVELS, default="minimal")
     parser.add_argument("--reference-feedback-source", choices=["none", "ground_truth", "full_frame_yolo"], default="none")
     parser.add_argument("--roi-too-large-ratio", type=float, default=0.30)
     parser.add_argument("--skip-visualization", action="store_true")

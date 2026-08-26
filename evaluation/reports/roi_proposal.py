@@ -101,6 +101,7 @@ class RoiProposalReport:
     average_selected_tile_area_ratio_per_frame: float = 0.0
     target_gt_tile_contained_count: int = 0
     false_tile_count: int = 0
+    tile_metrics_available: bool = False
     average_raw_component_count_per_frame: float = 0.0
     average_filtered_component_count_per_frame: float = 0.0
     average_merged_roi_count_per_frame: float = 0.0
@@ -207,8 +208,14 @@ class RoiProposalReport:
             f"- Full-frame check rate: {format_ratio(self.full_frame_check_rate)}",
             f"- Fallback frame rate: {format_ratio(self.fallback_frame_rate)}",
             f"- False ROI rate against target GT: {format_ratio(self.false_roi_rate)}",
-            f"- Target GT tile containment: {format_ratio(self.target_gt_tile_containment)}",
-            f"- False tile ratio against target GT: {format_ratio(self.false_tile_ratio)}",
+            *(
+                [
+                    f"- Target GT tile containment: {format_ratio(self.target_gt_tile_containment)}",
+                    f"- False tile ratio against target GT: {format_ratio(self.false_tile_ratio)}",
+                ]
+                if self.tile_metrics_available
+                else ["- Tile-level containment metrics: unavailable (tile metadata not recorded)"]
+            ),
             f"- Average selected tile count per frame: {self.average_selected_tile_count_per_frame:.3f}",
             f"- Average selected tile area ratio per frame: {format_ratio(self.average_selected_tile_area_ratio_per_frame)}",
             f"- Average raw component count per frame: {self.average_raw_component_count_per_frame:.3f}",
@@ -285,6 +292,7 @@ def build_roi_proposal_report(
     gt_records = filter_gt_by_target_classes(ground_truth, normalized_targets)
     rois = list(roi_records)
     frames = list(frame_records)
+    tile_metrics_available = inputs.tile_metadata is not None
     tiles = list(tile_records or [])
     rois_by_frame = group_by_frame(rois)
     gt_by_frame = group_by_frame(gt_records)
@@ -405,6 +413,7 @@ def build_roi_proposal_report(
         ),
         target_gt_tile_contained_count=target_gt_tile_contained_count,
         false_tile_count=false_tile_count,
+        tile_metrics_available=tile_metrics_available,
         average_raw_component_count_per_frame=_average(frame.raw_component_count for frame in frames),
         average_filtered_component_count_per_frame=_average(frame.filtered_component_count for frame in frames),
         average_merged_roi_count_per_frame=_average(frame.merged_roi_count for frame in frames),

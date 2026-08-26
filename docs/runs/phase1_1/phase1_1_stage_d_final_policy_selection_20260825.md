@@ -35,20 +35,21 @@ Comparison runs:
 | component_bbox_balanced | Keep | low-cost baseline |
 | hybrid_component_tile_cost | Disable | cost is low, but recall does not improve over component baseline |
 | tile_mask_recall_12x12 | Keep | practical tile baseline |
-| small_object_tile_recall_12x12_overlap | Keep | small-object practical candidate |
+| small_object_tile_recall_12x12_overlap | Keep/Tune | small-object practical candidate, overlap/margin tuning remains open |
 | feedback_assisted_tile_12x12_overlap_top2 | Keep/Tune | strongest realistic candidate with actual detector feedback |
 | feedback_assisted_tile_12x12_overlap | Tune | high-recall reference, too costly for practical default |
 | small_object_tile_recall | Tune | high-recall small-object reference, too costly for practical default |
 
 ## Default Recommendation
 
-Use `small_object_tile_recall_12x12_overlap` as the current practical default candidate for Phase 1.1.
+Use `small_object_tile_recall_12x12_overlap` as the current practical default candidate for Phase 1.1, with Keep/Tune status.
 
 Reason:
 
 - materially improves target and small-object containment over `tile_mask_recall_12x12`
 - keeps ROI/frame, tile/frame, and fallback count unchanged relative to `tile_mask_recall_12x12`
 - avoids the extra actual detector dependency and higher fallback count of feedback-assisted profiles
+- remains open for overlap/margin tuning because the margin-plus probe recovers additional boundary misses at higher tensor cost
 
 Use `feedback_assisted_tile_12x12_overlap_top2` as a Stage D challenger, not the default.
 

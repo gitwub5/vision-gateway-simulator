@@ -26,9 +26,9 @@ Temporary tuning profiles were tested and removed after recording results:
 
 ## Decision
 
-Keep `small_object_tile_recall_12x12_overlap` as the Phase 1.1 practical default candidate.
+Keep `small_object_tile_recall_12x12_overlap` as the Phase 1.1 practical default candidate with Keep/Tune status.
 
-It improves small-object containment relative to `tile_mask_recall_12x12` while keeping ROI/frame, tile/frame, and fallback count unchanged.
+It improves small-object containment relative to `tile_mask_recall_12x12` while keeping ROI/frame, tile/frame, and fallback count unchanged. The later `margin_plus 0.35` probe shows the overlap/margin value is still tunable, so this should not be treated as a finalized hard default yet.
 
 `small_object_tile_recall` remains a high-recall, non-default reference profile.
 
@@ -37,7 +37,7 @@ It improves small-object containment relative to `tile_mask_recall_12x12` while 
 Run log:
 
 ```text
-docs/runs/phase1_1_stage_b_small_object_policy_20260825.md
+docs/runs/phase1_1/phase1_1_stage_b_small_object_policy_20260825.md
 ```
 
 Retained profiles:

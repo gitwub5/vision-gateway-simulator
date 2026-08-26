@@ -254,7 +254,7 @@ Bucket:
   - `configs/datasets/od_virat/od_virat_tiny.yaml`
   - partial annotation 품질 metadata 포함
 - [x] Pipeline 실행 결과 기록 방식 정리
-  - `docs/runs/phase1_validation_runs.md` 또는 output manifest 기준으로 관리
+  - `docs/runs/phase1/phase1_validation_runs.md` 또는 output manifest 기준으로 관리
 - [x] Unit test 추가
   - summary/benchmark 집계 로직은 작은 fixture로 테스트
 - [x] Hardware/backend snapshot 기록

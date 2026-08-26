@@ -584,12 +584,12 @@ Stage C는 Phase 1.1 범위에서 종료한다. 남은 confidence decay, stale r
 | `component_bbox_balanced` | Keep | low-cost baseline |
 | `hybrid_component_tile_cost` | Disable | component baseline 대비 recall 개선 없음 |
 | `tile_mask_recall_12x12` | Keep | practical tile baseline |
-| `small_object_tile_recall_12x12_overlap` | Keep | Phase 1.1 practical default candidate |
+| `small_object_tile_recall_12x12_overlap` | Keep/Tune | Phase 1.1 practical default candidate; overlap/margin tuning remains open |
 | `small_object_tile_recall` | Tune | high-recall, non-default small-object reference |
 | `feedback_assisted_tile_12x12_overlap_top2` | Keep/Tune | strongest realistic candidate, cost tuning 필요 |
 | `feedback_assisted_tile_12x12_overlap` | Tune | high-recall, higher-cost feedback reference |
 
-`small_object_tile_recall_12x12_overlap`을 Phase 1.1의 practical default candidate로 둔다. `feedback_assisted_tile_12x12_overlap_top2`는 actual YOLO feedback에서도 개선이 있지만 ROI/tensor/fallback 비용이 증가하므로 Stage C 재검토 후 default 승격 여부를 판단한다.
+`small_object_tile_recall_12x12_overlap`을 Phase 1.1의 practical default candidate로 두되 Keep/Tune 상태로 둔다. `margin_plus 0.35` probe에서 추가 boundary miss 회복 가능성이 확인됐지만 tensor cost도 증가했으므로 overlap/margin tuning은 열어 둔다. `feedback_assisted_tile_12x12_overlap_top2`는 actual YOLO feedback에서도 개선이 있지만 ROI/tensor/fallback 비용이 증가하므로 Stage C 재검토 후 default 승격 여부를 판단한다.
 
 ### 완료 기준
 
@@ -657,7 +657,7 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 
 Phase 1.1은 policy selection 관점에서 성공 종료한다.
 
-- practical default candidate: `small_object_tile_recall_12x12_overlap`
+- practical default candidate: `small_object_tile_recall_12x12_overlap` (Keep/Tune)
 - challenger: `feedback_assisted_tile_12x12_overlap_top2`
 - low-cost baseline: `component_bbox_balanced`
 - disabled candidate: `hybrid_component_tile_cost`

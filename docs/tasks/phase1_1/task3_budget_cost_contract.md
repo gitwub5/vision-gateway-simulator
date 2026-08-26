@@ -43,7 +43,7 @@ It made later Stage B/C comparisons possible by exposing:
 Primary run log:
 
 ```text
-docs/runs/phase1_1_a2_budget_cost_contract_20260825.md
+docs/runs/phase1_1/phase1_1_a2_budget_cost_contract_20260825.md
 ```
 
 ## Verification
