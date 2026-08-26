@@ -57,8 +57,8 @@ New policies should not need detailed component/tile/policy metadata unless a fa
 Run logs:
 
 ```text
-docs/runs/phase1_1_a3_lean_validation_boundary_20260825.md
-docs/runs/phase1_1_pre_stage_b_structure_cleanup_20260825.md
+docs/runs/phase1_1/phase1_1_a3_lean_validation_boundary_20260825.md
+docs/runs/phase1_1/phase1_1_pre_stage_b_structure_cleanup_20260825.md
 ```
 
 ## Verification

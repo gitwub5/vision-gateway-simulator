@@ -28,7 +28,8 @@ configs/roi_generator/
 |---|---|
 | Low-cost baseline | `phase1_1/component` or `legacy/profile_balanced.yaml` |
 | Tile baseline | `phase1_1/tile/profile_tile_mask_recall_12x12.yaml` |
-| Practical default candidate | `phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap.yaml` |
+| Practical default candidate, Keep/Tune | `phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap.yaml` |
+| Small-object margin tuning probe | `phase1_1/small_object/profile_small_object_tile_recall_12x12_overlap_margin_plus.yaml` |
 | Feedback challenger | `phase1_1/feedback/profile_feedback_assisted_tile_12x12_overlap_top2.yaml` |
 
 ## Notes

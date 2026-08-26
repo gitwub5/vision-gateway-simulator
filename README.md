@@ -4,13 +4,11 @@ Vision Frontend Simulator는 카메라와 GPU 사이에 위치할 Vision Fronten
 
 목표는 실제 하드웨어, 보드, 칩 구현 전에 **ROI 기반 전처리 게이트가 객체 탐지 성능을 유지하면서 GPU inference workload를 줄일 수 있는지** 확인하는 것입니다.
 
-초기 검증에서는 실제 ROI generator 하드웨어나 SNN 모델을 사용하지 않고, OpenCV 기반 rule-based 영상처리로 ROI generator를 에뮬레이션합니다.
+현재 구현은 실제 ROI generator 하드웨어나 SNN 모델을 직접 사용하지 않고, 고정 카메라 영상에서 ROI 후보를 만드는 rule-based 소프트웨어 게이트로 검증 루프를 구성합니다.
 
 ## 현재 범위
 
-현재 우선순위는 **Phase 1. Rule-based ROI generator 검증**입니다.
-
-Phase 1에서는 다음 흐름을 비교합니다.
+이 저장소는 다음 흐름을 실행하고 비교할 수 있게 구성되어 있습니다.
 
 ```text
 A. Full-frame YOLOv8
@@ -18,13 +16,14 @@ B. Rule-based ROI generator + ROI YOLOv8
 C. Rule-based ROI generator + ROI YOLOv8 + Periodic Full-frame Check
 ```
 
-Phase 1의 구현 현황, 체크리스트, R&R은 [docs/plan/phase1_implementation_plan.md](docs/plan/phase1_implementation_plan.md)를 기준으로 관리합니다.
+계획, 실행 방법, 실험 결과는 루트 README가 아니라 `docs/` 아래에서 분리해서 관리합니다.
 
-작업할 때는 다음 원칙을 지킵니다.
+문서 운영 원칙:
 
-- Task 진행 상태를 바꾸면 `docs/plan/phase1_implementation_plan.md`를 함께 수정합니다.
-- Task 구현이 끝나면 `docs/tasks/phase*/` 아래에 구현 설명 문서를 남깁니다.
-- Phase별 상세 검증 계획이나 다음 Phase 계획은 `docs/plan/` 아래에 정리합니다.
+- `docs/plan/`에는 앞으로의 계획과 판단 기준만 둡니다.
+- `docs/runs/`에는 이미 실행한 실험 결과, 피드백, 로그를 둡니다.
+- `docs/tasks/phase*/`에는 구현 단위별 변경 기록을 둡니다.
+- `docs/how-to/`에는 재현 가능한 실행 절차를 둡니다.
 - 개인적인 기술 고민이나 공유 전 의사결정 메모는 Git에 올리지 않는 `docs/idea/` 아래에 둡니다.
 - 대용량 dataset, model weight, 실험 output은 Git에 포함하지 않습니다.
 
@@ -38,13 +37,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Synthetic fixed-camera smoke video 생성:
+Synthetic fixed-camera smoke video를 생성합니다.
 
 ```bash
 python tools/create_smoke_video.py
 ```
 
-Rule-based ROI generator smoke 실행:
+Rule-based ROI generator smoke를 실행합니다.
 
 ```bash
 python experiments/run_rule_roi_baseline.py \
@@ -53,17 +52,7 @@ python experiments/run_rule_roi_baseline.py \
   --limit 60
 ```
 
-ROI Proposal Validation 실행:
-
-```bash
-python experiments/run_roi_proposal_validation.py \
-  --dataset-config configs/datasets/physicalai/physicalai_row0709.yaml \
-  --roi-generator-config configs/roi_generator/legacy/profile_balanced.yaml \
-  --experiment-name physicalai_row0709_balanced \
-  --limit 120
-```
-
-E2E Inference Validation 실행:
+E2E inference validation은 ROI gate와 YOLO inference를 함께 실행합니다. 더 자세한 validation 명령은 `docs/how-to/`에서 관리합니다.
 
 ```bash
 python experiments/run_e2e_inference_validation.py \
@@ -75,7 +64,6 @@ python experiments/run_e2e_inference_validation.py \
 ```
 
 ROI proposal 결과는 `outputs/roi_proposal_validation/<run_id>/`, E2E inference 결과는 `outputs/e2e_inference_validation/<run_id>/` 아래에 묶어서 저장됩니다.
-Phase 1.1 public validation은 target-aware ROI 기준으로 판단합니다. `physicalai-smartspaces` row 단위 dataset은 산업/창고 person ROI proposal 후보로, `ua-detrac`은 실사 vehicle ROI proposal 후보로, `od-virat-tiny`는 partial annotation 보조 검증으로 사용합니다.
 
 테스트:
 
@@ -95,6 +83,8 @@ python -m unittest discover -s tests
 | `docs/idea/` | 개인 기술 고민, 전략 메모, 의사결정 초안. Git 제외 |
 | `docs/assets/` | 문서에서 사용하는 대표 이미지와 시각화 예시 |
 | `configs/` | `datasets/`, `roi_generator/`, `models/`로 분리된 실험 설정 |
+| `configs/datasets/` | dataset config. `base/`, `samples/`, `physicalai/`, `ua_detrac/`, `od_virat/`로 구분 |
+| `configs/roi_generator/` | ROI generator config. `base/`, `legacy/`, phase별 profile 폴더로 구분 |
 | `common/` | loader, gate, inference, evaluation이 공유하는 schema |
 | `data_loader/` | video/image sequence 입력을 `FramePacket`으로 변환 |
 | `roi_generator/` | rule-based ROI generator |
@@ -111,17 +101,19 @@ python -m unittest discover -s tests
 
 | 문서 | 용도 |
 |---|---|
-| [docs/plan/phase1_implementation_plan.md](docs/plan/phase1_implementation_plan.md) | Phase 1 구현 체크리스트, R&R, 다음 작업 |
-| [docs/plan/phase1_validation_plan.md](docs/plan/phase1_validation_plan.md) | Phase 1 공유용 검증 실행 절차와 산출물 규칙 |
-| [docs/plan/vision_frontend_validation_roadmap.md](docs/plan/vision_frontend_validation_roadmap.md) | Phase 2 이후 장기 로드맵 |
 | [docs/README.md](docs/README.md) | 문서 디렉터리 운영 규칙 |
+| [docs/how-to/README.md](docs/how-to/README.md) | 실행 가이드 index |
+| [docs/plan/README.md](docs/plan/README.md) | 계획 문서 index |
+| [docs/tasks/README.md](docs/tasks/README.md) | task 구현 기록 규칙 |
+| [docs/runs/README.md](docs/runs/README.md) | 실험 결과 로그 규칙 |
 | [docs/how-to/dataset_setup.md](docs/how-to/dataset_setup.md) | 공개 sample data 준비 방법 |
 | [docs/how-to/smoke_test.md](docs/how-to/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
-| [docs/runs/smoke_test_visualization_result.md](docs/runs/smoke_test_visualization_result.md) | smoke visualization 실행 결과 |
+| [configs/datasets/README.md](configs/datasets/README.md) | dataset config 폴더 구조 |
+| [configs/roi_generator/README.md](configs/roi_generator/README.md) | ROI generator config 폴더 구조 |
 
 ## 협업 메모
 
 - `common/schemas.py` 변경은 전체 pipeline에 영향을 주므로 사전에 공유합니다.
-- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로 report 또는 plan 문서에 이유를 남깁니다.
+- `configs/**/*.yaml` 변경은 실험 결과에 영향을 주므로 관련 task, run, 또는 plan 문서에 이유를 남깁니다.
 - ROI metadata schema는 inference, evaluation, visualization이 공유하는 계약으로 취급합니다.
-- Phase 1에서는 SNN, 실제 ROI generator 하드웨어, RTSP, DeepStream, TensorRT를 직접 구현하지 않습니다.
+- 하드웨어, RTSP, DeepStream, TensorRT 연동은 별도 phase에서 다룹니다.

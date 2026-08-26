@@ -61,7 +61,7 @@ docs/
       task7_evaluation.md
       task8_visualization.md
   runs/
-    phase1_validation_runs.md
+    phase1/phase1_validation_runs.md
   idea/       # gitignored, local-only
 ```
 
@@ -79,7 +79,7 @@ docs/
 
 - Phase별 구현 계획은 `docs/plan/phase*_implementation_plan.md`를 확인한다.
 - 공통 검증 파이프라인은 `docs/plan/phase1_validation_plan.md`를 확인한다.
-- 실제 run 기록과 report 위치는 `docs/runs/phase1_validation_runs.md`를 확인한다.
+- 실제 run 기록과 report 위치는 `docs/runs/phase1/phase1_validation_runs.md`를 확인한다.
 - Phase 1.1 ROI/gate policy 개선 계획은 `docs/plan/phase1_1_implementation_plan.md`를 확인한다.
 - Phase 2 SNN 전환, DeepStream과의 경계, 사업성 판단처럼 아직 공유하기 이른 내용은 `docs/idea/`에서 로컬 메모로 관리한다.
 

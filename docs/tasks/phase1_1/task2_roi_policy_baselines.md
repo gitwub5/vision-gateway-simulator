@@ -49,7 +49,7 @@ outputs/roi_proposal_validation/a1_compare_visual_policy_methods_f5401_100/
 Primary run log:
 
 ```text
-docs/runs/phase1_1_a1_roi_policy_baselines_20260819.md
+docs/runs/phase1_1/phase1_1_a1_roi_policy_baselines_20260819.md
 ```
 
 ## Verification
