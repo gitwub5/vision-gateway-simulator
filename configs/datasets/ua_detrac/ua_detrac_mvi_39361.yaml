@@ -1,0 +1,36 @@
+dataset:
+  type: image_sequence
+  input_path: data/ua_detrac/DETRAC-Images/DETRAC-Images/MVI_39361
+  camera_id: MVI_39361
+  fps_override: 25
+  frame_limit: 600
+  start_frame: 0
+  image_extensions:
+    - .jpg
+    - .jpeg
+    - .png
+    - .bmp
+
+annotations:
+  enabled: true
+  type: ua_detrac_xml
+  input_path: data/ua_detrac/DETRAC-Test-Annotations-XML/DETRAC-Test-Annotations-XML/MVI_39361.xml
+  quality:
+    completeness: exhaustive
+    expected_exhaustive: true
+    unreliable_metrics: []
+    notes:
+      - UA-DETRAC MVI_39361 is the Phase 1.2 fixed validation sequence.
+      - The source XML marks camera_state as unstable, so ROI results should be interpreted as a harder moving-camera traffic case.
+      - UA-DETRAC classes are mapped to COCO-compatible YOLOv8 names where possible: car->car, bus->bus, van->car, others->truck.
+
+validation:
+  target_classes:
+    - car
+    - bus
+    - truck
+  target_policy:
+    mode: target_aware_roi
+    notes:
+      - ROI quality is evaluated against vehicle GT classes for the fixed Phase 1.2 dataset.
+      - Non-vehicle motion is only a cost signal unless it affects target recall or ROI budget.

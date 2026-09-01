@@ -9,8 +9,9 @@
 | Phase | 공유 범위 |
 |---|---|
 | Phase 1. Rule-based ROI generator | 구현 완료 상태, 실행 절차, 산출물 위치 |
-| Phase 1.1. ROI Gate Policy Validation | component/tile/hybrid ROI policy contract 검증 계획 |
-| Phase 1.2. ROI Gate Deferred Research | compressed-domain signal, online controller, ROI packing 등 Phase 1.1 이후 후보 |
+| Phase 1.1. ROI Gate Policy Validation | component/tile/hybrid 비교로 tile 기반 방향성과 ROI/tile/cost contract 확정 |
+| Phase 1.2. Tile-based ROI Gate Improvement | Phase 1.1에서 남긴 tile baseline을 강화해 boundary miss, false ROI, feedback/fallback 문제 개선 |
+| Phase 1.3. Alternative ROI Exploration | heatmap/contour, event-like signal, non-uniform tile, compressed-domain 등 tile 기반 외 대안 검증 |
 | Phase 2. SNN Tile Eventness Model | 공유 가능한 구현 계획이 확정되면 추가 |
 | Phase 3. Multi-camera Simulation | 공유 가능한 구현 계획이 확정되면 추가 |
 | Phase 4. GPU Pipeline Optimization | 공유 가능한 구현 계획이 확정되면 추가 |
@@ -23,7 +24,8 @@
 - `docs/plan/phase1_implementation_plan.md`
 - `docs/plan/phase1_validation_plan.md`
 - `docs/plan/phase1_1_implementation_plan.md`
-- `docs/plan/phase1_2_deferred_research_plan.md`
+- `docs/plan/phase1_2_performance_improvement_plan.md`
+- `docs/plan/phase1_3_alternative_roi_exploration_plan.md`
 - `docs/tasks/phase1/`
 
 ## 로컬 메모

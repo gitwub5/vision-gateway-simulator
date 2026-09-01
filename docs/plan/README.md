@@ -16,5 +16,6 @@
 | `phase1_implementation_plan.md` | Phase 1 기본 구현 계획 |
 | `phase1_validation_plan.md` | Phase 1/1.1 공통 검증 파이프라인 |
 | `phase1_1_implementation_plan.md` | Phase 1.1 ROI Gate policy contract 검증 구현 계획과 Keep/Tune/Disable/Remove 기준 |
-| `phase1_2_deferred_research_plan.md` | Phase 1.2 ROI Gate 대안/결합/tuning 후보와 실행 순서 |
+| `phase1_2_performance_improvement_plan.md` | Phase 1.2 tile-based ROI Gate 성능 개선 workstream |
+| `phase1_3_alternative_roi_exploration_plan.md` | Phase 1.3 tile 기반 외 대안 ROI 방식 탐색 계획 |
 | `vision_frontend_validation_roadmap.md` | Phase 간 검증 로드맵 |
