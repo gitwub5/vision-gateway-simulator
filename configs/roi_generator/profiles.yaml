@@ -22,6 +22,16 @@ profiles:
     role: feedback_challenger
     reference_feedback_source: full_frame_yolo
 
+  adaptive_threshold_ema:
+    config: phase1_2/adaptive/profile_adaptive_tile_threshold_ema.yaml
+    status: disabled
+    role: archived_adaptive_threshold_candidate
+
+  rare_tile_guard:
+    config: phase1_2/adaptive/profile_rare_tile_guard.yaml
+    status: active
+    role: tune_candidate
+
   feedback_oracle_gt:
     config: phase1_1/feedback/profile_feedback_assisted_tile_12x12_overlap_top2.yaml
     status: reference_only

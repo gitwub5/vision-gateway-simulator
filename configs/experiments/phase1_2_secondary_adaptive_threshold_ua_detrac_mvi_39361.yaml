@@ -1,0 +1,12 @@
+schema_version: 1
+name: phase1_2_secondary_adaptive_threshold_ua_detrac_mvi_39361
+dataset: configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml
+limit: 600
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - tile_baseline
+  - practical_default
+  - rare_tile_guard

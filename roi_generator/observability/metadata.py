@@ -172,6 +172,8 @@ def read_tile_metadata_jsonl(input_path: str | Path) -> list[TileMetadataRecord]
                     ),
                     motion_density=float(data.get("motion_density", 0.0)),
                     selected=bool(data.get("selected", False)),
+                    motion_threshold=float(data.get("motion_threshold", 0.0)),
+                    selection_reason=str(data.get("selection_reason", "motion_threshold")),
                 ),
             )
         )

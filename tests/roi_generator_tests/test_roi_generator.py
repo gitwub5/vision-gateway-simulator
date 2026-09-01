@@ -65,6 +65,48 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.tile_grid_cols, 6)
         self.assertEqual(config.tile_motion_density_threshold, 0.2)
 
+    def test_config_loads_adaptive_tile_threshold_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "adaptive_tile_threshold": {
+                        "enabled": True,
+                        "ema_alpha": 0.25,
+                        "multiplier": 2.0,
+                        "additive_margin": 0.01,
+                        "max_threshold": 0.2,
+                        "warmup_frames": 3,
+                    }
+                }
+            }
+        )
+
+        self.assertTrue(config.adaptive_tile_threshold_enabled)
+        self.assertEqual(config.adaptive_tile_threshold_ema_alpha, 0.25)
+        self.assertEqual(config.adaptive_tile_threshold_multiplier, 2.0)
+        self.assertEqual(config.adaptive_tile_threshold_additive_margin, 0.01)
+        self.assertEqual(config.adaptive_tile_threshold_max_threshold, 0.2)
+        self.assertEqual(config.adaptive_tile_threshold_warmup_frames, 3)
+
+    def test_config_loads_rare_tile_guard_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "rare_tile_guard": {
+                        "enabled": True,
+                        "min_history_frames": 10,
+                        "max_activation_rate": 0.2,
+                        "weak_density_max": 0.03,
+                    }
+                }
+            }
+        )
+
+        self.assertTrue(config.rare_tile_guard_enabled)
+        self.assertEqual(config.rare_tile_guard_min_history_frames, 10)
+        self.assertEqual(config.rare_tile_guard_max_activation_rate, 0.2)
+        self.assertEqual(config.rare_tile_guard_weak_density_max, 0.03)
+
     def test_config_loads_nested_budget_options(self) -> None:
         config = RoiGeneratorConfig.from_mapping(
             {

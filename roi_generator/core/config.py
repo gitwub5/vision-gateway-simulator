@@ -35,6 +35,16 @@ class RoiGeneratorConfig:
     tile_grid_rows: int = 8
     tile_grid_cols: int = 8
     tile_motion_density_threshold: float = 0.0
+    adaptive_tile_threshold_enabled: bool = False
+    adaptive_tile_threshold_ema_alpha: float = 0.1
+    adaptive_tile_threshold_multiplier: float = 1.5
+    adaptive_tile_threshold_additive_margin: float = 0.0
+    adaptive_tile_threshold_max_threshold: float | None = None
+    adaptive_tile_threshold_warmup_frames: int = 0
+    rare_tile_guard_enabled: bool = False
+    rare_tile_guard_min_history_frames: int = 30
+    rare_tile_guard_max_activation_rate: float = 0.05
+    rare_tile_guard_weak_density_max: float = 0.02
     small_object_boost_enabled: bool = False
     tile_overlap_ratio: float = 0.0
     reference_feedback_enabled: bool = False
@@ -81,6 +91,8 @@ class RoiGeneratorConfig:
         roi_generator = config.get("roi_generator", config)
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
+        adaptive_tile_threshold = roi_generator.get("adaptive_tile_threshold", {}) or {}
+        rare_tile_guard = roi_generator.get("rare_tile_guard", {}) or {}
         budget = roi_generator.get("budget", {}) or {}
         small_object_boost = roi_generator.get("small_object_boost", {}) or {}
         reference_feedback = roi_generator.get("reference_feedback", {}) or {}
@@ -131,6 +143,96 @@ class RoiGeneratorConfig:
                     "tile_motion_density_threshold",
                     tile_metadata.get("motion_density_threshold", cls.tile_motion_density_threshold),
                 )
+            ),
+            adaptive_tile_threshold_enabled=bool(
+                roi_generator.get(
+                    "adaptive_tile_threshold_enabled",
+                    adaptive_tile_threshold.get("enabled", cls.adaptive_tile_threshold_enabled),
+                )
+            ),
+            adaptive_tile_threshold_ema_alpha=_bounded_ratio(
+                roi_generator.get(
+                    "adaptive_tile_threshold_ema_alpha",
+                    adaptive_tile_threshold.get("ema_alpha", cls.adaptive_tile_threshold_ema_alpha),
+                )
+            ),
+            adaptive_tile_threshold_multiplier=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_multiplier",
+                        adaptive_tile_threshold.get("multiplier", cls.adaptive_tile_threshold_multiplier),
+                    )
+                ),
+            ),
+            adaptive_tile_threshold_additive_margin=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_additive_margin",
+                        adaptive_tile_threshold.get(
+                            "additive_margin",
+                            cls.adaptive_tile_threshold_additive_margin,
+                        ),
+                    )
+                ),
+            ),
+            adaptive_tile_threshold_max_threshold=_optional_float(
+                roi_generator.get(
+                    "adaptive_tile_threshold_max_threshold",
+                    adaptive_tile_threshold.get("max_threshold"),
+                )
+            ),
+            adaptive_tile_threshold_warmup_frames=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_warmup_frames",
+                        adaptive_tile_threshold.get(
+                            "warmup_frames",
+                            cls.adaptive_tile_threshold_warmup_frames,
+                        ),
+                    )
+                ),
+            ),
+            rare_tile_guard_enabled=bool(
+                roi_generator.get(
+                    "rare_tile_guard_enabled",
+                    rare_tile_guard.get("enabled", cls.rare_tile_guard_enabled),
+                )
+            ),
+            rare_tile_guard_min_history_frames=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "rare_tile_guard_min_history_frames",
+                        rare_tile_guard.get(
+                            "min_history_frames",
+                            cls.rare_tile_guard_min_history_frames,
+                        ),
+                    )
+                ),
+            ),
+            rare_tile_guard_max_activation_rate=_bounded_ratio(
+                roi_generator.get(
+                    "rare_tile_guard_max_activation_rate",
+                    rare_tile_guard.get(
+                        "max_activation_rate",
+                        cls.rare_tile_guard_max_activation_rate,
+                    ),
+                )
+            ),
+            rare_tile_guard_weak_density_max=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "rare_tile_guard_weak_density_max",
+                        rare_tile_guard.get(
+                            "weak_density_max",
+                            cls.rare_tile_guard_weak_density_max,
+                        ),
+                    )
+                ),
             ),
             small_object_boost_enabled=bool(
                 roi_generator.get(

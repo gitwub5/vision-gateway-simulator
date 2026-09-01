@@ -46,6 +46,8 @@ class TileTrace:
     bbox: ROI
     motion_density: float
     selected: bool
+    motion_threshold: float = 0.0
+    selection_reason: str = "motion_threshold"
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +57,8 @@ class TileTrace:
             "bbox_xywh": self.bbox.xywh(),
             "motion_density": self.motion_density,
             "selected": self.selected,
+            "motion_threshold": self.motion_threshold,
+            "selection_reason": self.selection_reason,
         }
 
 

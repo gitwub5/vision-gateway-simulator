@@ -60,7 +60,7 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 진행 상태:
 
 - [x] Workstream A: Failure Taxonomy And Baseline Lock
-- [ ] Workstream B: Adaptive Tile Threshold
+- [x] Workstream B: Adaptive Tile Threshold
 - [ ] Workstream C: Near-Threshold Neighbor Rescue
 - [ ] Workstream D: Feedback And Fallback Retuning
 
@@ -98,11 +98,13 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 
 작업:
 
-- [ ] `per_tile_motion_threshold` 후보 구현
-- [ ] `scene_profile_threshold` 후보 구현
-- [ ] `rare_tile_guard` 후보 구현 또는 제외 근거 기록
-- [ ] main dataset 600-frame 비교 실행
-- [ ] secondary `MVI_39361` cross-check 실행
+- [x] `per_tile_motion_threshold` 후보 구현
+- [x] `scene_profile_threshold` 후보는 보류. `MVI_39361` 분석상 global motion/scene-state handling으로 분리하는 편이 낫다.
+- [x] `rare_tile_guard` 후보 구현 또는 제외 근거 기록
+- [x] main dataset 600-frame 비교 실행
+- [x] secondary `MVI_39361` cross-check 실행
+- [x] run log 작성: `docs/runs/phase1_2/phase1_2_workstream_b_adaptive_threshold_20260901.md`
+- [x] `adaptive_threshold_ema`는 Disable, `rare_tile_guard`는 Workstream C 조합 후보로 유지
 
 후보:
 
@@ -117,6 +119,11 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 - `tile_mask_recall_12x12` 대비 containment를 크게 잃지 않는다.
 - `small_object_tile_recall_12x12_overlap` 대비 false ROI, tensor cost, fallback 중 하나 이상을 줄인다.
 - boundary miss가 늘어나면 단독 default로 승격하지 않는다.
+
+판정:
+
+- `adaptive_threshold_ema`: Disable. Cost는 줄였지만 containment regression이 너무 크다.
+- `rare_tile_guard`: Keep/Tune. 단독 default는 아니며 Workstream C neighbor rescue와 조합해 재평가한다.
 
 ### Workstream C: Near-Threshold Neighbor Rescue
 
