@@ -61,8 +61,8 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 
 - [x] Workstream A: Failure Taxonomy And Baseline Lock
 - [x] Workstream B: Adaptive Tile Threshold
-- [ ] Workstream C: Near-Threshold Neighbor Rescue
-- [ ] Workstream D: Feedback And Fallback Retuning
+- [x] Workstream C: Near-Threshold Neighbor Rescue
+- [x] Workstream D: Feedback And Fallback Retuning
 
 ### Workstream A: Failure Taxonomy And Baseline Lock
 
@@ -133,11 +133,11 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 
 작업:
 
-- [ ] `neighbor_motion_weak` 후보 구현
-- [ ] `boundary_only_rescue` 후보 구현 또는 제외 근거 기록
-- [ ] `rescue_with_budget_cap` 후보 구현
-- [ ] `margin_plus` 대비 containment/cost 비교 실행
-- [ ] boundary miss 회복 대표 frame visualization 생성
+- [x] `neighbor_motion_weak` 후보 구현
+- [x] `boundary_only_rescue` 후보 구현 또는 제외 근거 기록
+- [x] `rescue_with_budget_cap` 후보 구현
+- [x] `margin_plus` 대비 containment/cost 비교 실행
+- [x] boundary miss 회복 대표 frame visualization 생성
 
 후보:
 
@@ -153,6 +153,13 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 - Phase 1.1에서 rollback한 `dilation_down1`처럼 tile/frame, tensor cost, fallback이 크게 증가하면 제외한다.
 - visualization에서 boundary miss 회복이 실제로 보여야 한다.
 
+결과:
+
+- `neighbor_motion_weak`: containment는 가장 크게 회복되지만 tensor cost와 fallback이 같이 증가한다.
+- `rescue_with_budget_cap`: `margin_plus`보다 containment와 false ROI가 모두 개선되며, fallback 증가 없이 cost 증가를 제한한다.
+- `boundary_only_rescue`: online policy에서 GT를 직접 사용할 수 없으므로 이번 단계에서는 별도 구현하지 않고 taxonomy 기반 분석 항목으로 보류한다.
+- secondary `MVI_39361`: global motion fallback 지배 구간이라 neighbor rescue로 해결되지 않는다. 이 데이터는 계속 stress/cross-check로만 사용한다.
+
 ### Workstream D: Feedback And Fallback Retuning
 
 목표:
@@ -162,11 +169,11 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 
 작업:
 
-- [ ] `feedback_confidence_decay` 후보 구현
-- [ ] `low_frequency_feedback_assist` 후보 구현
-- [ ] `fallback_reason_retune` 후보 구현
-- [ ] `feedback_roi_budget_cap` 후보 구현
-- [ ] actual YOLO feedback 기준 비교 실행
+- [x] `feedback_confidence_decay` 후보 구현
+- [x] `low_frequency_feedback_assist` 후보 구현
+- [x] `fallback_reason_retune` 후보 구현
+- [x] `feedback_roi_budget_cap` 후보 구현
+- [x] actual YOLO feedback 기준 비교 실행
 
 후보:
 
@@ -182,6 +189,13 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 - actual YOLO feedback 기준으로 평가한다. Oracle feedback은 upper bound로만 본다.
 - `feedback_actual_yolo_top2`보다 ROI/frame, false ROI, fallback을 줄이면서 containment를 유지하거나 개선해야 한다.
 - feedback이 특정 실패 타입만 해결하면 default가 아니라 optional high-recall profile로 남긴다.
+
+결과:
+
+- `feedback_confidence_decay`: actual YOLO 기준에서 containment와 false ROI가 모두 가장 좋다. 단 tensor cost가 높아 optional high-recall 후보로 유지한다.
+- `feedback_roi_budget_cap`: feedback assist를 더 보수적으로 제한하지만, `feedback_confidence_decay`보다 recall이 낮다.
+- `low_frequency_feedback_assist`: policy ROI가 대부분 존재하는 main dataset에서는 feedback이 거의 적용되지 않아 C baseline과 동일하다. registry에서는 disable한다.
+- `fallback_reason_retune`: fallback은 1 frame 줄지만 recall 개선 폭이 작아 default 후보로 올리지 않는다.
 
 ## 3. Evaluation Rule
 
@@ -220,10 +234,10 @@ Phase 1.2 active workstream은 네 개로 제한한다.
 ## 4. Recommended Execution Order
 
 1. [x] Workstream A: 두 baseline의 true tile trace와 failure taxonomy 고정
-2. [ ] Workstream B: adaptive tile threshold로 noise ROI 감소 실험
-3. [ ] Workstream C: near-threshold neighbor rescue로 boundary miss 감소 실험
-4. [ ] Workstream B+C 조합 후보를 600-frame으로 검증
-5. [ ] Workstream D: feedback/fallback retuning을 actual YOLO 기준으로 재평가
+2. [x] Workstream B: adaptive tile threshold로 noise ROI 감소 실험
+3. [x] Workstream C: near-threshold neighbor rescue로 boundary miss 감소 실험
+4. [x] Workstream B+C 조합 후보를 600-frame으로 검증
+5. [x] Workstream D: feedback/fallback retuning을 actual YOLO 기준으로 재평가
 
 Phase 1.2의 1차 성공 기준은 다음 중 하나다.
 

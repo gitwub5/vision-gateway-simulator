@@ -1,0 +1,16 @@
+schema_version: 1
+name: phase1_2_feedback_retuning
+dataset: configs/datasets/physicalai/physicalai_row0709_after3m.yaml
+limit: 600
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - practical_default
+  - margin_plus
+  - rescue_with_budget_cap
+  - feedback_actual_yolo
+  - feedback_confidence_decay
+  - fallback_reason_retune
+  - feedback_roi_budget_cap

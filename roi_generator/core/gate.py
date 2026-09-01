@@ -117,10 +117,16 @@ class RuleBasedRoiGenerator:
             frame_size=packet.original_size,
             config=self.config,
         )
+        assisted_feedback_result = feedback_result_for_assist(
+            feedback_result,
+            generation_trace.final_rois,
+            self.config,
+        )
         current_rois = merge_feedback_rois(
             generation_trace.final_rois,
-            feedback_result,
+            assisted_feedback_result,
             duplicate_overlap_ratio=self.config.reference_feedback_duplicate_overlap_ratio,
+            max_feedback_rois=self.config.reference_feedback_max_assisted_rois_per_frame,
         )
         current_selected_tile_count = policy_selected_tile_count(generation_trace, self.policy.name)
         current_tile_group_count = tile_group_count(generation_trace, self.policy.name)
@@ -146,8 +152,8 @@ class RuleBasedRoiGenerator:
                 selected_tile_count=current_selected_tile_count,
                 tile_group_count=current_tile_group_count,
                 trace=generation_trace,
-                feedback_result=feedback_result,
-                feedback_assisted_roi_count=feedback_roi_count(feedback_result, current_rois),
+                feedback_result=assisted_feedback_result,
+                feedback_assisted_roi_count=feedback_roi_count(assisted_feedback_result, current_rois),
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -157,7 +163,7 @@ class RuleBasedRoiGenerator:
                 generation_trace=generation_trace,
                 decision=decision,
                 budget_fallback=budget_fallback,
-                feedback_result=feedback_result,
+                feedback_result=assisted_feedback_result,
             )
             return decision
 
@@ -175,8 +181,8 @@ class RuleBasedRoiGenerator:
                 selected_tile_count=current_selected_tile_count,
                 tile_group_count=current_tile_group_count,
                 trace=generation_trace,
-                feedback_result=feedback_result,
-                feedback_assisted_roi_count=feedback_roi_count(feedback_result, rois),
+                feedback_result=assisted_feedback_result,
+                feedback_assisted_roi_count=feedback_roi_count(assisted_feedback_result, rois),
             )
             self._emit_debug_snapshot(
                 packet=packet,
@@ -186,7 +192,7 @@ class RuleBasedRoiGenerator:
                 generation_trace=generation_trace,
                 decision=decision,
                 budget_fallback=budget_fallback,
-                feedback_result=feedback_result,
+                feedback_result=assisted_feedback_result,
             )
             return decision
 
@@ -202,8 +208,8 @@ class RuleBasedRoiGenerator:
             selected_tile_count=current_selected_tile_count,
             tile_group_count=current_tile_group_count,
             trace=generation_trace,
-            feedback_result=feedback_result,
-            feedback_assisted_roi_count=feedback_roi_count(feedback_result, rois),
+            feedback_result=assisted_feedback_result,
+            feedback_assisted_roi_count=feedback_roi_count(assisted_feedback_result, rois),
         )
         self._emit_debug_snapshot(
             packet=packet,
@@ -213,7 +219,7 @@ class RuleBasedRoiGenerator:
             generation_trace=generation_trace,
             decision=decision,
             budget_fallback=budget_fallback,
-            feedback_result=feedback_result,
+            feedback_result=assisted_feedback_result,
         )
         return decision
 
@@ -399,12 +405,35 @@ def merge_feedback_rois(
     policy_rois: list[ROI],
     feedback_result: ReferenceFeedbackResult,
     duplicate_overlap_ratio: float = 1.0,
+    max_feedback_rois: int | None = None,
 ) -> list[ROI]:
     merged = list(policy_rois)
+    assisted_count = 0
     for candidate in feedback_result.candidates:
         if not any(roi_overlap_ratio(existing, candidate.roi) >= duplicate_overlap_ratio for existing in merged):
+            if max_feedback_rois is not None and assisted_count >= max(0, max_feedback_rois):
+                continue
             merged.append(candidate.roi)
+            assisted_count += 1
     return sort_rois_by_area(merged)
+
+
+def feedback_result_for_assist(
+    feedback_result: ReferenceFeedbackResult,
+    policy_rois: list[ROI],
+    config: RoiGeneratorConfig,
+) -> ReferenceFeedbackResult:
+    if config.reference_feedback_assist_mode == "always":
+        return feedback_result
+    if config.reference_feedback_assist_mode == "empty_policy_only":
+        if policy_rois:
+            return ReferenceFeedbackResult(
+                candidates=[],
+                active_track_count=feedback_result.active_track_count,
+                stale_track_count=feedback_result.stale_track_count,
+            )
+        return feedback_result
+    raise ValueError(f"Unsupported reference_feedback assist_mode: {config.reference_feedback_assist_mode}")
 
 
 def feedback_roi_count(feedback_result: ReferenceFeedbackResult, decision_rois: list[ROI]) -> int:

@@ -196,6 +196,68 @@ class RoiPolicyBaselineTest(unittest.TestCase):
         self.assertEqual(guarded.tile_traces[0].selection_reason, "rare_tile_guard_suppressed")
         self.assertEqual(guarded.final_rois, [])
 
+    def test_tile_mask_neighbor_rescue_selects_adjacent_weak_tile(self) -> None:
+        motion_map = np.zeros((6, 6), dtype="uint8")
+        motion_map[0:2, 0:2] = 255
+        motion_map[0, 2:4] = 255
+        motion_map[4, 4] = 255
+        policy = TileMaskPolicy(
+            RoiGeneratorConfig(
+                morphology_kernel_size=1,
+                tile_grid_rows=3,
+                tile_grid_cols=3,
+                tile_motion_density_threshold=0.5,
+                neighbor_rescue_enabled=True,
+                neighbor_rescue_min_density=0.25,
+            )
+        )
+
+        trace = policy.generate(
+            _event_maps(motion_map),
+            analysis_size=FrameSize(6, 6),
+            original_size=FrameSize(60, 60),
+        )
+
+        selected_by_reason = {
+            tile.selection_reason: tile.bbox.xywh()
+            for tile in trace.tile_traces
+            if tile.selected
+        }
+        self.assertEqual(selected_by_reason["motion_threshold"], [0, 0, 20, 20])
+        self.assertEqual(selected_by_reason["neighbor_motion_weak"], [20, 0, 20, 20])
+        self.assertFalse(trace.tile_traces[8].selected)
+
+    def test_tile_mask_neighbor_rescue_respects_added_tile_cap(self) -> None:
+        motion_map = np.zeros((6, 6), dtype="uint8")
+        motion_map[2:4, 2:4] = 255
+        motion_map[0, 2:4] = 255
+        motion_map[2:4, 0] = 255
+        policy = TileMaskPolicy(
+            RoiGeneratorConfig(
+                morphology_kernel_size=1,
+                tile_grid_rows=3,
+                tile_grid_cols=3,
+                tile_motion_density_threshold=0.5,
+                neighbor_rescue_enabled=True,
+                neighbor_rescue_min_density=0.25,
+                neighbor_rescue_max_added_tiles=1,
+            )
+        )
+
+        trace = policy.generate(
+            _event_maps(motion_map),
+            analysis_size=FrameSize(6, 6),
+            original_size=FrameSize(6, 6),
+        )
+
+        rescue_tiles = [
+            tile
+            for tile in trace.tile_traces
+            if tile.selection_reason == "neighbor_motion_weak"
+        ]
+        self.assertEqual(len(rescue_tiles), 1)
+        self.assertEqual(sum(1 for tile in trace.tile_traces if tile.selected), 2)
+
     def test_hybrid_keeps_component_that_overlaps_selected_tile(self) -> None:
         motion_map = np.zeros((4, 4), dtype="uint8")
         motion_map[0:2, 0:2] = 255

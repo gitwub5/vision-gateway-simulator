@@ -55,9 +55,15 @@ class TileMaskPolicy:
                 )
                 for tile in tile_traces
             ]
+        if self.config.neighbor_rescue_enabled:
+            tile_traces = self._apply_neighbor_rescue(tile_traces)
         if self.config.rare_tile_guard_enabled:
             tile_traces = self._apply_rare_tile_guard(tile_traces)
-        if self.config.adaptive_tile_threshold_enabled or self.config.rare_tile_guard_enabled:
+        if (
+            self.config.adaptive_tile_threshold_enabled
+            or self.config.rare_tile_guard_enabled
+            or self.config.neighbor_rescue_enabled
+        ):
             self._update_tile_history(tile_traces)
         tile_overlap_ratio = self.config.tile_overlap_ratio if self.config.small_object_boost_enabled else 0.0
         selected_analysis_rois = selected_tile_rois(
@@ -121,6 +127,38 @@ class TileMaskPolicy:
             )
         return guarded
 
+    def _apply_neighbor_rescue(self, tile_traces):
+        selected_keys = {(tile.row, tile.col) for tile in tile_traces if tile.selected}
+        if not selected_keys:
+            return tile_traces
+
+        rescue_density = self.config.neighbor_rescue_min_density
+        if rescue_density is None:
+            rescue_density = (
+                self.config.tile_motion_density_threshold
+                * self.config.neighbor_rescue_min_density_ratio
+            )
+
+        rescue_candidates = []
+        for index, tile in enumerate(tile_traces):
+            if tile.selected or tile.motion_density < rescue_density:
+                continue
+            if not _is_neighbor_of_selected(tile.row, tile.col, selected_keys):
+                continue
+            rescue_candidates.append((index, tile.motion_density))
+
+        rescue_candidates.sort(key=lambda item: item[1], reverse=True)
+        if self.config.neighbor_rescue_max_added_tiles is not None:
+            rescue_candidates = rescue_candidates[: max(0, self.config.neighbor_rescue_max_added_tiles)]
+        rescue_indices = {index for index, _density in rescue_candidates}
+
+        return [
+            replace(tile, selected=True, selection_reason="neighbor_motion_weak")
+            if index in rescue_indices
+            else tile
+            for index, tile in enumerate(tile_traces)
+        ]
+
     def _update_tile_history(self, tile_traces) -> None:
         alpha = self.config.adaptive_tile_threshold_ema_alpha
         for tile in tile_traces:
@@ -141,3 +179,12 @@ def adaptive_selection_reason(density: float, threshold: float, base_threshold: 
     if density <= threshold:
         return "below_adaptive_threshold" if threshold > base_threshold else "below_motion_threshold"
     return "adaptive_motion_threshold" if threshold > base_threshold else "motion_threshold"
+
+
+def _is_neighbor_of_selected(row: int, col: int, selected_keys: set[tuple[int, int]]) -> bool:
+    for selected_row, selected_col in selected_keys:
+        if selected_row == row and selected_col == col:
+            continue
+        if abs(selected_row - row) <= 1 and abs(selected_col - col) <= 1:
+            return True
+    return False

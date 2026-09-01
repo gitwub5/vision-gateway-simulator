@@ -32,6 +32,39 @@ profiles:
     status: active
     role: tune_candidate
 
+  neighbor_motion_weak:
+    config: phase1_2/rescue/profile_neighbor_motion_weak.yaml
+    status: active
+    role: rescue_candidate
+
+  rescue_with_budget_cap:
+    config: phase1_2/rescue/profile_rescue_with_budget_cap.yaml
+    status: active
+    role: rescue_candidate
+
+  feedback_confidence_decay:
+    config: phase1_2/feedback/profile_feedback_confidence_decay.yaml
+    status: active
+    role: feedback_candidate
+    reference_feedback_source: full_frame_yolo
+
+  low_frequency_feedback_assist:
+    config: phase1_2/feedback/profile_low_frequency_feedback_assist.yaml
+    status: disabled
+    role: archived_feedback_candidate
+    reference_feedback_source: full_frame_yolo
+
+  fallback_reason_retune:
+    config: phase1_2/feedback/profile_fallback_reason_retune.yaml
+    status: active
+    role: fallback_candidate
+
+  feedback_roi_budget_cap:
+    config: phase1_2/feedback/profile_feedback_roi_budget_cap.yaml
+    status: active
+    role: feedback_candidate
+    reference_feedback_source: full_frame_yolo
+
   feedback_oracle_gt:
     config: phase1_1/feedback/profile_feedback_assisted_tile_12x12_overlap_top2.yaml
     status: reference_only
