@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from common.io import write_json
-from tools.summarize_roi_proposal_runs import render_markdown, summarize_runs
+from tools.reports.summarize_roi_proposal_runs import render_markdown, summarize_runs
 
 
 class RoiProposalRunSummaryTest(unittest.TestCase):

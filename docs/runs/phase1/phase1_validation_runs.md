@@ -23,4 +23,4 @@
 
 Legacy Phase 1 profile summary와 ROI-count latency 추정 도구는 제거되었다.
 기존 산출물은 과거 실행 기록으로만 보존하며, 현재 ROI proposal 비교는
-`tools/summarize_roi_proposal_runs.py`를 사용한다.
+`tools/reports/summarize_roi_proposal_runs.py`를 사용한다.

@@ -99,7 +99,7 @@ docs/tasks/phase1/task3_rule_based_roi_generator.md
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
 | Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
 | Task 8. Visualization | Owner B | Owner A | `outputs/visualizations/`, visualization helper modules |
-| Support. Sample Data Utility | Owner A | Owner B | `tools/download_sample_data.py`, `docs/how-to/dataset_setup.md`, `configs/datasets/**/*.yaml` |
+| Support. Sample Data Utility | Owner A | Owner B | `tools/datasets/download_sample_data.py`, `docs/how-to/dataset_setup.md`, `configs/datasets/**/*.yaml` |
 
 ## 4. 구현 체크리스트
 
@@ -159,12 +159,13 @@ docs/tasks/phase1/task3_rule_based_roi_generator.md
 
 ### Phase 2 이후
 
-- [ ] Phase 2. SNN Tile Eventness Model 검증
-- [ ] Phase 3. Multi-camera Simulation
-- [ ] Phase 4. GPU Pipeline Optimization
-- [ ] Phase 5. Hardware-oriented Spec 도출
-- [ ] Phase 6. 실제 Edge Pipeline PoC
-- [ ] Phase 7. 사업화 기준 검증
+- [ ] Phase 1.3. Scene/Domain ROI Gate PoC
+- [ ] Phase 2. ROI Gate Architecture Implementation
+- [ ] Phase 3. ROI-to-GPU Pipeline Optimization
+- [ ] Phase 4. Multi-camera / Multi-domain Validation
+- [ ] Phase 5. Edge / DeepStream Integration PoC
+- [ ] Phase 6. Hardware-oriented Spec 도출
+- [ ] Phase 7. Business Validation
 
 ### Support Tasks
 
@@ -411,8 +412,13 @@ vision-frontend-simulator/
 │   ├── test_evaluation.py
 │   └── test_visualization.py
 ├── tools/
-│   ├── download_sample_data.py
-│   └── create_smoke_video.py
+│   ├── data/
+│   │   └── create_smoke_video.py
+│   ├── datasets/
+│   │   ├── download_sample_data.py
+│   │   └── download_physicalai_row.py
+│   ├── reports/
+│   └── review/
 └── outputs/
     ├── detections/
     ├── roi_metadata/

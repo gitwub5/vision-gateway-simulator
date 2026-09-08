@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 @dataclass(frozen=True)
@@ -95,11 +95,53 @@ SAMPLES: dict[str, SampleDataset] = {
         usage_note=(
             "Use row-level selective download only; the full dataset is several TB. "
             "Resolve and download one row video plus its scene ground_truth.json with "
-            "`python tools/download_physicalai_row.py --row-id 709 --dry-run`, then run "
+            "`python tools/datasets/download_physicalai_row.py --row-id 709 --dry-run`, then run "
             "without `--dry-run` when the resolved paths look correct. Repeat for rows "
             "726 and 962. The helper writes configs/datasets/physicalai/physicalai_row<row>.yaml "
             "after download; Phase 1.1 uses configs/datasets/physicalai/physicalai_row0709_after3m.yaml "
             "as the crowded person validation segment."
+        ),
+        auto_download=False,
+    ),
+    "mot17": SampleDataset(
+        key="mot17",
+        description="MOTChallenge MOT17 surveillance/security validation dataset.",
+        output_path=Path("data/motchallenge/"),
+        config_path=Path("configs/datasets/motchallenge/mot17_04.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Phase 1.3 selected surveillance/security dataset. Use "
+            "`python tools/datasets/download_mot17.py --download-images --extract` "
+            "to download the full image archive and labels. The initial sequence is MOT17-04."
+        ),
+        auto_download=False,
+    ),
+    "ai-city-2023-track4": SampleDataset(
+        key="ai-city-2023-track4",
+        description="AI City Challenge 2023 Track 4 retail checkout dataset.",
+        output_path=Path("data/ai_city_2023_track4/"),
+        config_path=Path("configs/datasets/ai_city/ai_city_2023_track4.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Phase 1.3 selected retail/space analytics dataset. Review the upstream "
+            "license page, install `gdown` if needed, then run "
+            "`python tools/datasets/download_ai_city_2023_track4.py --accept-license --extract`."
+        ),
+        auto_download=False,
+    ),
+    "visdrone-vid-val": SampleDataset(
+        key="visdrone-vid-val",
+        description="VisDrone-VID validation split for camera-motion and small-object stress.",
+        output_path=Path("data/visdrone_vid/"),
+        config_path=Path("configs/datasets/visdrone/visdrone_vid_val.yaml"),
+        url=None,
+        expected_size_bytes=None,
+        usage_note=(
+            "Phase 1.3 generalization stress dataset, not a fixed-CCTV representative set. "
+            "Install `gdown` if needed, then run "
+            "`python tools/datasets/download_visdrone_vid.py --split val --extract`."
         ),
         auto_download=False,
     ),

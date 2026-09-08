@@ -30,7 +30,7 @@ Generation debug는 실행 중 `RoiDebugSnapshot`이 필요하므로 `full` diag
 이미 완료한 ROI proposal run의 final ROI, 실제 selected tile, GT containment, failure frame을 다시 확인할 때 사용한다.
 
 ```bash
-python tools/render_roi_run.py \
+python tools/review/render_roi_run.py \
   --run-root outputs/roi_proposal_validation/<run_id> \
   --view all \
   --preset missed \
@@ -40,7 +40,7 @@ python tools/render_roi_run.py \
 특정 frame만 확인:
 
 ```bash
-python tools/render_roi_run.py \
+python tools/review/render_roi_run.py \
   --run-root outputs/roi_proposal_validation/<run_id> \
   --frame 5429 \
   --frame 5512
@@ -63,7 +63,7 @@ Tile trace가 없는 run은 ROI에서 tile을 역추정하지 않고 unavailable
 동일 dataset segment와 target class로 실행한 둘 이상의 run을 같은 frame에서 비교할 때 사용한다.
 
 ```bash
-python tools/compare_roi_runs.py \
+python tools/review/compare_roi_runs.py \
   --run baseline=outputs/roi_proposal_validation/<baseline_run_id> \
   --run candidate=outputs/roi_proposal_validation/<candidate_run_id> \
   --preset disagreement \

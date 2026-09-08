@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from common.io import load_yaml_config, write_json, write_text
 from roi_generator import load_roi_generator_config
-from tools.summarize_roi_proposal_runs import render_markdown, summarize_runs
+from tools.reports.summarize_roi_proposal_runs import render_markdown, summarize_runs
 
 
 DEFAULT_REGISTRY = "configs/roi_generator/profiles.yaml"

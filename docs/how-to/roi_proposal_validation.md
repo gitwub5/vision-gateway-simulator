@@ -87,7 +87,7 @@ component와 전체 policy trace까지 필요한 상세 디버깅에서는 아�
 동일 dataset segment와 target class로 실행한 ROI proposal run을 비교한다. Manifest의 resolved segment가 다르면 비교를 중단한다.
 
 ```bash
-python tools/summarize_roi_proposal_runs.py \
+python tools/reports/summarize_roi_proposal_runs.py \
   --run baseline=outputs/roi_proposal_validation/<baseline_run_id> \
   --run candidate=outputs/roi_proposal_validation/<candidate_run_id> \
   --output-markdown outputs/roi_proposal_validation/<comparison_id>/summary.md \

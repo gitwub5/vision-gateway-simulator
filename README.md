@@ -40,7 +40,7 @@ pip install -r requirements.txt
 Synthetic fixed-camera smoke video를 생성합니다.
 
 ```bash
-python tools/create_smoke_video.py
+python tools/data/create_smoke_video.py
 ```
 
 Rule-based ROI generator smoke를 실행합니다.
@@ -92,7 +92,7 @@ python -m unittest discover -s tests
 | `evaluation/` | `metrics/`, `reports/`, `system/`으로 분리된 평가 metric, report builder, hardware snapshot |
 | `visualization/` | ROI overlay, detection comparison, failure case 렌더링 |
 | `experiments/` | 각 모듈을 연결해서 산출물을 생성하는 실행 스크립트 |
-| `tools/` | sample data 다운로드, smoke video 생성 등 보조 도구 |
+| `tools/` | dataset 준비, smoke data 생성, report/review CLI 등 보조 도구 |
 | `tests/` | 도메인별 하위 폴더로 나눈 단위 테스트 |
 | `outputs/` | 실험 결과 저장 위치. ROI proposal은 `outputs/roi_proposal_validation/`, E2E inference는 `outputs/e2e_inference_validation/` 아래에 저장 |
 | `data/` | dataset 저장 위치. Git 제외 |
