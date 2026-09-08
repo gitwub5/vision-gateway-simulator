@@ -65,6 +65,67 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.tile_grid_cols, 6)
         self.assertEqual(config.tile_motion_density_threshold, 0.2)
 
+    def test_config_loads_adaptive_tile_threshold_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "adaptive_tile_threshold": {
+                        "enabled": True,
+                        "ema_alpha": 0.25,
+                        "multiplier": 2.0,
+                        "additive_margin": 0.01,
+                        "max_threshold": 0.2,
+                        "warmup_frames": 3,
+                    }
+                }
+            }
+        )
+
+        self.assertTrue(config.adaptive_tile_threshold_enabled)
+        self.assertEqual(config.adaptive_tile_threshold_ema_alpha, 0.25)
+        self.assertEqual(config.adaptive_tile_threshold_multiplier, 2.0)
+        self.assertEqual(config.adaptive_tile_threshold_additive_margin, 0.01)
+        self.assertEqual(config.adaptive_tile_threshold_max_threshold, 0.2)
+        self.assertEqual(config.adaptive_tile_threshold_warmup_frames, 3)
+
+    def test_config_loads_rare_tile_guard_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "rare_tile_guard": {
+                        "enabled": True,
+                        "min_history_frames": 10,
+                        "max_activation_rate": 0.2,
+                        "weak_density_max": 0.03,
+                    }
+                }
+            }
+        )
+
+        self.assertTrue(config.rare_tile_guard_enabled)
+        self.assertEqual(config.rare_tile_guard_min_history_frames, 10)
+        self.assertEqual(config.rare_tile_guard_max_activation_rate, 0.2)
+        self.assertEqual(config.rare_tile_guard_weak_density_max, 0.03)
+
+    def test_config_loads_neighbor_rescue_options(self) -> None:
+        config = RoiGeneratorConfig.from_mapping(
+            {
+                "roi_generator": {
+                    "neighbor_rescue": {
+                        "enabled": True,
+                        "min_density_ratio": 0.7,
+                        "min_density": 0.02,
+                        "max_added_tiles": 4,
+                    }
+                }
+            }
+        )
+
+        self.assertTrue(config.neighbor_rescue_enabled)
+        self.assertEqual(config.neighbor_rescue_min_density_ratio, 0.7)
+        self.assertEqual(config.neighbor_rescue_min_density, 0.02)
+        self.assertEqual(config.neighbor_rescue_max_added_tiles, 4)
+
     def test_config_loads_nested_budget_options(self) -> None:
         config = RoiGeneratorConfig.from_mapping(
             {
@@ -111,7 +172,12 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
                         "min_confidence": 0.4,
                         "margin_ratio": 0.1,
                         "max_candidates_per_frame": 2,
+                        "max_assisted_rois_per_frame": 1,
                         "duplicate_overlap_ratio": 0.6,
+                        "decay_enabled": True,
+                        "decay_per_frame": 0.9,
+                        "min_decayed_confidence": 0.3,
+                        "assist_mode": "empty_policy_only",
                     }
                 }
             }
@@ -122,7 +188,12 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(config.reference_feedback_min_confidence, 0.4)
         self.assertEqual(config.reference_feedback_margin_ratio, 0.1)
         self.assertEqual(config.reference_feedback_max_candidates_per_frame, 2)
+        self.assertEqual(config.reference_feedback_max_assisted_rois_per_frame, 1)
         self.assertEqual(config.reference_feedback_duplicate_overlap_ratio, 0.6)
+        self.assertTrue(config.reference_feedback_decay_enabled)
+        self.assertEqual(config.reference_feedback_decay_per_frame, 0.9)
+        self.assertEqual(config.reference_feedback_min_decayed_confidence, 0.3)
+        self.assertEqual(config.reference_feedback_assist_mode, "empty_policy_only")
 
     def test_decision_records_dynamic_analysis_size(self) -> None:
         gate = RuleBasedRoiGenerator(RoiGeneratorConfig(processing_width=1280, full_frame_interval=60))
@@ -350,6 +421,99 @@ class RuleBasedRoiGeneratorTest(unittest.TestCase):
         self.assertEqual(decision.trigger_type, TriggerType.NONE)
         self.assertEqual(decision.feedback_candidate_count, 0)
         self.assertEqual(decision.feedback_stale_track_count, 1)
+
+    def test_reference_feedback_confidence_decays_by_age(self) -> None:
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(
+                full_frame_interval=60,
+                reference_feedback_enabled=True,
+                reference_feedback_ttl_frames=5,
+                reference_feedback_margin_ratio=0.0,
+                reference_feedback_decay_enabled=True,
+                reference_feedback_decay_per_frame=0.5,
+                reference_feedback_min_decayed_confidence=0.3,
+            ),
+            policy=FakePolicy([]),
+        )
+
+        with _patched_gate_helpers():
+            gate.process(_packet(frame_id=0))
+            gate.update_reference_feedback([
+                Detection(
+                    camera_id="cam_test",
+                    frame_id=0,
+                    class_id=0,
+                    class_name="person",
+                    confidence=0.8,
+                    bbox_xyxy=[10, 20, 30, 40],
+                    source="full_frame_yolo",
+                )
+            ])
+            accepted = gate.process(_packet(frame_id=1))
+            dropped = gate.process(_packet(frame_id=2))
+
+        self.assertEqual(accepted.feedback_candidate_count, 1)
+        self.assertEqual(accepted.rois[0].score, 0.4)
+        self.assertEqual(dropped.feedback_candidate_count, 0)
+        self.assertEqual(dropped.trigger_type, TriggerType.HOLD)
+
+    def test_reference_feedback_assist_can_be_limited_to_empty_policy_roi(self) -> None:
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(
+                full_frame_interval=60,
+                reference_feedback_enabled=True,
+                reference_feedback_ttl_frames=5,
+                reference_feedback_margin_ratio=0.0,
+                reference_feedback_assist_mode="empty_policy_only",
+            ),
+            policy=FakePolicy([ROI(x=0, y=0, w=5, h=5, coord_system="original_frame")]),
+        )
+
+        with _patched_gate_helpers():
+            gate.process(_packet(frame_id=0))
+            gate.update_reference_feedback([
+                Detection(
+                    camera_id="cam_test",
+                    frame_id=0,
+                    class_id=0,
+                    class_name="person",
+                    confidence=0.9,
+                    bbox_xyxy=[10, 20, 30, 40],
+                    source="full_frame_yolo",
+                )
+            ])
+            decision = gate.process(_packet(frame_id=1))
+
+        self.assertEqual(decision.feedback_candidate_count, 0)
+        self.assertEqual(decision.feedback_active_track_count, 1)
+        self.assertEqual(decision.feedback_assisted_roi_count, 0)
+        self.assertEqual(len(decision.rois), 1)
+        self.assertEqual(decision.rois[0].xywh(), [0, 0, 5, 5])
+
+    def test_reference_feedback_assisted_roi_cap_limits_merge(self) -> None:
+        gate = RuleBasedRoiGenerator(
+            RoiGeneratorConfig(
+                full_frame_interval=60,
+                reference_feedback_enabled=True,
+                reference_feedback_ttl_frames=5,
+                reference_feedback_margin_ratio=0.0,
+                reference_feedback_max_candidates_per_frame=3,
+                reference_feedback_max_assisted_rois_per_frame=1,
+            ),
+            policy=FakePolicy([]),
+        )
+
+        with _patched_gate_helpers():
+            gate.process(_packet(frame_id=0))
+            gate.update_reference_feedback([
+                Detection("cam_test", 0, 0, "person", 0.9, [10, 10, 20, 20], "full_frame_yolo"),
+                Detection("cam_test", 0, 0, "person", 0.8, [30, 30, 40, 40], "full_frame_yolo", roi_id="second"),
+            ])
+            decision = gate.process(_packet(frame_id=1))
+
+        self.assertEqual(decision.feedback_candidate_count, 2)
+        self.assertEqual(decision.feedback_assisted_roi_count, 1)
+        self.assertEqual(len(decision.rois), 1)
 
     def test_debug_sink_receives_per_frame_generation_trace(self) -> None:
         sink = FakeDebugSink()

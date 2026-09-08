@@ -59,6 +59,7 @@ python tools/classify_boundary_misses.py \
 ```text
 <run_root>/reports/
   boundary_misses.jsonl
+  false_rois.jsonl
   boundary_misses.md
 ```
 
@@ -67,6 +68,10 @@ python tools/classify_boundary_misses.py \
 - `margin_insufficient`: final ROI의 제한된 margin 확장으로 GT containment를 복구할 수 있음
 - `adjacent_tile_not_selected`: GT가 selected tile과 인접한 unselected tile에 걸쳐 있음
 - `signal_missing`: GT와 겹치는 selected tile이 없음
+- `partial_target_boundary`: ROI가 target GT와 교차하지만 완전히 포함하지 못함
+- `empty_frame_noise`: target GT가 없는 frame에서 ROI가 생성됨
+- `low_density_noise`: target GT와 겹치지 않고 selected tile density가 낮음
+- `off_target_motion`: target GT와 겹치지 않지만 selected tile density가 높음
 
 `feedback_needed` 분류는 현재 포함하지 않으며 Phase 1.2 후속 단계에서 추가한다.
 

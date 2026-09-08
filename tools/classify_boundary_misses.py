@@ -25,6 +25,13 @@ MISS_TYPES = (
     "signal_missing",
 )
 
+FALSE_ROI_TYPES = (
+    "partial_target_boundary",
+    "empty_frame_noise",
+    "low_density_noise",
+    "off_target_motion",
+)
+
 
 @dataclass(frozen=True)
 class BoundaryMissRecord:
@@ -51,14 +58,34 @@ class BoundaryMissRecord:
 
 
 @dataclass(frozen=True)
+class FalseRoiRecord:
+    run_id: str
+    camera_id: str
+    frame_id: int
+    roi_id: str | None
+    roi_xywh: list[int]
+    false_roi_type: str
+    target_gt_count: int
+    intersecting_target_gt_count: int
+    selected_overlapping_tile_ids: list[int]
+    max_overlapping_selected_tile_motion_density: float
+    nearest_target_distance_pixels: float | None
+
+    def to_json_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class BoundaryTaxonomyResult:
     records: list[BoundaryMissRecord]
+    false_roi_records: list[FalseRoiRecord]
     skipped_full_frame_gt: int
 
 
 def classify_boundary_misses(
     run: RoiRunArtifacts,
     max_margin_ratio: float = 0.35,
+    noise_density_max: float = 0.02,
 ) -> BoundaryTaxonomyResult:
     if not run.tile_trace_available:
         raise ValueError(
@@ -70,6 +97,7 @@ def classify_boundary_misses(
         )
     target_classes = set(run.compatibility_key["target_classes"])
     records: list[BoundaryMissRecord] = []
+    false_roi_records: list[FalseRoiRecord] = []
     skipped_full_frame_gt = 0
     for key, all_gt_records in sorted(run.ground_truth_by_frame.items()):
         gt_records = [
@@ -97,8 +125,27 @@ def classify_boundary_misses(
                     max_margin_ratio=max_margin_ratio,
                 )
             )
+    for key, rois in sorted(run.rois_by_frame.items()):
+        frame_record = run.frames_by_frame.get(key, {})
+        if frame_record.get("should_run_full_frame"):
+            continue
+        gt_records = [
+            gt for gt in run.ground_truth_by_frame.get(key, [])
+            if not target_classes or str(gt.get("class_name")) in target_classes
+        ]
+        false_roi_records.extend(
+            classify_false_rois_for_frame(
+                run_id=run.run_id,
+                key=key,
+                rois=rois,
+                gt_records=gt_records,
+                tiles=run.tiles_by_frame.get(key, []),
+                noise_density_max=noise_density_max,
+            )
+        )
     return BoundaryTaxonomyResult(
         records=records,
+        false_roi_records=false_roi_records,
         skipped_full_frame_gt=skipped_full_frame_gt,
     )
 
@@ -184,6 +231,68 @@ def classify_miss(
     )
 
 
+def classify_false_rois_for_frame(
+    run_id: str,
+    key: FrameKey,
+    rois: list[dict[str, Any]],
+    gt_records: list[dict[str, Any]],
+    tiles: list[dict[str, Any]],
+    noise_density_max: float,
+) -> list[FalseRoiRecord]:
+    records: list[FalseRoiRecord] = []
+    target_bboxes = [[float(value) for value in gt["bbox_xyxy"]] for gt in gt_records]
+    for roi in rois:
+        roi_bbox = roi_xyxy(roi)
+        if any(contains_bbox_xyxy(roi_bbox, bbox) for bbox in target_bboxes):
+            continue
+        intersecting_targets = [
+            bbox for bbox in target_bboxes
+            if intersection_area(roi_bbox, bbox) > 0
+        ]
+        overlapping_selected_tiles = [
+            tile for tile in tiles
+            if tile.get("selected") and intersection_area(tile_xyxy(tile), roi_bbox) > 0
+        ]
+        max_density = max(
+            (
+                float(tile.get("motion_density", 0.0))
+                for tile in overlapping_selected_tiles
+            ),
+            default=0.0,
+        )
+        if intersecting_targets:
+            false_roi_type = "partial_target_boundary"
+        elif not target_bboxes:
+            false_roi_type = "empty_frame_noise"
+        elif max_density <= noise_density_max:
+            false_roi_type = "low_density_noise"
+        else:
+            false_roi_type = "off_target_motion"
+
+        records.append(
+            FalseRoiRecord(
+                run_id=run_id,
+                camera_id=key[0],
+                frame_id=key[1],
+                roi_id=roi.get("roi_id"),
+                roi_xywh=[int(value) for value in roi["roi_xywh"]],
+                false_roi_type=false_roi_type,
+                target_gt_count=len(target_bboxes),
+                intersecting_target_gt_count=len(intersecting_targets),
+                selected_overlapping_tile_ids=sorted(
+                    int(tile["tile_id"]) for tile in overlapping_selected_tiles
+                ),
+                max_overlapping_selected_tile_motion_density=max_density,
+                nearest_target_distance_pixels=(
+                    min(bbox_distance(roi_bbox, bbox) for bbox in target_bboxes)
+                    if target_bboxes
+                    else None
+                ),
+            )
+        )
+    return records
+
+
 def raw_gt_contained(gt: dict[str, Any], rois: list[dict[str, Any]]) -> bool:
     bbox = gt["bbox_xyxy"]
     return any(
@@ -219,10 +328,27 @@ def tile_xyxy(record: dict[str, Any]) -> list[float]:
     return [float(x), float(y), float(x + width), float(y + height)]
 
 
+def contains_bbox_xyxy(container: list[float], bbox: list[float]) -> bool:
+    return (
+        container[0] <= bbox[0]
+        and container[1] <= bbox[1]
+        and container[2] >= bbox[2]
+        and container[3] >= bbox[3]
+    )
+
+
 def intersection_area(first: list[float], second: list[float]) -> float:
     width = max(0.0, min(first[2], second[2]) - max(first[0], second[0]))
     height = max(0.0, min(first[3], second[3]) - max(first[1], second[1]))
     return width * height
+
+
+def bbox_distance(first: list[float], second: list[float]) -> float:
+    if intersection_area(first, second) > 0:
+        return 0.0
+    dx = max(second[0] - first[2], first[0] - second[2], 0.0)
+    dy = max(second[1] - first[3], first[1] - second[3], 0.0)
+    return (dx * dx + dy * dy) ** 0.5
 
 
 def find_host_tile(
@@ -260,15 +386,17 @@ def render_markdown(
     result: BoundaryTaxonomyResult,
 ) -> str:
     counts = Counter(record.miss_type for record in result.records)
+    false_roi_counts = Counter(record.false_roi_type for record in result.false_roi_records)
     lines = [
-        "# Boundary Miss Taxonomy",
+        "# ROI Failure Taxonomy",
         "",
         f"- Run: `{run.run_id}`",
         f"- Tile trace: `{'available' if run.tile_trace_available else 'unavailable'}`",
         f"- Classified misses: `{len(result.records)}`",
+        f"- Classified false ROIs: `{len(result.false_roi_records)}`",
         f"- GT skipped on full-frame/fallback decisions: `{result.skipped_full_frame_gt}`",
         "",
-        "## Summary",
+        "## Boundary Miss Summary",
         "",
         "| Type | Count |",
         "|---|---:|",
@@ -299,6 +427,41 @@ def render_markdown(
                 f"`{record.unselected_overlapping_tile_ids}` |"
             )
     lines.append("")
+    lines.extend([
+        "## False ROI Summary",
+        "",
+        "| Type | Count |",
+        "|---|---:|",
+    ])
+    for false_roi_type in FALSE_ROI_TYPES:
+        lines.append(f"| `{false_roi_type}` | {false_roi_counts[false_roi_type]} |")
+    lines.extend([
+        "",
+        "## Representative False ROIs",
+        "",
+        "Up to 20 records per type are shown. The JSONL contains the complete result.",
+        "",
+        "| Camera | Frame | ROI | Type | Max selected tile density | Nearest target px | Selected tiles |",
+        "|---|---:|---|---|---:|---:|---|",
+    ])
+    for false_roi_type in FALSE_ROI_TYPES:
+        examples = [
+            record for record in result.false_roi_records
+            if record.false_roi_type == false_roi_type
+        ][:20]
+        for record in examples:
+            nearest = (
+                f"{record.nearest_target_distance_pixels:.1f}"
+                if record.nearest_target_distance_pixels is not None
+                else "-"
+            )
+            lines.append(
+                f"| `{record.camera_id}` | {record.frame_id} | `{record.roi_id or '-'}` | "
+                f"`{record.false_roi_type}` | "
+                f"{record.max_overlapping_selected_tile_motion_density:.4f} | "
+                f"{nearest} | `{record.selected_overlapping_tile_ids}` |"
+            )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -306,29 +469,43 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Classify ROI boundary misses from a saved run.")
     parser.add_argument("--run-root", required=True)
     parser.add_argument("--output-jsonl", default=None)
+    parser.add_argument("--output-false-roi-jsonl", default=None)
     parser.add_argument("--output-markdown", default=None)
     parser.add_argument("--max-margin-ratio", type=float, default=0.35)
+    parser.add_argument("--noise-density-max", type=float, default=0.02)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     run = load_roi_run(args.run_root)
-    result = classify_boundary_misses(run, max_margin_ratio=args.max_margin_ratio)
+    result = classify_boundary_misses(
+        run,
+        max_margin_ratio=args.max_margin_ratio,
+        noise_density_max=args.noise_density_max,
+    )
     output_jsonl = Path(args.output_jsonl) if args.output_jsonl else Path(args.run_root) / "reports" / "boundary_misses.jsonl"
+    output_false_roi_jsonl = (
+        Path(args.output_false_roi_jsonl)
+        if args.output_false_roi_jsonl
+        else Path(args.run_root) / "reports" / "false_rois.jsonl"
+    )
     output_markdown = (
         Path(args.output_markdown)
         if args.output_markdown
         else Path(args.run_root) / "reports" / "boundary_misses.md"
     )
     write_jsonl(result.records, output_jsonl)
+    write_jsonl(result.false_roi_records, output_false_roi_jsonl)
     write_text(render_markdown(run, result), output_markdown)
     print(
         json.dumps(
             {
                 "run_id": run.run_id,
                 "classified_misses": len(result.records),
+                "classified_false_rois": len(result.false_roi_records),
                 "output_jsonl": str(output_jsonl),
+                "output_false_roi_jsonl": str(output_false_roi_jsonl),
                 "output_markdown": str(output_markdown),
             },
             indent=2,

@@ -101,6 +101,22 @@ class Phase12AutomationTest(unittest.TestCase):
             ],
         )
 
+    def test_boundary_taxonomy_classifies_false_roi_categories(self) -> None:
+        run = self._run_artifacts()
+
+        result = classify_boundary_misses(run, noise_density_max=0.02)
+
+        self.assertEqual(
+            [record.false_roi_type for record in result.false_roi_records],
+            [
+                "partial_target_boundary",
+                "partial_target_boundary",
+                "empty_frame_noise",
+                "low_density_noise",
+                "off_target_motion",
+            ],
+        )
+
     def test_boundary_taxonomy_requires_true_tile_trace(self) -> None:
         with self.assertRaises(ValueError):
             classify_boundary_misses(replace(self._run_artifacts(), tile_trace_available=False))
@@ -125,10 +141,21 @@ class Phase12AutomationTest(unittest.TestCase):
             ("cam", 1): [{"annotation_id": 1, "class_name": "person", "bbox_xyxy": [1, 1, 11, 10]}],
             ("cam", 2): [{"annotation_id": 2, "class_name": "person", "bbox_xyxy": [8, 0, 22, 10]}],
             ("cam", 3): [{"annotation_id": 3, "class_name": "person", "bbox_xyxy": [20, 0, 30, 10]}],
+            ("cam", 5): [{"annotation_id": 5, "class_name": "person", "bbox_xyxy": [80, 0, 90, 10]}],
+            ("cam", 6): [{"annotation_id": 6, "class_name": "person", "bbox_xyxy": [80, 0, 90, 10]}],
         }
         rois = {
-            ("cam", 1): [{"roi_xywh": [0, 0, 10, 10]}],
-            ("cam", 2): [{"roi_xywh": [0, 0, 10, 10]}],
+            ("cam", 1): [{"roi_id": "r1", "roi_xywh": [0, 0, 10, 10]}],
+            ("cam", 2): [{"roi_id": "r2", "roi_xywh": [0, 0, 10, 10]}],
+            ("cam", 4): [{"roi_id": "r4", "roi_xywh": [0, 0, 10, 10]}],
+            ("cam", 5): [
+                {"roi_id": "r5_cover", "roi_xywh": [78, 0, 14, 12]},
+                {"roi_id": "r5", "roi_xywh": [0, 0, 10, 10]},
+            ],
+            ("cam", 6): [
+                {"roi_id": "r6_cover", "roi_xywh": [78, 0, 14, 12]},
+                {"roi_id": "r6", "roi_xywh": [0, 0, 10, 10]},
+            ],
         }
         selected = {
             "tile_id": 0,
@@ -137,6 +164,14 @@ class Phase12AutomationTest(unittest.TestCase):
             "bbox_xywh": [0, 0, 10, 10],
             "selected": True,
             "motion_density": 0.1,
+        }
+        weak_selected = {
+            "tile_id": 3,
+            "row": 1,
+            "col": 0,
+            "bbox_xywh": [0, 0, 10, 10],
+            "selected": True,
+            "motion_density": 0.01,
         }
         unselected = {
             "tile_id": 1,
@@ -163,11 +198,17 @@ class Phase12AutomationTest(unittest.TestCase):
                 ("cam", 1): {"should_run_full_frame": False},
                 ("cam", 2): {"should_run_full_frame": False},
                 ("cam", 3): {"should_run_full_frame": False},
+                ("cam", 4): {"should_run_full_frame": False},
+                ("cam", 5): {"should_run_full_frame": False},
+                ("cam", 6): {"should_run_full_frame": False},
             },
             tiles_by_frame={
                 ("cam", 1): [selected, unselected],
                 ("cam", 2): [selected, unselected],
                 ("cam", 3): [selected, unselected, signal_missing_tile],
+                ("cam", 4): [selected],
+                ("cam", 5): [weak_selected],
+                ("cam", 6): [selected],
             },
             ground_truth_by_frame=ground_truth,
             feedback_by_frame={},

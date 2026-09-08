@@ -30,6 +30,24 @@ class TileCandidateMetadataTest(unittest.TestCase):
         self.assertFalse(traces[1].selected)
         self.assertEqual(selected_tile_count(traces), 1)
 
+    def test_tile_traces_can_use_per_tile_thresholds(self) -> None:
+        motion_map = np.ones((4, 4), dtype="uint8") * 255
+
+        traces = tile_traces_from_motion_map(
+            motion_map,
+            frame_size=FrameSize(width=4, height=4),
+            grid_rows=2,
+            grid_cols=2,
+            motion_density_threshold=0.5,
+            tile_thresholds={(0, 0): 1.0},
+        )
+
+        self.assertFalse(traces[0].selected)
+        self.assertEqual(traces[0].motion_threshold, 1.0)
+        self.assertEqual(traces[0].selection_reason, "below_motion_threshold")
+        self.assertTrue(traces[1].selected)
+        self.assertEqual(traces[1].motion_threshold, 0.5)
+
     def test_scale_tile_traces_to_original_converts_bbox_coordinates(self) -> None:
         traces = tile_traces_from_motion_map(
             np.ones((4, 4), dtype="uint8") * 255,

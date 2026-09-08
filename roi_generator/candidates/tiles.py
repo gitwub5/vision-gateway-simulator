@@ -12,6 +12,7 @@ def tile_traces_from_motion_map(
     grid_rows: int,
     grid_cols: int,
     motion_density_threshold: float,
+    tile_thresholds: dict[tuple[int, int], float] | None = None,
 ) -> list[TileTrace]:
     rows = max(1, int(grid_rows))
     cols = max(1, int(grid_cols))
@@ -27,6 +28,12 @@ def tile_traces_from_motion_map(
             width = max(0, x2 - x1)
             height = max(0, y2 - y1)
             density = _motion_density(motion_map, x1, y1, x2, y2)
+            threshold = (
+                float(tile_thresholds[(row, col)])
+                if tile_thresholds and (row, col) in tile_thresholds
+                else motion_density_threshold
+            )
+            selected = density > threshold
             traces.append(
                 TileTrace(
                     tile_id=tile_id,
@@ -34,7 +41,9 @@ def tile_traces_from_motion_map(
                     col=col,
                     bbox=ROI(x=x1, y=y1, w=width, h=height, score=density, coord_system="analysis_frame"),
                     motion_density=density,
-                    selected=density > motion_density_threshold,
+                    selected=selected,
+                    motion_threshold=threshold,
+                    selection_reason="motion_threshold" if selected else "below_motion_threshold",
                 )
             )
             tile_id += 1
@@ -81,6 +90,8 @@ def scale_tile_traces_to_original(
             ),
             motion_density=tile.motion_density,
             selected=tile.selected,
+            motion_threshold=tile.motion_threshold,
+            selection_reason=tile.selection_reason,
         )
         for tile in tile_traces
     ]

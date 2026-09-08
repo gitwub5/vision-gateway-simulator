@@ -35,6 +35,20 @@ class RoiGeneratorConfig:
     tile_grid_rows: int = 8
     tile_grid_cols: int = 8
     tile_motion_density_threshold: float = 0.0
+    adaptive_tile_threshold_enabled: bool = False
+    adaptive_tile_threshold_ema_alpha: float = 0.1
+    adaptive_tile_threshold_multiplier: float = 1.5
+    adaptive_tile_threshold_additive_margin: float = 0.0
+    adaptive_tile_threshold_max_threshold: float | None = None
+    adaptive_tile_threshold_warmup_frames: int = 0
+    rare_tile_guard_enabled: bool = False
+    rare_tile_guard_min_history_frames: int = 30
+    rare_tile_guard_max_activation_rate: float = 0.05
+    rare_tile_guard_weak_density_max: float = 0.02
+    neighbor_rescue_enabled: bool = False
+    neighbor_rescue_min_density_ratio: float = 0.6
+    neighbor_rescue_min_density: float | None = None
+    neighbor_rescue_max_added_tiles: int | None = None
     small_object_boost_enabled: bool = False
     tile_overlap_ratio: float = 0.0
     reference_feedback_enabled: bool = False
@@ -42,7 +56,12 @@ class RoiGeneratorConfig:
     reference_feedback_min_confidence: float = 0.25
     reference_feedback_margin_ratio: float = 0.2
     reference_feedback_max_candidates_per_frame: int = 3
+    reference_feedback_max_assisted_rois_per_frame: int | None = None
     reference_feedback_duplicate_overlap_ratio: float = 1.0
+    reference_feedback_decay_enabled: bool = False
+    reference_feedback_decay_per_frame: float = 1.0
+    reference_feedback_min_decayed_confidence: float | None = None
+    reference_feedback_assist_mode: str = "always"
     component_filter_enabled: bool = False
     component_filter_min_area_ratio: float | None = None
     component_filter_max_aspect_ratio: float | None = None
@@ -81,6 +100,9 @@ class RoiGeneratorConfig:
         roi_generator = config.get("roi_generator", config)
         processing = roi_generator.get("processing", {}) or {}
         tile_metadata = roi_generator.get("tile_metadata", {}) or {}
+        adaptive_tile_threshold = roi_generator.get("adaptive_tile_threshold", {}) or {}
+        rare_tile_guard = roi_generator.get("rare_tile_guard", {}) or {}
+        neighbor_rescue = roi_generator.get("neighbor_rescue", {}) or {}
         budget = roi_generator.get("budget", {}) or {}
         small_object_boost = roi_generator.get("small_object_boost", {}) or {}
         reference_feedback = roi_generator.get("reference_feedback", {}) or {}
@@ -130,6 +152,126 @@ class RoiGeneratorConfig:
                 roi_generator.get(
                     "tile_motion_density_threshold",
                     tile_metadata.get("motion_density_threshold", cls.tile_motion_density_threshold),
+                )
+            ),
+            adaptive_tile_threshold_enabled=bool(
+                roi_generator.get(
+                    "adaptive_tile_threshold_enabled",
+                    adaptive_tile_threshold.get("enabled", cls.adaptive_tile_threshold_enabled),
+                )
+            ),
+            adaptive_tile_threshold_ema_alpha=_bounded_ratio(
+                roi_generator.get(
+                    "adaptive_tile_threshold_ema_alpha",
+                    adaptive_tile_threshold.get("ema_alpha", cls.adaptive_tile_threshold_ema_alpha),
+                )
+            ),
+            adaptive_tile_threshold_multiplier=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_multiplier",
+                        adaptive_tile_threshold.get("multiplier", cls.adaptive_tile_threshold_multiplier),
+                    )
+                ),
+            ),
+            adaptive_tile_threshold_additive_margin=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_additive_margin",
+                        adaptive_tile_threshold.get(
+                            "additive_margin",
+                            cls.adaptive_tile_threshold_additive_margin,
+                        ),
+                    )
+                ),
+            ),
+            adaptive_tile_threshold_max_threshold=_optional_float(
+                roi_generator.get(
+                    "adaptive_tile_threshold_max_threshold",
+                    adaptive_tile_threshold.get("max_threshold"),
+                )
+            ),
+            adaptive_tile_threshold_warmup_frames=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "adaptive_tile_threshold_warmup_frames",
+                        adaptive_tile_threshold.get(
+                            "warmup_frames",
+                            cls.adaptive_tile_threshold_warmup_frames,
+                        ),
+                    )
+                ),
+            ),
+            rare_tile_guard_enabled=bool(
+                roi_generator.get(
+                    "rare_tile_guard_enabled",
+                    rare_tile_guard.get("enabled", cls.rare_tile_guard_enabled),
+                )
+            ),
+            rare_tile_guard_min_history_frames=max(
+                0,
+                int(
+                    roi_generator.get(
+                        "rare_tile_guard_min_history_frames",
+                        rare_tile_guard.get(
+                            "min_history_frames",
+                            cls.rare_tile_guard_min_history_frames,
+                        ),
+                    )
+                ),
+            ),
+            rare_tile_guard_max_activation_rate=_bounded_ratio(
+                roi_generator.get(
+                    "rare_tile_guard_max_activation_rate",
+                    rare_tile_guard.get(
+                        "max_activation_rate",
+                        cls.rare_tile_guard_max_activation_rate,
+                    ),
+                )
+            ),
+            rare_tile_guard_weak_density_max=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "rare_tile_guard_weak_density_max",
+                        rare_tile_guard.get(
+                            "weak_density_max",
+                            cls.rare_tile_guard_weak_density_max,
+                        ),
+                    )
+                ),
+            ),
+            neighbor_rescue_enabled=bool(
+                roi_generator.get(
+                    "neighbor_rescue_enabled",
+                    neighbor_rescue.get("enabled", cls.neighbor_rescue_enabled),
+                )
+            ),
+            neighbor_rescue_min_density_ratio=max(
+                0.0,
+                float(
+                    roi_generator.get(
+                        "neighbor_rescue_min_density_ratio",
+                        neighbor_rescue.get(
+                            "min_density_ratio",
+                            cls.neighbor_rescue_min_density_ratio,
+                        ),
+                    )
+                ),
+            ),
+            neighbor_rescue_min_density=_optional_float(
+                roi_generator.get(
+                    "neighbor_rescue_min_density",
+                    neighbor_rescue.get("min_density"),
+                )
+            ),
+            neighbor_rescue_max_added_tiles=_optional_int(
+                roi_generator.get(
+                    "neighbor_rescue_max_added_tiles",
+                    neighbor_rescue.get("max_added_tiles"),
                 )
             ),
             small_object_boost_enabled=bool(
@@ -183,6 +325,12 @@ class RoiGeneratorConfig:
                     )
                 ),
             ),
+            reference_feedback_max_assisted_rois_per_frame=_optional_int(
+                roi_generator.get(
+                    "reference_feedback_max_assisted_rois_per_frame",
+                    reference_feedback.get("max_assisted_rois_per_frame"),
+                )
+            ),
             reference_feedback_duplicate_overlap_ratio=_bounded_ratio(
                 roi_generator.get(
                     "reference_feedback_duplicate_overlap_ratio",
@@ -190,6 +338,30 @@ class RoiGeneratorConfig:
                         "duplicate_overlap_ratio",
                         cls.reference_feedback_duplicate_overlap_ratio,
                     ),
+                )
+            ),
+            reference_feedback_decay_enabled=bool(
+                roi_generator.get(
+                    "reference_feedback_decay_enabled",
+                    reference_feedback.get("decay_enabled", cls.reference_feedback_decay_enabled),
+                )
+            ),
+            reference_feedback_decay_per_frame=_bounded_ratio(
+                roi_generator.get(
+                    "reference_feedback_decay_per_frame",
+                    reference_feedback.get("decay_per_frame", cls.reference_feedback_decay_per_frame),
+                )
+            ),
+            reference_feedback_min_decayed_confidence=_optional_float(
+                roi_generator.get(
+                    "reference_feedback_min_decayed_confidence",
+                    reference_feedback.get("min_decayed_confidence"),
+                )
+            ),
+            reference_feedback_assist_mode=str(
+                roi_generator.get(
+                    "reference_feedback_assist_mode",
+                    reference_feedback.get("assist_mode", cls.reference_feedback_assist_mode),
                 )
             ),
             component_filter_enabled=bool(component_filter.get("enabled", cls.component_filter_enabled)),

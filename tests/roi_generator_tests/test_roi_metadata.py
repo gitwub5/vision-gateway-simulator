@@ -141,6 +141,8 @@ class RoiMetadataConversionTest(unittest.TestCase):
                     bbox=ROI(5, 0, 5, 5, score=0.25, coord_system="analysis_frame"),
                     motion_density=0.25,
                     selected=True,
+                    motion_threshold=0.2,
+                    selection_reason="adaptive_motion_threshold",
                 )
             ],
         )
@@ -157,6 +159,8 @@ class RoiMetadataConversionTest(unittest.TestCase):
         self.assertEqual(data["bbox_xywh"], [5, 0, 5, 5])
         self.assertEqual(data["motion_density"], 0.25)
         self.assertTrue(data["selected"])
+        self.assertEqual(data["motion_threshold"], 0.2)
+        self.assertEqual(data["selection_reason"], "adaptive_motion_threshold")
 
 
 class MetadataWriterTest(unittest.TestCase):

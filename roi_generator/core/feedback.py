@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from common import Detection, FrameSize, ROI
 from roi_generator.core.config import RoiGeneratorConfig
@@ -57,10 +57,17 @@ class ReferenceFeedbackCache:
             if age_frames > config.reference_feedback_ttl_frames:
                 stale_keys.append(key)
                 continue
+            effective_confidence = _decayed_confidence(detection.confidence, age_frames, config)
+            if (
+                config.reference_feedback_min_decayed_confidence is not None
+                and effective_confidence < config.reference_feedback_min_decayed_confidence
+            ):
+                continue
+            effective_detection = replace(detection, confidence=effective_confidence)
             active.append(
                 ReferenceFeedbackCandidate(
-                    detection=detection,
-                    roi=_roi_from_detection(detection, frame_size, config.reference_feedback_margin_ratio),
+                    detection=effective_detection,
+                    roi=_roi_from_detection(effective_detection, frame_size, config.reference_feedback_margin_ratio),
                     age_frames=age_frames,
                 )
             )
@@ -104,3 +111,9 @@ def _roi_from_detection(detection: Detection, frame_size: FrameSize, margin_rati
         score=detection.confidence,
         coord_system="original_frame",
     )
+
+
+def _decayed_confidence(confidence: float, age_frames: int, config: RoiGeneratorConfig) -> float:
+    if not config.reference_feedback_decay_enabled:
+        return confidence
+    return confidence * (config.reference_feedback_decay_per_frame ** max(0, age_frames))

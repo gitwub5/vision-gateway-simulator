@@ -1,0 +1,40 @@
+roi_generator:
+  roi_policy: tile_mask
+  analysis_width: 384
+  analysis_height: 216
+  threshold_motion: 8
+  threshold_on: 8
+  threshold_off: 8
+  morphology_kernel_size: 1
+  hold_frames: 12
+  full_frame_interval: 120
+  budget:
+    enabled: true
+    max_roi_per_frame: 8
+    max_total_roi_area_ratio: 0.58
+    max_selected_tile_count: 24
+  tile_metadata:
+    grid_rows: 12
+    grid_cols: 12
+    motion_density_threshold: 0.01
+  rare_tile_guard:
+    enabled: true
+    min_history_frames: 30
+    max_activation_rate: 0.05
+    weak_density_max: 0.02
+  neighbor_rescue:
+    enabled: true
+    min_density_ratio: 0.60
+    max_added_tiles: 3
+  small_object_boost:
+    enabled: true
+    tile_overlap_ratio: 0.25
+  reference_feedback:
+    enabled: true
+    ttl_frames: 30
+    min_confidence: 0.25
+    margin_ratio: 0.1
+    max_candidates_per_frame: 2
+    decay_enabled: true
+    decay_per_frame: 0.96
+    min_decayed_confidence: 0.25
