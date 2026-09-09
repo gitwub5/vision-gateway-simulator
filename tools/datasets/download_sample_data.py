@@ -105,7 +105,7 @@ SAMPLES: dict[str, SampleDataset] = {
     ),
     "mot17": SampleDataset(
         key="mot17",
-        description="MOTChallenge MOT17 surveillance/security validation dataset.",
+        description="MOTChallenge MOT17Det surveillance/security validation dataset.",
         output_path=Path("data/motchallenge/"),
         config_path=Path("configs/datasets/motchallenge/mot17_04.yaml"),
         url=None,
@@ -117,17 +117,17 @@ SAMPLES: dict[str, SampleDataset] = {
         ),
         auto_download=False,
     ),
-    "ai-city-2023-track4": SampleDataset(
-        key="ai-city-2023-track4",
-        description="AI City Challenge 2023 Track 4 retail checkout dataset.",
-        output_path=Path("data/ai_city_2023_track4/"),
-        config_path=Path("configs/datasets/ai_city/ai_city_2023_track4.yaml"),
+    "mall-dataset": SampleDataset(
+        key="mall-dataset",
+        description="Mall Dataset fixed shopping-mall webcam crowd sequence.",
+        output_path=Path("data/mall_dataset/"),
+        config_path=Path("configs/datasets/mall/mall_dataset.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
-            "Phase 1.3 selected retail/space analytics dataset. Review the upstream "
-            "license page, install `gdown` if needed, then run "
-            "`python tools/datasets/download_ai_city_2023_track4.py --accept-license --extract`."
+            "Phase 1.3 selected retail/space analytics dataset. It provides fixed "
+            "shopping-mall webcam frames and exhaustive pedestrian head-position labels. "
+            "Run `python tools/datasets/download_mall_dataset.py --extract`."
         ),
         auto_download=False,
     ),
@@ -135,13 +135,15 @@ SAMPLES: dict[str, SampleDataset] = {
         key="visdrone-vid-val",
         description="VisDrone-VID validation split for camera-motion and small-object stress.",
         output_path=Path("data/visdrone_vid/"),
-        config_path=Path("configs/datasets/visdrone/visdrone_vid_val.yaml"),
+        config_path=Path("configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml"),
         url=None,
         expected_size_bytes=None,
         usage_note=(
             "Phase 1.3 generalization stress dataset, not a fixed-CCTV representative set. "
             "Install `gdown` if needed, then run "
-            "`python tools/datasets/download_visdrone_vid.py --split val --extract`."
+            "`python tools/datasets/download_visdrone_vid.py --split val --extract`. "
+            "If Google Drive quota blocks gdown, download VisDrone2019-VID-val.zip manually "
+            "and pass it with `--archive /path/to/VisDrone2019-VID-val.zip --extract`."
         ),
         auto_download=False,
     ),

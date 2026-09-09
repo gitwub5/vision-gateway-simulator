@@ -1,0 +1,14 @@
+schema_version: 1
+name: phase1_3_retail_mall_dataset
+dataset: configs/datasets/mall/mall_dataset.yaml
+limit: 120
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - tile_baseline
+  - practical_default
+  - rescue_with_budget_cap
+  - fallback_reason_retune
+  - feedback_confidence_decay

@@ -1,0 +1,30 @@
+dataset:
+  type: image_sequence
+  input_path: data/motchallenge/train/MOT17-04/img1
+  camera_id: MOT17-04
+  fps_override: 30
+  frame_limit: 120
+  start_frame: 0
+  image_extensions:
+    - .jpg
+
+annotations:
+  enabled: true
+  type: motchallenge_gt
+  input_path: data/motchallenge/train/MOT17-04/gt/gt.txt
+  quality:
+    completeness: exhaustive
+    expected_exhaustive: true
+    unreliable_metrics: []
+    notes:
+      - MOT17-04 is the Phase 1.3 surveillance/security candidate.
+      - MOTChallenge frame ids are one-based; dataset frame ids remain zero-based.
+      - This config starts with a 120-frame probe window.
+
+validation:
+  target_classes:
+    - person
+  target_policy:
+    mode: target_aware_roi
+    notes:
+      - ROI quality is evaluated against pedestrian GT for surveillance/security coverage.

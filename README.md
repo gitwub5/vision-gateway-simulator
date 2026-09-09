@@ -108,6 +108,7 @@ python -m unittest discover -s tests
 | [docs/runs/README.md](docs/runs/README.md) | 실험 결과 로그 규칙 |
 | [docs/how-to/dataset_setup.md](docs/how-to/dataset_setup.md) | 공개 sample data 준비 방법 |
 | [docs/how-to/smoke_test.md](docs/how-to/smoke_test.md) | synthetic fixed-camera smoke test 사용법 |
+| [docs/how-to/phase1_3_experiment_matrix.md](docs/how-to/phase1_3_experiment_matrix.md) | Phase 1.3 domain별 ROI Gate POC matrix 실행 방법 |
 | [configs/datasets/README.md](configs/datasets/README.md) | dataset config 폴더 구조 |
 | [configs/roi_generator/README.md](configs/roi_generator/README.md) | ROI generator config 폴더 구조 |
 

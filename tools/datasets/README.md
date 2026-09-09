@@ -12,7 +12,7 @@ pip install gdown
 python tools/datasets/download_sample_data.py --list
 python tools/datasets/download_mot17.py --download-images --extract
 python tools/datasets/download_visdrone_vid.py --split val --extract
-python tools/datasets/download_ai_city_2023_track4.py --accept-license --extract
+python tools/datasets/download_mall_dataset.py --extract
 python tools/datasets/download_physicalai_row.py --row-id 709 --dry-run
 ```
 
@@ -25,4 +25,4 @@ python tools/datasets/download_ua_detrac.py \
   --extract
 ```
 
-Root-level `tools/*.py` files are compatibility wrappers. Prefer the grouped paths above for new docs and scripts.
+Prefer the grouped paths above for new docs and scripts.

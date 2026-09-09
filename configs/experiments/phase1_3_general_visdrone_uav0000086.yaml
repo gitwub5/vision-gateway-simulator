@@ -1,0 +1,13 @@
+schema_version: 1
+name: phase1_3_general_visdrone_uav0000086
+dataset: configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml
+limit: 120
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - tile_baseline
+  - practical_default
+  - rescue_with_budget_cap
+  - fallback_reason_retune

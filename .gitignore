@@ -40,6 +40,7 @@ docs/idea/
 *.pth
 *.onnx
 *.engine
+/models/
 
 # OS / editor
 .DS_Store

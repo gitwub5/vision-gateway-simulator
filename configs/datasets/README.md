@@ -17,14 +17,19 @@ configs/datasets/
     ua_detrac_mvi_39361.yaml
     ua_detrac_mvi_39051.yaml
     ua_detrac_mvi_40204.yaml
+  motchallenge/
+    mot17_04.yaml
+  mall/
+    mall_dataset.yaml
+  visdrone/
+    visdrone_vid_val_uav0000086.yaml
   od_virat/
     od_virat_tiny.yaml
 ```
 
 Use `base/default.yaml` for generic local development and `base/smoke.yaml` for quick smoke checks.
 
-Dataset setup tools are grouped under `tools/datasets/`. Root-level `tools/*.py`
-entries are compatibility wrappers for older commands.
+Dataset setup tools are grouped under `tools/datasets/`.
 
 Phase 1.1 validation primarily uses:
 
@@ -42,8 +47,9 @@ Phase 1.3 validation should expand by scene/domain coverage instead of adding mo
 - Keep `physicalai/physicalai_row0709_after3m.yaml` as the Phase 1.2 comparable indoor/person baseline.
 - Use only one `UA-DETRAC MVI_*` sequence in the official Phase 1.3 matrix, initially `ua_detrac/ua_detrac_mvi_39361.yaml`.
 - Do not include `od_virat/od_virat_tiny.yaml` in the official Phase 1.3 dataset plan; it remains a historical annotation-loader sanity dataset only.
-- Add MOTChallenge `MOT17-04` for surveillance/security, AI City Challenge 2023 Track 4 for retail/space analytics, and VisDrone-VID validation data for the general multi-class stress check.
-- Use `tools/datasets/download_mot17.py`, `tools/datasets/download_ai_city_2023_track4.py`, and `tools/datasets/download_visdrone_vid.py` to prepare those public candidates.
+- Add MOTChallenge MOT17Det `MOT17-04` for surveillance/security, Mall Dataset for retail/space analytics, and VisDrone-VID validation data for the general multi-class stress check.
+- Use `tools/datasets/download_mot17.py`, `tools/datasets/download_mall_dataset.py`, and `tools/datasets/download_visdrone_vid.py` to prepare those public candidates.
+- Current local status: MOT17Det and Mall Dataset are downloaded; VisDrone-VID is pending because Google Drive quota blocked automatic download.
 - Record scene conditions in `validation.notes` first; add structured `validation.scene_conditions` only after the metadata shape stabilizes.
 
 Generated or local-only dataset configs should be placed under the closest source folder. For example, PhysicalAI row downloads should write to `physicalai/`, while internal ad hoc samples can live under `samples/`.

@@ -119,7 +119,7 @@ Tier 1만으로는 scene/domain coverage가 부족하므로, Phase 1.3에서 공
 | MOTChallenge MOT17Det / MOT17 | pedestrian surveillance, crowd, night, moving/static camera | pedestrian bbox | dense person, low-light, moving-camera stress | license와 sequence별 camera motion 확인 필요 |
 | VisDrone-VID / VisDrone-MOT | drone/aerial surveillance, moving camera, small far-field targets | bbox / tracking annotations | moving camera와 small far-field object stress | CCTV 고정 카메라와 다르므로 범용성 해석에 주의 |
 | MVTec AD / AD 2 | industrial inspection, factory-like object/texture anomaly | image-level / pixel-level anomaly mask | smart-factory inspection류 ROI/objectness 후보 검토 | video CCTV가 아니라 static inspection image 중심 |
-| AI City Challenge datasets | traffic, warehouse, retail, multi-camera scenes | track별 상이 | CCTV/GPU server 적용 도메인 확장 후보 | track별 접근성, license, task format 확인 필요 |
+| Mall Dataset | retail / space analytics | fixed shopping-mall webcam, dense pedestrian flow | 매장/공간 분석의 crowd/queue ROI 검증 | head-point GT라 bbox containment가 아닌 point containment 또는 proxy box 필요 |
 | 추가 public parking / warehouse / retail CCTV sample | parking, logistics, retail | dataset별 상이 | domain gap 보강 | license, annotation 품질, 유지 가능성 확인 필요 |
 
 초기 우선순위는 아래처럼 잡는다.
@@ -178,8 +178,8 @@ Tier 3는 Git에 dataset 자체를 올리지 않는다. 공유 가능한 것은 
 | Traffic stress | `ua_detrac_mvi_39361` | `UA-DETRAC MVI_*` 대표 하나. unstable/global motion stress |
 | Dense pedestrian candidate | MOTChallenge sequence 1개 | crowd/night/moving camera 중 하나를 선택 |
 | Moving/small target candidate | VisDrone video sequence 1개 | small far-field/moving camera stress |
-| Factory/inspection candidate | MVTec sample, AI City warehouse track, or internal factory clip | smart-factory 계열 motion 부적합성 확인 |
-| Domain expansion candidate | AI City traffic/warehouse/retail track 중 1개 | 실제 CCTV/GPU server 적용 도메인 확장성 확인 |
+| Factory/inspection candidate | MVTec sample, internal factory clip, or verified warehouse CCTV dataset | smart-factory 계열 motion 부적합성 확인 |
+| Domain expansion candidate | Mall Dataset 또는 internal retail/store clip | 실제 CCTV/GPU server 적용 도메인 확장성 확인 |
 
 이 matrix의 목적은 dataset 수를 늘리는 것이 아니라 scene failure mode를 넓히는 것이다.
 
@@ -189,10 +189,10 @@ Phase 1.3에서는 도메인을 너무 잘게 쪼개지 않고, 우선 GPU/DeepS
 
 | Coverage Group | 목적 | 필수 scene condition | 현재 상태 | 우선 dataset 후보 |
 |---|---|---|---|---|
-| Traffic / parking | 차량/도로/주차 CCTV에서 global motion, 조도, small far-field target을 검증 | outdoor illumination, unstable feed, dense vehicle, small far-field | `ua_detrac_mvi_39361`로 최소 baseline 있음 | `UA-DETRAC MVI_39361`, AI City traffic/road/fisheye track, internal parking clip |
+| Traffic / parking | 차량/도로/주차 CCTV에서 global motion, 조도, small far-field target을 검증 | outdoor illumination, unstable feed, dense vehicle, small far-field | `ua_detrac_mvi_39361`로 최소 baseline 있음 | `UA-DETRAC MVI_39361`, internal parking clip, verified traffic CCTV dataset |
 | Surveillance / security | 관제/보안에서 person, slow/stationary target, low-light를 검증 | indoor/outdoor surveillance, slow/stationary person, low-light, crowd | 아직 official Phase 1.3 dataset 없음 | MOTChallenge sequence, internal CCTV clip |
-| Logistics / smart factory | 공장/창고/설비 환경에서 periodic background motion과 작업자/물체 ROI를 검증 | indoor fixed, periodic machine/background motion, worker/package/forklift | `physicalai_row0709_after3m`로 synthetic warehouse baseline 있음 | PhysicalAI, AI City warehouse track, internal factory/warehouse clip |
-| Retail / space analytics | 매장/공간 분석에서 사람 flow, queue, 상품/선반 objectness ROI를 검증 | dense person, occlusion, shelf/product clutter, static+moving object mix | 아직 official Phase 1.3 dataset 없음 | AI City retail track, internal retail/store clip |
+| Logistics / smart factory | 공장/창고/설비 환경에서 periodic background motion과 작업자/물체 ROI를 검증 | indoor fixed, periodic machine/background motion, worker/package/forklift | `physicalai_row0709_after3m`로 synthetic warehouse baseline 있음 | PhysicalAI, internal factory/warehouse clip, verified warehouse CCTV dataset |
+| Retail / space analytics | 매장/공간 분석에서 사람 flow, queue, shopper/crowd ROI를 검증 | dense person, occlusion, static camera, slow temporal change | 아직 official Phase 1.3 dataset 없음 | Mall Dataset, internal retail/store clip |
 | General multi-class check | vertical 공통으로 class-agnostic ROI 가능성과 person/vehicle 과적합을 확인 | multi-class, varied scale, non-person/non-vehicle object, clutter | 아직 official Phase 1.3 dataset 없음 | VisDrone, selected public multi-class video |
 
 초기 official matrix의 최소 목표:
@@ -226,25 +226,54 @@ Phase 1.3의 1차 official candidate set은 아래로 고정한다.
 |---|---|---|---|---|
 | Traffic / parking | `UA-DETRAC MVI_39361` | 이미 loader/config가 있고, traffic/vehicle/global motion stress를 대표한다. | `tools/datasets/download_ua_detrac.py` | `UA-DETRAC MVI_*`는 official matrix에서 하나만 사용한다. |
 | Logistics / smart factory | `PhysicalAI row0709_after3m` | synthetic `Warehouse_000` smart-space baseline으로 Phase 1.2와 직접 비교 가능하다. | `tools/datasets/download_physicalai_row.py` | 실제 공장/창고 영상은 후속 internal/customer-like sample로 보강한다. |
-| Surveillance / security | MOTChallenge `MOT17-04` | dense pedestrian, night, elevated viewpoint 조건으로 crowd/관제 stress를 제공한다. | `tools/datasets/download_mot17.py` | person-only라 `physicalai`와 target class는 겹치지만 scene condition이 다르다. |
-| Retail / space analytics | AI City Challenge 2023 Track 4 | automated retail checkout, product counting/recognition, occlusion, similar product, execution efficiency와 연결된다. | `tools/datasets/download_ai_city_2023_track4.py` | task format과 annotation을 먼저 확인해 ROI metric으로 변환해야 한다. |
+| Surveillance / security | MOTChallenge MOT17Det `MOT17-04` | dense pedestrian, night, elevated viewpoint 조건으로 crowd/관제 stress를 제공한다. | `tools/datasets/download_mot17.py` | person-only라 `physicalai`와 target class는 겹치지만 scene condition이 다르다. |
+| Retail / space analytics | Mall Dataset | shopping-mall webcam 기반 crowd/flow/space analytics에 가깝고 시간축 frame sequence와 exhaustive pedestrian head-position GT가 있다. | `tools/datasets/download_mall_dataset.py` | head-point GT라 ROI metric은 point containment 또는 proxy box로 해석한다. |
 | General multi-class check | VisDrone-VID validation set | multi-class bbox, small far-field object, scale/density/weather variation을 제공한다. | `tools/datasets/download_visdrone_vid.py` | drone/aerial view라 CCTV 대표가 아니라 camera-motion/generalization stress로만 해석한다. |
 
 따라서 Phase 1.3 시작 전 필수 추가 dataset은 세 개다.
 
-1. MOTChallenge `MOT17-04`
-2. AI City Challenge 2023 Track 4
+1. MOTChallenge MOT17Det `MOT17-04`
+2. Mall Dataset
 3. VisDrone-VID validation set
 
-Smart factory/logistics는 현재 PhysicalAI로 시작할 수 있지만, 실제 공장/물류 적용성을 보려면 internal factory/warehouse clip 또는 AI City warehouse 계열을 후속 보강 dataset으로 추가하는 것이 좋다.
+Smart factory/logistics는 현재 PhysicalAI로 시작할 수 있지만, 실제 공장/물류 적용성을 보려면 internal factory/warehouse clip을 후속 보강 dataset으로 추가하는 것이 좋다.
 
 Dataset 준비 명령:
 
 ```bash
 python tools/datasets/download_mot17.py --download-images --extract
-python tools/datasets/download_ai_city_2023_track4.py --accept-license --extract
+python tools/datasets/download_mall_dataset.py --extract
 python tools/datasets/download_visdrone_vid.py --split val --extract
 ```
+
+현재 로컬 준비 상태:
+
+- 준비됨: `UA-DETRAC MVI_39361`, `PhysicalAI row0709_after3m`, MOTChallenge MOT17Det `MOT17-04`, Mall Dataset, VisDrone-VID validation `uav0000086_00000_v`
+- VisDrone-VID는 Google Drive quota 때문에 자동 다운로드가 실패했으나, 수동으로 받은 `VisDrone2019-VID-val.zip`을 `data/visdrone_vid/archives/`에 두고 압축 해제했다.
+
+### Phase 1.3 Smoke Readiness
+
+아래 20-frame smoke run으로 dataset path, stream loader, annotation loader, report generation이 모두 연결되는지 확인했다.
+
+| Coverage Group | Config | Run ID | 상태 |
+|---|---|---|---|
+| Traffic / parking | `configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml` | `phase1_3_smoke_traffic_ua_detrac_mvi_39361` | ready |
+| Logistics / smart factory | `configs/datasets/physicalai/physicalai_row0709_after3m.yaml` | `phase1_3_smoke_logistics_physicalai_row0709_after3m` | ready |
+| Surveillance / security | `configs/datasets/motchallenge/mot17_04.yaml` | `phase1_3_smoke_surveillance_mot17_04` | ready |
+| Retail / space analytics | `configs/datasets/mall/mall_dataset.yaml` | `phase1_3_smoke_retail_mall_dataset` | ready |
+| General multi-class check | `configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml` | `phase1_3_smoke_general_visdrone_uav0000086` | ready |
+
+Phase 1.3 본 실험의 1차 matrix는 위 5개 dataset에 대해 같은 policy/profile set을 돌리고, 아래 metric을 hard 비교 기준으로 둔다.
+
+| Metric | 해석 |
+|---|---|
+| `target_gt_roi_containment` | target을 ROI로 놓치지 않았는지 보는 1순위 품질 지표 |
+| `effective_input_area_reduction` | fallback/full-frame check까지 포함한 실제 GPU handoff 절감률 |
+| `fallback_frame_rate` | ROI gate가 실제로 독립 동작하지 못하고 full-frame으로 돌아간 비율 |
+| `no_roi_target_frame_count` | target이 있는데 ROI가 하나도 생성되지 않은 frame 수 |
+| object size bucket containment | small/far-field target 취약성 확인 |
+
+현재 smoke 결과 기준으로 기존 motion-primary gate는 PhysicalAI indoor warehouse 외의 domain에서 대부분 fallback 또는 no-ROI로 붕괴한다. Phase 1.3은 이 결과를 baseline failure로 두고, scene guard, detector feedback, tracker/objectness 계열 후보를 비교한다.
 
 ### Public Dataset References
 
@@ -255,7 +284,7 @@ python tools/datasets/download_visdrone_vid.py --split val --extract
 | MOTChallenge MOT17Det | `https://motchallenge.net/data/MOT17Det/` |
 | VisDrone | `https://github.com/VisDrone/VisDrone-Dataset` |
 | MVTec AD | `https://www.mvtec.com/research-teaching/datasets/mvtec-ad` |
-| AI City Challenge dataset access | `https://www.aicitychallenge.org/ai-city-challenge-dataset-access/` |
+| Mall Dataset | `https://personal.ie.cuhk.edu.hk/~ccloy/downloads_mall_dataset.html` |
 
 ## 6. Codebase Strategy
 

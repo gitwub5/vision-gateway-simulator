@@ -1,0 +1,39 @@
+dataset:
+  type: image_sequence
+  input_path: data/visdrone_vid/VisDrone2019-VID-val/sequences/uav0000086_00000_v
+  camera_id: uav0000086_00000_v
+  fps_override: 30
+  frame_limit: 120
+  start_frame: 0
+  image_extensions:
+    - .jpg
+
+annotations:
+  enabled: true
+  type: visdrone_vid
+  input_path: data/visdrone_vid/VisDrone2019-VID-val/annotations/uav0000086_00000_v.txt
+  quality:
+    completeness: exhaustive
+    expected_exhaustive: true
+    unreliable_metrics: []
+    notes:
+      - VisDrone-VID validation is the Phase 1.3 camera-motion and small-object stress candidate.
+      - Drone camera motion is not fixed CCTV; interpret results as generalization stress, not deployment-like CCTV performance.
+      - VisDrone annotation frame ids are one-based; dataset frame ids remain zero-based.
+
+validation:
+  target_classes:
+    - pedestrian
+    - people
+    - bicycle
+    - car
+    - van
+    - truck
+    - tricycle
+    - awning-tricycle
+    - bus
+    - motor
+  target_policy:
+    mode: target_aware_roi
+    notes:
+      - ROI quality is evaluated across VisDrone frequent object classes for camera-motion stress.

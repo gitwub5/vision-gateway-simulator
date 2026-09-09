@@ -2,7 +2,7 @@
 
 Repo root에서 실행한다.
 
-Google Drive로 배포되는 dataset(`VisDrone-VID`, `AI City Challenge 2023 Track 4`)은 `gdown`이 있으면 자동 다운로드할 수 있다.
+Google Drive로 배포되는 dataset(`VisDrone-VID`)은 `gdown`이 있으면 자동 다운로드할 수 있다.
 
 ```bash
 pip install gdown
@@ -58,7 +58,22 @@ python tools/datasets/download_physicalai_row.py --row-id 709
 ```bash
 python tools/datasets/download_mot17.py --download-images --extract
 python tools/datasets/download_visdrone_vid.py --split val --extract
-python tools/datasets/download_ai_city_2023_track4.py --accept-license --extract
+python tools/datasets/download_mall_dataset.py --extract
+```
+
+VisDrone Google Drive quota가 걸리면 `VisDrone2019-VID-val.zip`을 브라우저로 받은 뒤 아래처럼 추출한다.
+
+```bash
+python tools/datasets/download_visdrone_vid.py \
+  --split val \
+  --archive /path/to/VisDrone2019-VID-val.zip \
+  --extract
+```
+
+Mall Dataset은 shopping-mall webcam frame sequence와 exhaustive pedestrian head-position GT를 제공한다. bbox GT가 아니므로 Phase 1.3에서는 point containment 또는 documented proxy box 기준으로 해석한다.
+
+```text
+configs/datasets/mall/mall_dataset.yaml
 ```
 
 Phase 1.1 person crowded baseline config:

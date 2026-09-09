@@ -85,6 +85,13 @@ GPU detector에 넘길 수 있는 scene/domain 조건과 기술 조합을 찾는
 
 Phase 1.3의 종료 산출물은 단일 default profile이 아니라 scene/domain별 ROI Gate recommendation matrix와 다음 phase implementation target이다.
 
+현재 Phase 1.3 준비 상태:
+
+- 5개 1차 dataset axis 준비 완료: traffic/parking, logistics/smart factory, surveillance/security, retail/space analytics, general multi-class stress.
+- `outputs/roi_proposal_validation/phase1_3_smoke_*` smoke run으로 stream, annotation, report generation 확인 완료.
+- 기존 motion-primary gate는 PhysicalAI indoor warehouse 외 domain에서 대부분 fallback/no-ROI로 붕괴하므로, Phase 1.3 본 실험은 이 결과를 baseline failure로 두고 후보 gate family를 비교한다.
+- 다음 작업은 scene/domain별 candidate matrix 실행과 recommendation 기준 확정이다.
+
 ## 현재 공유 문서
 
 - `docs/plan/phase1_implementation_plan.md`

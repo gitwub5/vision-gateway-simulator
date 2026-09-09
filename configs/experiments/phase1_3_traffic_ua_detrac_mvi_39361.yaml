@@ -1,0 +1,14 @@
+schema_version: 1
+name: phase1_3_traffic_ua_detrac_mvi_39361
+dataset: configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml
+limit: 120
+diagnostics_level: tile_trace
+model_config: configs/models/yolo_default.yaml
+skip_visualization: true
+
+profiles:
+  - tile_baseline
+  - practical_default
+  - rescue_with_budget_cap
+  - fallback_reason_retune
+  - feedback_confidence_decay
