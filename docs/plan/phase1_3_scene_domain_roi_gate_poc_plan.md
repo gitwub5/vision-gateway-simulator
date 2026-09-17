@@ -286,7 +286,150 @@ Phase 1.3 본 실험의 1차 matrix는 위 5개 dataset에 대해 같은 policy/
 | MVTec AD | `https://www.mvtec.com/research-teaching/datasets/mvtec-ad` |
 | Mall Dataset | `https://personal.ie.cuhk.edu.hk/~ccloy/downloads_mall_dataset.html` |
 
-## 6. Codebase Strategy
+## 6. Phase 1.3 Test Plan
+
+Phase 1.3은 준비된 5개 dataset을 모두 공통 평가축으로 사용한다. 단, 모든 후보를 모든 dataset에 같은 깊이로 적용하지는 않는다. 공통 baseline은 전체 dataset에 실행하고, 후보 POC는 domain fit과 구현 비용에 따라 공통 실행, 도메인 중심 실행, 프로토타입 검토로 나눈다.
+
+공통 dataset 축:
+
+| Coverage Group | Dataset config | 역할 |
+|---|---|---|
+| Traffic / parking | `configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml` | outdoor vehicle, global motion, illumination stress |
+| Logistics / smart factory | `configs/datasets/physicalai/physicalai_row0709_after3m.yaml` | indoor warehouse / smart-space baseline |
+| Surveillance / security | `configs/datasets/motchallenge/mot17_04.yaml` | dense pedestrian, night/elevated surveillance stress |
+| Retail / space analytics | `configs/datasets/mall/mall_dataset.yaml` | shopping-mall crowd / flow / static camera |
+| General multi-class stress | `configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml` | camera motion, small far-field, multi-class stress |
+
+### 6.1 Current Pipeline Baseline Failure Map
+
+현재 구현된 `grayscale -> resize -> motion map -> tile/ROI` pipeline을 5개 dataset 전체에 공통 실행한다.
+
+목적:
+
+- 현재 방식의 성능을 높이는 것이 아니라 domain별 failure map을 만든다.
+- motion map / tile 기반이 어떤 scene condition에서 실패하는지 기록한다.
+- 이후 후보 실험의 기준선을 고정한다.
+
+확인할 내용:
+
+- motion map이 조도, noise, shadow, background motion에 반응하는지
+- target GT가 ROI 안에 포함되는지
+- fallback이 얼마나 자주 발생하는지
+- small/far-field target을 놓치는지
+- camera motion에서 active area가 붕괴하거나 full-frame에 가까워지는지
+
+### 6.2 Temporal Gate POC
+
+공간 ROI를 만들기 전에 frame을 볼지, skip할지, 이전 결과를 재사용할지 판단하는 테스트다. 5개 dataset 전체에 공통 실행하되, event latency와 missed target frame을 함께 본다.
+
+후보:
+
+- fixed frame skip
+- scene stability score 기반 adaptive skip
+- result reuse
+- low-activity frame skip
+
+핵심 metric:
+
+- detector 호출 감소율
+- missed target frame count
+- event latency
+- target continuity
+
+### 6.3 Static Zone / Camera Prior POC
+
+motion 없이도 항상 봐야 할 영역이 있는지 확인한다. 5개 dataset 전체에 적용하되, traffic, logistics, retail에서 우선 해석한다.
+
+후보:
+
+- 수동 static ROI
+- GT 기반 oracle heatmap
+- camera-specific object occurrence heatmap
+- static zone + motion/tile 조합
+
+핵심 metric:
+
+- static ROI만으로 얻는 target containment
+- ROI 면적 대비 recall
+- domain별 scene prior 강도
+
+### 6.4 Feedback / Tracker Memory POC
+
+이전 detector 결과와 tracker state를 이용해 다음 frame의 ROI를 예측하는 테스트다. MOT17Det, Mall, PhysicalAI를 우선 깊게 보고, UA-DETRAC은 vehicle tracking 후보로 함께 본다. VisDrone은 camera motion stress로 별도 해석한다.
+
+후보:
+
+- previous bbox expansion
+- simple IoU tracker
+- Kalman filter 기반 예측
+- missed frame 동안 ROI 유지
+- low-motion object 유지
+
+핵심 metric:
+
+- 정지/저속 객체 containment
+- detector feedback 주기별 성능
+- track drift 또는 stale ROI 비율
+- full-frame refresh 필요 주기
+
+### 6.5 Lightweight Visual Signal POC
+
+motion map 밖의 pixel/objectness 신호를 테스트한다. VisDrone, MOT17Det, UA-DETRAC에서 small/far-field target과 clutter 대응을 우선 본다.
+
+후보:
+
+- edge density
+- texture variance
+- color/contrast saliency
+- background model
+- low-resolution objectness scan
+- tile score = motion + edge + prior 조합
+
+핵심 metric:
+
+- small object containment
+- motion 없는 객체 후보 유지
+- false active area
+- tile 수 대비 recall
+
+### 6.6 Compression Signal Prototype
+
+encoded stream 정보를 활용할 수 있는지 보는 research/prototype track이다. 현재 frame-image dataset만으로는 제한이 있으므로, 가능한 범위에서는 metadata availability와 prototype feasibility 중심으로 정리한다.
+
+후보:
+
+- encoded frame type
+- bitrate 변화량
+- GOP/keyframe interval
+- H.264/H.265 motion vector
+- residual energy
+
+판단 기준:
+
+- pixel decode 전에 gate로 쓸 수 있는지
+- motion map 대비 계산 비용이 낮은지
+- 실제 RTSP/CCTV pipeline에서 접근 가능한지
+
+### 6.7 Hybrid Gate Candidate Selection
+
+단일 방식보다 조합이 유리한지 확인한다. 앞선 실험에서 유망한 후보만 조합한다.
+
+우선 조합:
+
+- static zone + temporal gate
+- static zone + tracker memory
+- motion map + scene stability
+- tile score + camera heatmap
+- detector feedback + frame skip
+
+판단 기준:
+
+- 단일 방식 대비 containment 개선
+- fallback 감소
+- area reduction 유지
+- domain 간 일반화 가능성
+
+## 7. Codebase Strategy
 
 Phase 1.3 시작 전에 기존 Phase 1.2 구현을 삭제하거나 크게 리팩토링하지 않는다.
 
@@ -353,7 +496,7 @@ Phase 1.3 시작 시점에는 삭제하지 않는다.
 
 그 전까지는 `status: disabled` 또는 `reference_only`로 남기는 편이 낫다.
 
-## 7. Candidate Architecture Families
+## 8. Candidate Architecture Families
 
 Phase 1.3은 개별 profile보다 architecture family를 비교한다.
 
@@ -368,7 +511,7 @@ Phase 1.3은 개별 profile보다 architecture family를 비교한다.
 | Compressed-domain pre-gate | H.264/H.265 motion vector 등 encoded cue 활용 | RTSP/CCTV stream integration 후보 |
 | Lightweight objectness gate | cheap objectness/segmentation model로 target-likely region 생성 | motion이 불안정한 scene |
 
-## 8. Workstreams
+## 9. Workstreams
 
 ### Workstream A. Motion Signal Validity Audit
 
@@ -471,7 +614,7 @@ Phase 1.3은 개별 profile보다 architecture family를 비교한다.
 - current best tile profile보다 containment/cost 균형이 좋아야 한다.
 - 특정 scene에만 좋은 경우 domain/scene-specific 후보로 남긴다.
 
-## 9. Evaluation Rule
+## 10. Evaluation Rule
 
 Phase 1.3은 처음부터 E2E YOLO 성능만 보지 않는다. 먼저 ROI proposal과 signal quality를 본다.
 
@@ -498,35 +641,76 @@ Phase 1.3은 처음부터 E2E YOLO 성능만 보지 않는다. 먼저 ROI propos
 - fallback frame count
 - E2E detector recall, 필요 시
 
-## 10. 실행 순서
+## 11. 실행 순서
 
-1. Motion Signal Validity Audit 도구를 만든다.
-2. PhysicalAI main segment와 UA-DETRAC secondary segment에 audit을 실행한다.
-3. scene condition coverage 기준으로 추가 sample segment를 고른다.
-4. scene guard와 cheap signal alternative를 120-frame probe로 비교한다.
-5. assisted ROI gate를 high miss-cost scene 후보로 비교한다.
-6. 살아남은 2-3개 architecture family만 600-frame validation으로 올린다.
-7. 도메인/scene별 ROI Gate recommendation matrix를 작성한다.
+1. 5개 dataset 전체에 Current Pipeline Baseline Failure Map을 실행한다.
+2. baseline result를 기준으로 failure taxonomy를 작성한다.
+3. Temporal Gate POC를 5개 dataset 전체에 실행한다. 완료: `docs/runs/phase1_3/phase1_3_temporal_gate_poc_20260916.md`.
+4. Static Zone / Camera Prior POC를 5개 dataset 전체에 실행한다. 완료: `docs/runs/phase1_3/phase1_3_static_zone_prior_poc_20260916.md`.
+5. Feedback / Tracker Memory POC를 MOT17Det, Mall, PhysicalAI 중심으로 실행하고 UA-DETRAC은 vehicle tracking 후보로 함께 본다. 완료: `docs/runs/phase1_3/phase1_3_tracker_memory_poc_20260917.md`.
+6. Lightweight Visual Signal POC를 VisDrone, MOT17Det, UA-DETRAC 중심으로 실행한다. 완료: `docs/runs/phase1_3/phase1_3_lightweight_visual_signal_poc_20260917.md`.
+7. Compression Signal은 실제 RTSP/encoded stream 접근 가능성을 확인하는 prototype track으로 분리한다. 완료: `docs/runs/phase1_3/phase1_3_compression_signal_poc_20260917.md`.
+8. 유망한 signal family만 Hybrid Gate Candidate로 조합한다. 완료: `docs/runs/phase1_3/phase1_3_hybrid_gate_candidate_selection_20260917.md`.
+9. 살아남은 2-3개 architecture family만 600-frame validation으로 올린다. 완료: `docs/runs/phase1_3/phase1_3_hybrid_family_600frame_validation_20260917.md`.
+10. 도메인/scene별 ROI Gate recommendation matrix를 작성한다. 완료: `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md`.
 
-## 11. Phase 1.3 종료 산출물
+현재까지의 실행 해석:
 
-Phase 1.3은 단일 default profile보다 아래 산출물을 목표로 한다.
+- Current Pipeline Baseline Failure Map: motion/tile family는 PhysicalAI 외 domain에서 primary ROI generator로 실패했다.
+- Temporal Gate POC: frame-level skip은 target이 지속적으로 존재하는 CCTV-like sample에서 recall과 cost가 거의 선형 tradeoff가 된다. 단독 primary gate보다는 bounded-rate controller나 보조 throttle 후보로 남긴다.
+- Static Zone / Camera Prior POC: target center prior는 여러 domain에서 강하지만, detector handoff용 bbox containment에는 margin/dilation이 필수다. static prior는 단독 정책보다 spatial seed 또는 domain-specific prior로 유지한다.
+- Feedback / Tracker Memory POC: logistics/PhysicalAI와 selected VisDrone segment에서는 유망하지만, dense scene은 ROI count가 높고 traffic/retail은 단순 hold-memory로 부족하다. tracker memory는 static prior, velocity prediction, ROI budget과 조합하는 후보로 유지한다.
+- Lightweight Visual Signal POC: raw edge/texture/hybrid signal은 단독 ROI gate로 약하다. Mall, MOT17Det, VisDrone에서는 보조 busy-region score로 가능성이 있지만, bbox recall 확보에는 dilation이 필요하고 area cost가 커진다.
+- Compression Signal Prototype: 현재 공식 5-domain dataset 대부분은 image sequence라 encoded stream metadata가 보존되지 않는다. PhysicalAI는 video file이지만 현재 로컬 환경에 `ffprobe`가 없어 추출하지 못했다. 따라서 compression signal은 Phase 1.3 immediate ROI candidate가 아니라 encoded RTSP/video와 DeepStream/GStreamer metadata 접근이 가능한 integration/runtime track 후보로 유지한다.
+- Hybrid Gate Candidate Selection: 600-frame validation 후보는 `static_zone_prior + tracker_memory + temporal_refresh_guard`와 `static_zone_prior + lightweight_visual_priority`로 좁힌다. Traffic/UA-DETRAC은 현재 조합으로는 부족하므로 `lane_or_scale_prior + velocity_tracker`를 별도 probe로 추가한다.
+- Traffic Velocity / Scale Prior Probe: UA-DETRAC에서 단순 velocity prediction과 scale-aware margin은 hold-memory를 개선하지 못했다. Traffic 후보는 velocity 단독이 아니라 lane/road-region prior, perspective/scale-aware expansion, 새 객체 진입 커버를 중심으로 다시 잡아야 한다. 완료: `docs/runs/phase1_3/phase1_3_traffic_velocity_prior_probe_20260917.md`.
+- Traffic Road / Lane Region Prior Probe: GT 기반 road envelope는 bbox recall을 확보하지만 600-frame에서 selected area가 64.6%까지 커진다. Traffic 방향은 whole-road ROI가 아니라 lane/road segmented prior, entry-zone guard, active segment packing으로 잡는다. 완료: `docs/runs/phase1_3/phase1_3_traffic_road_region_prior_probe_20260917.md`.
+- Shortlisted Hybrid Family 600-Frame Validation: `static_zone_prior + tracker_memory + temporal_refresh_guard`는 PhysicalAI(600f)/VisDrone(464f, 가용 최대)에서 0.90 이상 recall을 유지하되, guard가 refresh interval보다 짧으면 recall이 0.60까지 붕괴한다(static 단독 recall이 1.5~3.3%에 불과하기 때문). `static_zone_prior + lightweight_visual_priority`는 Mall/MOT17-04(각 600f)에서 static-only 대비 bbox recall을 +0.59~+0.67 개선하지만 dilation 없이는 무의미하고, dilation 적용 시 area가 26~56%까지 커진다. 두 후보 모두 ROI/memory frame이 130~300개로 packing이 non-oracle 구현 전 필수다. 완료: `docs/runs/phase1_3/phase1_3_hybrid_family_600frame_validation_20260917.md`.
+- Final Domain/Scene Recommendation Matrix: 5개 공식 domain 전체에 recommendation을 확정하고, Phase 2로 이동할 architecture family를 3개(logistics/general 공용 static+tracker+guard, surveillance/retail 공용 static+lightweight, traffic 전용 lane/segment prior)로 압축했다. 완료: `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md`.
 
-- motion map validity report
-- scene condition taxonomy
-- domain-to-scene mapping
-- candidate gate architecture comparison
-- reusable signal/ROI probe tooling
-- 600-frame validation 대상 shortlist
-- 다음 phase implementation target
+## 12. Phase 1.3 마무리 기준
 
-## 12. 다음 Phase로 넘길 판단
+Phase 1.3은 더 많은 후보를 계속 추가하는 단계가 아니라, Phase 2로 넘길 architecture family를 고르는 exploration 단계다. 따라서 아래 조건을 만족하면 Phase 1.3을 마무리한다.
 
-Phase 1.3 이후에는 아래 중 하나를 선택한다.
+마무리 조건:
 
-| 판단 | 다음 단계 |
-|---|---|
-| 공통 적용 가능한 ROI Gate 조합이 보임 | 해당 architecture를 구현/고도화하는 Phase 2로 진행 |
-| scene별로 다른 gate가 필요함 | scene classifier/controller와 profile family 구현으로 진행 |
-| motion 기반 한계가 명확함 | detector-assisted, background-model, objectness, compressed-domain 중 유망 후보로 전환 |
+- 5개 domain axis별로 최소 하나의 판단이 있다: shortlist, secondary, needs-new-probe, deferred 중 하나.
+- 600-frame으로 올릴 후보가 2-3개 이하로 좁혀졌다.
+- 각 후보의 다음 구현 요구사항이 명확하다.
+- 더 진행해도 broad exploration이 아니라 구현/packing/runtime validation 성격이 강하다.
+
+Phase 1.3 남은 최소 작업은 모두 완료됐다:
+
+1. `static_zone_prior + tracker_memory + temporal_refresh_guard`를 600-frame validation으로 확인했다(PhysicalAI 600f, VisDrone 464f/가용 최대). 완료: `docs/runs/phase1_3/phase1_3_hybrid_family_600frame_validation_20260917.md`.
+2. `static_zone_prior + lightweight_visual_priority`를 600-frame validation으로 확인했다(Mall, MOT17-04). 완료: 위와 동일 문서.
+3. Traffic은 `road/lane segmented prior + entry-zone guard + active segment packing`을 Phase 2 구현 후보로 확정했다(recommendation-level). 완료: `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md` 1절.
+4. 도메인/scene별 recommendation matrix를 최종 문서로 정리했다. 완료: 위 문서 2절.
+
+Phase 1.3은 위 4개 항목이 모두 완료되어 종료 상태이며, Phase 2로 넘긴다.
+
+## 13. Phase 1.3 종료 산출물
+
+Phase 1.3은 단일 default profile보다 아래 산출물을 목표로 했으며, 모두 완료됐다.
+
+| 산출물 | 상태 | 위치 |
+|---|---|---|
+| motion map validity report | 완료 | `docs/runs/phase1_3/phase1_3_baseline_failure_map_20260916.md` |
+| scene condition taxonomy | 완료 | 본 문서 4절 |
+| domain-to-scene mapping | 완료 | `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md` 2절 |
+| candidate gate architecture comparison | 완료 | `docs/runs/phase1_3/phase1_3_hybrid_gate_candidate_selection_20260917.md`, `phase1_3_hybrid_family_600frame_validation_20260917.md` |
+| reusable signal/ROI probe tooling | 완료 | `evaluation/reports/*`, `experiments/run_*_poc.py` (Workstream A-K) |
+| 600-frame validation 대상 shortlist | 완료 | `docs/runs/phase1_3/phase1_3_hybrid_family_600frame_validation_20260917.md` |
+| 다음 phase implementation target | 완료 | `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md` 4, 6절 |
+
+## 14. 다음 Phase로 넘길 판단
+
+Phase 1.3 이후 판단은 단일 선택이 아니라 domain별로 혼합됐다. `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md`에서 최종 정리했다.
+
+| 판단 | 다음 단계 | 해당 domain |
+|---|---|---|
+| 공통 적용 가능한 ROI Gate 조합이 보임 | 해당 architecture를 구현/고도화하는 Phase 2로 진행 | Logistics/smart factory, General multi-class stress (`static_zone_prior + tracker_memory + temporal_refresh_guard`); Surveillance/security, Retail/space analytics (`static_zone_prior + lightweight_visual_priority`) |
+| scene별로 다른 gate가 필요함 | scene classifier/controller와 profile family 구현으로 진행 | Traffic/parking은 위 두 조합과 다른 `road/lane segmented prior + entry-zone guard` family가 필요함 |
+| motion 기반 한계가 명확함 | detector-assisted, background-model, objectness, compressed-domain 중 유망 후보로 전환 | 전체 domain 공통. Motion/tile은 Phase 2 primary 후보에서 제외하고, objectness 후속 신호와 ROI/tile packing을 Phase 2 초반 검토 항목으로 남김 |
+
+Phase 1.3은 위 세 판단을 조합해서 Phase 2로 넘긴다: 2개 공용 hybrid family + 1개 traffic 전용 family, 총 3개 architecture family만 구현 대상으로 압축했다.
 | ROI proposal은 충분하지만 GPU 이득이 불확실함 | ROI handoff, batching, packing, full-frame switch 최적화로 진행 |

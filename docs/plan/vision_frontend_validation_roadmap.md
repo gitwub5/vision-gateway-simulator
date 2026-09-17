@@ -41,7 +41,7 @@ Phase 2부터는 implementation track으로 전환한다. Phase 1.x에서 선택
 
 ## Phase 1.3 방향
 
-Phase 1.3은 기존의 "tile 기반 외 대안 탐색"보다 넓은 PoC 단계로 재정의한다.
+Phase 1.3은 기존의 "tile 기반 외 대안 탐색"보다 넓은 PoC 단계로 재정의한다. 현재 구현된 `grayscale -> resize -> motion map -> tile/ROI` 흐름은 해답 후보라기보다 baseline failure map을 만들기 위한 기준선으로 둔다.
 
 목표:
 
@@ -60,6 +60,20 @@ GPU detector에 넘길 수 있는 scene/domain 조건과 기술 조합을 찾는
 - heatmap/contour ROI gate
 - compressed-domain pre-gate
 - lightweight objectness gate
+
+Phase 1.3의 테스트 구조:
+
+- Current Pipeline Baseline Failure Map: 완료. Motion/tile family는 PhysicalAI 외 domain에서 primary ROI generator로 실패.
+- Temporal Gate POC: 완료. Frame-level skip은 recall/cost tradeoff가 커서 보조 throttle 후보로 유지.
+- Static Zone / Camera Prior POC: 완료. Static prior는 유효하지만 bbox handoff에는 margin/dilation이 필요.
+- Feedback / Tracker Memory POC: 완료. Logistics 계열에서는 강한 후보, dense/traffic/retail에서는 ROI budget 또는 prediction 보강 필요.
+- Lightweight Visual Signal POC: 완료. Edge/texture 단독 gate는 약하고 hybrid score의 보조 신호로만 유지.
+- Compression Signal Prototype: 완료. 현재 공식 dataset 대부분은 image sequence라 compressed-domain metadata가 없고, PhysicalAI video는 로컬 `ffprobe` 부재로 추출하지 못함. Phase 2 이후 encoded stream integration 후보로 유지.
+- Hybrid Gate Candidate Selection: 완료. 600-frame 후보는 `static_zone_prior + tracker_memory + temporal_refresh_guard`, `static_zone_prior + lightweight_visual_priority`; traffic은 `lane_or_scale_prior + velocity_tracker` 별도 probe 필요.
+- Traffic Velocity / Scale Prior Probe: 완료. 단순 velocity prediction/scale margin은 120f/600f 모두에서 hold-memory를 개선하지 못해 velocity-only tracker는 기각.
+- Traffic Road / Lane Region Prior Probe: 완료. GT 기반 road envelope는 bbox recall 1.0을 달성하지만 600f에서 selected area가 64.6%까지 커져, whole-road ROI 대신 lane/road segmented prior + entry-zone guard + active segment packing으로 traffic 방향을 확정.
+- Shortlisted Hybrid Family 600-Frame Validation: 완료. `static_zone_prior + tracker_memory + temporal_refresh_guard`는 PhysicalAI(600f)/VisDrone(464f, 가용 최대)에서 0.90+ recall 유지(단, guard가 refresh interval보다 짧으면 recall 붕괴). `static_zone_prior + lightweight_visual_priority`는 Mall/MOT17-04(각 600f)에서 static-only 대비 bbox recall을 +0.59~+0.67 개선하나 dilation 필수, area 26~56%.
+- Final Domain/Scene Recommendation Matrix: 완료. 5개 공식 domain 전체에 recommendation을 확정하고 Phase 2 architecture family를 3개(logistics/general 공용, surveillance/retail 공용, traffic 전용)로 압축.
 
 도메인은 GPU/DeepStream 기반 video analytics 수요가 큰 vertical을 우선한다.
 
@@ -83,14 +97,15 @@ GPU detector에 넘길 수 있는 scene/domain 조건과 기술 조합을 찾는
 - periodic machine/background motion
 - low-light / compressed feed
 
-Phase 1.3의 종료 산출물은 단일 default profile이 아니라 scene/domain별 ROI Gate recommendation matrix와 다음 phase implementation target이다.
+Phase 1.3의 종료 산출물은 단일 default profile이 아니라 scene/domain별 ROI Gate recommendation matrix와 다음 phase implementation target이며, 완료됐다: `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md`.
 
-현재 Phase 1.3 준비 상태:
+Phase 1.3 최종 상태:
 
 - 5개 1차 dataset axis 준비 완료: traffic/parking, logistics/smart factory, surveillance/security, retail/space analytics, general multi-class stress.
-- `outputs/roi_proposal_validation/phase1_3_smoke_*` smoke run으로 stream, annotation, report generation 확인 완료.
-- 기존 motion-primary gate는 PhysicalAI indoor warehouse 외 domain에서 대부분 fallback/no-ROI로 붕괴하므로, Phase 1.3 본 실험은 이 결과를 baseline failure로 두고 후보 gate family를 비교한다.
-- 다음 작업은 scene/domain별 candidate matrix 실행과 recommendation 기준 확정이다.
+- 기존 motion-primary gate는 PhysicalAI indoor warehouse 외 domain에서 대부분 fallback/no-ROI로 붕괴하며, Phase 1.3은 이 baseline failure를 기준으로 8개 후보 gate family를 순차 비교했다.
+- 5개 domain 전체에 recommendation이 확정됐고, traffic은 `road/lane segmented prior + entry-zone guard + tracker/refresh in active segments + packing` 전용 방향으로 정리됐다.
+- Phase 2로 이동할 architecture family는 3개로 압축됐다: `static_zone_prior + tracker_memory + temporal_refresh_guard`(logistics, general multi-class), `static_zone_prior + lightweight_visual_priority`(surveillance, retail), traffic 전용 lane/segment prior.
+- Phase 1.3은 종료 상태이며, 남은 작업은 non-oracle detector refresh, ROI/tile packing, traffic lane/segment 정의 등 Phase 2 구현/runtime validation 항목이다.
 
 ## 현재 공유 문서
 
