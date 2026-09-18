@@ -628,7 +628,7 @@ OD-VIRAT Tiny는 annotation이 일부 객체만 포함하는 partial annotation 
 
 ## 15. Deferred to Phase 1.2
 
-아래 항목은 Phase 1.1에서 제외하고 `docs/plan/phase1_2_performance_improvement_plan.md` 또는 `docs/plan/phase1_3_alternative_roi_exploration_plan.md`로 이동한다.
+아래 항목은 Phase 1.1에서 제외하고 `docs/plan/phase1_2_performance_improvement_plan.md` 또는 `docs/plan/phase1_3_scene_domain_roi_gate_poc_plan.md`로 이동한다.
 
 | 항목 | 제외 이유 |
 |---|---|

@@ -14,9 +14,12 @@ from data_loader.annotation_common import (
     read_ground_truth_jsonl,
     write_ground_truth_jsonl,
 )
+from data_loader.annotation_mall import MallDatasetAnnotationLoader
+from data_loader.annotation_motchallenge import MotChallengeAnnotationLoader
 from data_loader.annotation_od_virat import OdViratTinyAnnotationLoader
 from data_loader.annotation_physicalai import PhysicalAiSmartSpacesAnnotationLoader
 from data_loader.annotation_ua_detrac import UaDetracAnnotationLoader
+from data_loader.annotation_visdrone import VisDroneVidAnnotationLoader
 from data_loader.dataset_stream import DatasetConfig
 
 
@@ -40,14 +43,23 @@ def create_annotation_loader(
         return UaDetracAnnotationLoader(input_path, dataset_config)
     if annotation_type == "physicalai_smartspaces_json":
         return PhysicalAiSmartSpacesAnnotationLoader(input_path, dataset_config, annotation_config)
+    if annotation_type in {"motchallenge_gt", "motchallenge"}:
+        return MotChallengeAnnotationLoader(input_path, dataset_config)
+    if annotation_type in {"mall_dataset_head_points", "mall_head_points"}:
+        return MallDatasetAnnotationLoader(input_path, dataset_config, annotation_config)
+    if annotation_type in {"visdrone_vid", "visdrone"}:
+        return VisDroneVidAnnotationLoader(input_path, dataset_config)
     raise ValueError(f"Unsupported annotations.type: {annotation_type}")
 
 
 __all__ = [
     "AnnotationLoader",
+    "MallDatasetAnnotationLoader",
+    "MotChallengeAnnotationLoader",
     "OdViratTinyAnnotationLoader",
     "PhysicalAiSmartSpacesAnnotationLoader",
     "UaDetracAnnotationLoader",
+    "VisDroneVidAnnotationLoader",
     "create_annotation_loader",
     "load_annotation_config",
     "read_ground_truth_jsonl",

@@ -1,0 +1,35 @@
+dataset:
+  type: image_sequence
+  input_path: data/mall_dataset/mall_dataset/frames
+  camera_id: mall-dataset
+  fps_override: 2
+  frame_limit: 120
+  start_frame: 0
+  image_extensions:
+    - .jpg
+
+annotations:
+  enabled: true
+  type: mall_dataset_head_points
+  input_path: data/mall_dataset/mall_dataset/mall_gt.mat
+  proxy_box_width: 24
+  proxy_box_height: 48
+  quality:
+    completeness: exhaustive
+    expected_exhaustive: true
+    unreliable_metrics:
+      - bbox_iou_precision
+      - detector_bbox_recall
+    notes:
+      - Mall Dataset is the Phase 1.3 retail/space analytics candidate.
+      - It provides fixed shopping-mall webcam frames with exhaustive pedestrian head-position labels.
+      - The upstream labels are points, not full person bounding boxes.
+      - This config converts each head point to a small proxy box only for ROI containment checks.
+
+validation:
+  target_classes:
+    - person
+  target_policy:
+    mode: target_aware_roi
+    notes:
+      - ROI quality is evaluated with pedestrian head-point proxy boxes for retail/crowd coverage.

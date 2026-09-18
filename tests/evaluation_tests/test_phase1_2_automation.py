@@ -12,7 +12,7 @@ from experiments.run_validation_matrix import (
     load_matrix_experiment,
     load_profile_registry,
 )
-from tools.classify_boundary_misses import classify_boundary_misses
+from tools.reports.classify_boundary_misses import classify_boundary_misses
 from visualization.artifacts import RoiRunArtifacts
 
 

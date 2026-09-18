@@ -7,7 +7,7 @@ Repo root에서 실행한다.
 ## Create Smoke Video
 
 ```bash
-python tools/create_smoke_video.py
+python tools/data/create_smoke_video.py
 ```
 
 Expected output:

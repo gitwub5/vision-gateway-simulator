@@ -7,12 +7,12 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from common.io import write_json, write_text
-from tools.summarize_roi_proposal_runs import render_markdown, summarize_runs
+from tools.reports.summarize_roi_proposal_runs import render_markdown, summarize_runs
 from visualization.roi_policy_comparison_renderer import render_roi_policy_comparison
 
 

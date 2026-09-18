@@ -50,7 +50,7 @@ outputs/validation_matrices/<experiment>_<timestamp>/
 `tile_trace` 또는 `full`로 완료된 run에서 실행한다.
 
 ```bash
-python tools/classify_boundary_misses.py \
+python tools/reports/classify_boundary_misses.py \
   --run-root outputs/roi_proposal_validation/<run_id>
 ```
 

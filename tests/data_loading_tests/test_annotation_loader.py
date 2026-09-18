@@ -7,9 +7,12 @@ from pathlib import Path
 
 from data_loader import DatasetConfig
 from data_loader.annotation_loader import (
+    MallDatasetAnnotationLoader,
+    MotChallengeAnnotationLoader,
     OdViratTinyAnnotationLoader,
     PhysicalAiSmartSpacesAnnotationLoader,
     UaDetracAnnotationLoader,
+    VisDroneVidAnnotationLoader,
     create_annotation_loader,
 )
 
@@ -102,6 +105,115 @@ class AnnotationLoaderTest(unittest.TestCase):
         self.assertEqual(annotations[0].frame_id, 1)
         self.assertEqual(annotations[0].class_name, "car")
         self.assertEqual(annotations[0].bbox_xyxy, [1.5, 2.5, 4.5, 6.5])
+
+    def test_motchallenge_loader_maps_one_based_gt_frames_to_dataset_frame_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_root = root / "img1"
+            image_root.mkdir()
+            for name in ["000001.jpg", "000002.jpg", "000003.jpg"]:
+                (image_root / name).write_text("image", encoding="utf-8")
+            annotation_root = root / "gt"
+            annotation_root.mkdir()
+            annotation_path = annotation_root / "gt.txt"
+            annotation_path.write_text(
+                "\n".join(
+                    [
+                        "1,10,100,110,20,30,1,1,1",
+                        "2,11,5.5,6.5,7,8,1,1,0.8",
+                        "3,12,1,2,3,4,0,1,1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = DatasetConfig(
+                type="image_sequence",
+                input_path=image_root,
+                camera_id="MOT17-04",
+                start_frame=1,
+                frame_limit=1,
+            )
+            annotations = MotChallengeAnnotationLoader(annotation_root, config).load()
+
+        self.assertEqual(len(annotations), 1)
+        self.assertEqual(annotations[0].file_name, "000002.jpg")
+        self.assertEqual(annotations[0].frame_id, 1)
+        self.assertEqual(annotations[0].class_name, "person")
+        self.assertEqual(annotations[0].bbox_xyxy, [5.5, 6.5, 12.5, 14.5])
+
+    def test_mall_dataset_loader_maps_head_points_to_proxy_boxes(self) -> None:
+        import numpy as np
+        import scipy.io as sio
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_root = root / "frames"
+            image_root.mkdir()
+            for name in ["seq_000001.jpg", "seq_000002.jpg", "seq_000003.jpg"]:
+                (image_root / name).write_text("image", encoding="utf-8")
+
+            frames = np.empty((1, 3), dtype=object)
+            frames[0, 0] = {"loc": np.array([[10.0, 20.0]])}
+            frames[0, 1] = {"loc": np.array([[100.0, 80.0], [50.0, 60.0]])}
+            frames[0, 2] = {"loc": np.array([[1.0, 2.0]])}
+            annotation_path = root / "mall_gt.mat"
+            sio.savemat(annotation_path, {"frame": frames, "count": np.array([[1, 2, 1]])})
+
+            config = DatasetConfig(
+                type="image_sequence",
+                input_path=image_root,
+                camera_id="mall",
+                start_frame=1,
+                frame_limit=1,
+            )
+            annotations = MallDatasetAnnotationLoader(
+                annotation_path,
+                config,
+                {"proxy_box_width": 20, "proxy_box_height": 40},
+            ).load()
+
+        self.assertEqual(len(annotations), 2)
+        self.assertEqual(annotations[0].file_name, "seq_000002.jpg")
+        self.assertEqual(annotations[0].frame_id, 1)
+        self.assertEqual(annotations[0].class_name, "person")
+        self.assertEqual(annotations[0].bbox_xyxy, [90.0, 72.0, 110.0, 112.0])
+        self.assertEqual(annotations[1].bbox_xyxy, [40.0, 52.0, 60.0, 92.0])
+
+    def test_visdrone_vid_loader_maps_annotations_to_dataset_frame_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image_root = root / "uav0000086_00000_v"
+            image_root.mkdir()
+            for name in ["0000001.jpg", "0000002.jpg", "0000003.jpg"]:
+                (image_root / name).write_text("image", encoding="utf-8")
+            annotation_path = root / "uav0000086_00000_v.txt"
+            annotation_path.write_text(
+                "\n".join(
+                    [
+                        "1,10,100,110,20,30,1,4,0,0",
+                        "2,11,5.5,6.5,7,8,1,1,0,1",
+                        "2,12,1,2,3,4,0,4,0,0",
+                        "3,13,1,2,3,4,1,0,0,0",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = DatasetConfig(
+                type="image_sequence",
+                input_path=image_root,
+                camera_id="uav0000086_00000_v",
+                start_frame=1,
+                frame_limit=1,
+            )
+            annotations = VisDroneVidAnnotationLoader(annotation_path, config).load()
+
+        self.assertEqual(len(annotations), 1)
+        self.assertEqual(annotations[0].file_name, "0000002.jpg")
+        self.assertEqual(annotations[0].frame_id, 1)
+        self.assertEqual(annotations[0].class_name, "pedestrian")
+        self.assertEqual(annotations[0].bbox_xyxy, [5.5, 6.5, 12.5, 14.5])
 
     def test_physicalai_loader_filters_camera_and_frame_range(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

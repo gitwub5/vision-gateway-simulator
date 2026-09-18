@@ -14,6 +14,7 @@
 | `smoke_test.md` | synthetic smoke test 생성과 빠른 pipeline 확인 |
 | `visualization.md` | ROI generation debug, single-run review, multi-run comparison |
 | `phase1_2_experiment_automation.md` | profile registry, matrix runner, boundary taxonomy |
+| `phase1_3_experiment_matrix.md` | domain별 Phase 1.3 ROI Gate POC matrix 실행 방법 |
 
 ## Command Style
 

@@ -29,6 +29,7 @@ outputs/reports/*
 !outputs/reports/.gitkeep
 data/
 /datasets/
+docs/idea/
 *.mp4
 *.avi
 *.mov
@@ -39,10 +40,10 @@ data/
 *.pth
 *.onnx
 *.engine
+/models/
 
 # OS / editor
 .DS_Store
 .idea/
 .vscode/
-docs/idea/
 .cache/

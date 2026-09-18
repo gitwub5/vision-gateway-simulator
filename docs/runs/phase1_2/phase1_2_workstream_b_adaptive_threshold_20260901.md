@@ -44,7 +44,7 @@ Secondary dataset:
 Taxonomy was generated for each completed run:
 
 ```bash
-.venv/bin/python tools/classify_boundary_misses.py \
+.venv/bin/python tools/reports/classify_boundary_misses.py \
   --run-root outputs/roi_proposal_validation/<run_id>
 ```
 
