@@ -26,8 +26,8 @@ Phase 1.3-B에서는 ROI를 공간 crop으로만 보지 않고, GPU detector를 
 Added:
 
 - `evaluation/reports/temporal_gate.py`
-- `experiments/run_temporal_gate_poc.py`
-- `experiments/run_temporal_gate_matrix.py`
+- `experiments/phase1_3/run_temporal_gate_poc.py`
+- `experiments/phase1_3/run_temporal_gate_matrix.py`
 - `tests/evaluation_tests/test_temporal_gate_report.py`
 
 The runner reuses existing dataset loaders and annotation loaders. For each frame, it records:
@@ -96,5 +96,5 @@ Full generated table:
 ## Verification
 
 - `.venv/bin/python -m unittest tests.evaluation_tests.test_temporal_gate_report`
-- `.venv/bin/python experiments/run_temporal_gate_matrix.py ...`
+- `.venv/bin/python experiments/phase1_3/run_temporal_gate_matrix.py ...`
 

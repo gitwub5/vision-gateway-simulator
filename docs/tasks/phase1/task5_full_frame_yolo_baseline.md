@@ -17,7 +17,7 @@ Detection JSONL + full-frame metrics
 ## 변경한 주요 파일
 
 - `gpu_inference/yolo_full_frame.py`
-- `experiments/run_full_frame_baseline.py`
+- `experiments/phase1_legacy/run_full_frame_baseline.py`
 - `tests/test_yolo_full_frame.py`
 - `requirements.txt`
 - `docs/plan/phase1_implementation_plan.md`
@@ -78,7 +78,7 @@ pip install -r requirements.txt
 기본 실행:
 
 ```bash
-python experiments/run_full_frame_baseline.py \
+python experiments/phase1_legacy/run_full_frame_baseline.py \
   --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml
 ```
@@ -86,7 +86,7 @@ python experiments/run_full_frame_baseline.py \
 짧은 구간만 실행:
 
 ```bash
-python experiments/run_full_frame_baseline.py \
+python experiments/phase1_legacy/run_full_frame_baseline.py \
   --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --limit 10

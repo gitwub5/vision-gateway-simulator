@@ -26,7 +26,7 @@ Selection output:
 추가한 구현:
 
 - `evaluation/reports/hybrid_gate_selection.py`
-- `experiments/run_hybrid_gate_candidate_selection.py`
+- `experiments/phase1_3/run_hybrid_gate_candidate_selection.py`
 - `tests/evaluation_tests/test_hybrid_gate_selection_report.py`
 
 ## Candidate Families
@@ -138,5 +138,5 @@ Deferred:
 ## Verification
 
 - `python -m unittest tests.evaluation_tests.test_hybrid_gate_selection_report`
-- `python -m py_compile evaluation/reports/hybrid_gate_selection.py experiments/run_hybrid_gate_candidate_selection.py tests/evaluation_tests/test_hybrid_gate_selection_report.py`
-- `python experiments/run_hybrid_gate_candidate_selection.py --run-id phase1_3_hybrid_gate_candidate_selection_20260917`
+- `python -m py_compile evaluation/reports/hybrid_gate_selection.py experiments/phase1_3/run_hybrid_gate_candidate_selection.py tests/evaluation_tests/test_hybrid_gate_selection_report.py`
+- `python experiments/phase1_3/run_hybrid_gate_candidate_selection.py --run-id phase1_3_hybrid_gate_candidate_selection_20260917`

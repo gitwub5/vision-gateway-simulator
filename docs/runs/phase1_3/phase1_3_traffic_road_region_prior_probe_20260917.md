@@ -17,7 +17,7 @@ Traffic ROI는 개별 차량 velocity보다 road/lane region prior가 먼저 필
 추가한 구현:
 
 - `evaluation/reports/road_region_prior.py`
-- `experiments/run_road_region_prior_poc.py`
+- `experiments/phase1_3/run_road_region_prior_poc.py`
 - `tests/evaluation_tests/test_road_region_prior_report.py`
 
 Profile:
@@ -104,6 +104,6 @@ That belongs either to the last Phase 1.3 validation pass or early Phase 2 imple
 ## Verification
 
 - `python -m unittest tests.evaluation_tests.test_road_region_prior_report`
-- `python -m py_compile evaluation/reports/road_region_prior.py experiments/run_road_region_prior_poc.py tests/evaluation_tests/test_road_region_prior_report.py`
-- `python experiments/run_road_region_prior_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 120`
-- `python experiments/run_road_region_prior_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 600`
+- `python -m py_compile evaluation/reports/road_region_prior.py experiments/phase1_3/run_road_region_prior_poc.py tests/evaluation_tests/test_road_region_prior_report.py`
+- `python experiments/phase1_3/run_road_region_prior_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 120`
+- `python experiments/phase1_3/run_road_region_prior_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 600`

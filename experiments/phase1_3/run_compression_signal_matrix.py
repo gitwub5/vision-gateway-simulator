@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -74,7 +74,7 @@ def build_compression_signal_matrix_plan(
         run_root = Path(run_output_root) / run_id
         command = (
             sys.executable,
-            str(PROJECT_ROOT / "experiments" / "run_compression_signal_poc.py"),
+            str(PROJECT_ROOT / "experiments" / "phase1_3" / "run_compression_signal_poc.py"),
             "--dataset-config",
             project_relative(experiment.dataset),
             "--experiment-name",

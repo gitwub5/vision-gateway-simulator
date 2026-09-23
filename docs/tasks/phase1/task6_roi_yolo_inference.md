@@ -20,7 +20,7 @@ restored Detection JSONL + ROI YOLO metrics
 - `gpu_inference/coordinate_restore.py`
 - `gpu_inference/__init__.py`
 - `gpu_inference/yolo_full_frame.py`
-- `experiments/run_roi_yolo_inference.py`
+- `experiments/phase1_legacy/run_roi_yolo_inference.py`
 - `tests/test_yolo_roi.py`
 - `docs/plan/phase1_implementation_plan.md`
 - `README.md`
@@ -96,7 +96,7 @@ python experiments/run_rule_roi_baseline.py \
 그 다음 ROI YOLO inference를 실행한다.
 
 ```bash
-python experiments/run_roi_yolo_inference.py \
+python experiments/phase1_legacy/run_roi_yolo_inference.py \
   --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
@@ -106,7 +106,7 @@ python experiments/run_roi_yolo_inference.py \
 짧은 구간만 실행:
 
 ```bash
-python experiments/run_roi_yolo_inference.py \
+python experiments/phase1_legacy/run_roi_yolo_inference.py \
   --dataset-config configs/datasets/base/default.yaml \
   --model-config configs/models/yolo_default.yaml \
   --limit 10
@@ -115,7 +115,7 @@ python experiments/run_roi_yolo_inference.py \
 periodic full-frame check를 제외하고 ROI crop만 실행:
 
 ```bash
-python experiments/run_roi_yolo_inference.py \
+python experiments/phase1_legacy/run_roi_yolo_inference.py \
   --disable-full-frame-checks
 ```
 

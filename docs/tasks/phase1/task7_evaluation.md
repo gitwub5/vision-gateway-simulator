@@ -21,7 +21,7 @@ comparison_report.md
 - `evaluation/workload_metrics.py`
 - `evaluation/latency_metrics.py`
 - `evaluation/__init__.py`
-- `experiments/compare_results.py`
+- `experiments/phase1_legacy/compare_results.py`
 - `tests/test_evaluation.py`
 - `docs/plan/phase1_implementation_plan.md`
 - `README.md`
@@ -83,14 +83,14 @@ Task 4~6 산출물이 먼저 필요하다.
 
 ```bash
 python experiments/run_rule_roi_baseline.py
-python experiments/run_full_frame_baseline.py
-python experiments/run_roi_yolo_inference.py
+python experiments/phase1_legacy/run_full_frame_baseline.py
+python experiments/phase1_legacy/run_roi_yolo_inference.py
 ```
 
 비교 report 생성:
 
 ```bash
-python experiments/compare_results.py \
+python experiments/phase1_legacy/compare_results.py \
   --full-frame-detections outputs/detections/full_frame.jsonl \
   --roi-detections outputs/detections/roi_yolo.jsonl \
   --full-frame-metrics outputs/reports/full_frame_metrics.json \
@@ -104,7 +104,7 @@ python experiments/compare_results.py \
 IoU threshold 변경:
 
 ```bash
-python experiments/compare_results.py --iou-threshold 0.4
+python experiments/phase1_legacy/compare_results.py --iou-threshold 0.4
 ```
 
 ## 검증 방법
@@ -112,7 +112,7 @@ python experiments/compare_results.py --iou-threshold 0.4
 ```bash
 python3 -m compileall common data_loader roi_generator gpu_inference evaluation experiments tests tools
 python3 -m unittest tests.test_evaluation
-python3 experiments/compare_results.py --help
+python3 experiments/phase1_legacy/compare_results.py --help
 ```
 
 검증 항목:

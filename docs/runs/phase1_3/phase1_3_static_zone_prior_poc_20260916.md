@@ -26,8 +26,8 @@ Phase 1.3-C에서는 motion 없이도 카메라별로 항상 봐야 하는 영�
 Added:
 
 - `evaluation/reports/static_zone_prior.py`
-- `experiments/run_static_zone_prior_poc.py`
-- `experiments/run_static_zone_prior_matrix.py`
+- `experiments/phase1_3/run_static_zone_prior_poc.py`
+- `experiments/phase1_3/run_static_zone_prior_matrix.py`
 - `tests/evaluation_tests/test_static_zone_prior_report.py`
 
 Method:
@@ -85,6 +85,6 @@ Static prior should move forward as a candidate component, not as a final standa
 ## Verification
 
 - `.venv/bin/python -m unittest tests.evaluation_tests.test_static_zone_prior_report`
-- `.venv/bin/python -m py_compile evaluation/reports/static_zone_prior.py experiments/run_static_zone_prior_poc.py experiments/run_static_zone_prior_matrix.py tests/evaluation_tests/test_static_zone_prior_report.py`
-- `.venv/bin/python experiments/run_static_zone_prior_matrix.py ...`
+- `.venv/bin/python -m py_compile evaluation/reports/static_zone_prior.py experiments/phase1_3/run_static_zone_prior_poc.py experiments/phase1_3/run_static_zone_prior_matrix.py tests/evaluation_tests/test_static_zone_prior_report.py`
+- `.venv/bin/python experiments/phase1_3/run_static_zone_prior_matrix.py ...`
 

@@ -40,7 +40,7 @@ A2의 첫 작업은 A1 policy 후보를 바꾸지 않고, ROI/tile/batch cost co
 Focused A2 tests passed before the additional gate-path assertions:
 
 ```bash
-/Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest \
+python3 -m unittest \
   tests.roi_generator_tests.test_roi_budget \
   tests.roi_generator_tests.test_roi_generator \
   tests.roi_generator_tests.test_roi_metadata \
@@ -58,7 +58,7 @@ OK
 Compile check passed:
 
 ```bash
-/Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall \
+python3 -m compileall \
   common roi_generator evaluation gpu_inference experiments tests
 ```
 
@@ -70,7 +70,7 @@ Full unittest discovery was initially blocked by missing local test dependencies
 The bundled Python environment was updated with:
 
 ```bash
-/Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m pip install \
+python3 -m pip install \
   opencv-python \
   PyYAML
 ```
@@ -78,7 +78,7 @@ The bundled Python environment was updated with:
 After installing the missing test dependencies, full unittest discovery passed:
 
 ```bash
-/Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s tests
+python3 -m unittest discover -s tests
 ```
 
 Result:
@@ -98,7 +98,7 @@ After the implementation review, extra tests were added to cover:
 Full unittest discovery after these extra assertions:
 
 ```bash
-/Users/gwshin/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s tests
+python3 -m unittest discover -s tests
 ```
 
 Result:

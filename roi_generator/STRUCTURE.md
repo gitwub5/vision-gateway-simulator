@@ -59,11 +59,8 @@ Signal을 ROI/tile 후보로 변환하는 primitive를 둔다.
 |---|---|
 | `policies/base.py` | policy interface |
 | `policies/component_bbox.py` | 기존 방식. `component_bbox` baseline |
-
-A1 추가 예정:
-
-- `policies/tile_mask.py`
-- `policies/hybrid_component_tile.py`
+| `policies/tile_mask.py` | tile motion density를 기준으로 ROI를 선택하는 policy |
+| `policies/hybrid_component_tile.py` | component와 tile 후보를 함께 사용하는 policy |
 
 ## `observability/`
 

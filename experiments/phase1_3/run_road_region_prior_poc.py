@@ -1,4 +1,4 @@
-"""Run Phase 1.3-C static zone / camera-prior POC on one annotated dataset."""
+"""Run Phase 1.3 traffic road/lane region prior POC."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -19,18 +19,18 @@ from common.io import load_yaml_config, write_json, write_jsonl
 from data_loader.annotation_loader import create_annotation_loader
 from data_loader.dataset_stream import create_dataset_stream, load_dataset_config
 from evaluation.metrics.class_filter import filter_gt_by_target_classes
-from evaluation.reports.static_zone_prior import (
-    GridShape,
-    build_static_zone_prior_report,
-    default_static_zone_profiles,
-    write_static_zone_prior_report_json,
-    write_static_zone_prior_report_markdown,
+from evaluation.reports.road_region_prior import (
+    RoadGridShape,
+    build_road_region_prior_report,
+    default_road_region_prior_profiles,
+    write_road_region_prior_report_json,
+    write_road_region_prior_report_markdown,
 )
 
-DEFAULT_OUTPUT_ROOT = "outputs/static_zone_prior_poc"
+DEFAULT_OUTPUT_ROOT = "outputs/road_region_prior_poc"
 
 
-def run_static_zone_prior_poc(
+def run_road_region_prior_poc(
     dataset_config_path: str | Path,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     experiment_name: str | None = None,
@@ -47,33 +47,32 @@ def run_static_zone_prior_poc(
 
     frame_count, frame_size = _inspect_stream(dataset_config)
     annotations = _load_target_annotations(raw_config, dataset_config)
+    target_classes = _target_classes_from_config(raw_config)
     name = experiment_name or str(raw_config.get("name") or dataset_path.stem)
     suffix = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
-    selected_run_id = run_id or f"{name}_static_zone_prior_{suffix}"
+    selected_run_id = run_id or f"{name}_road_region_prior_{suffix}"
     run_root = Path(output_root) / selected_run_id
     report_root = run_root / "reports"
-    cells_path = run_root / "static_zone_cells.jsonl"
-    report_json_path = report_root / "static_zone_prior_report.json"
-    report_md_path = report_root / "static_zone_prior_report.md"
-    target_classes = _target_classes_from_config(raw_config)
+    cells_path = run_root / "road_region_cells.jsonl"
+    report_json_path = report_root / "road_region_prior_report.json"
+    report_md_path = report_root / "road_region_prior_report.md"
 
-    report, cell_records = build_static_zone_prior_report(
+    report, cell_records = build_road_region_prior_report(
         ground_truth=annotations,
         frame_count=frame_count,
         frame_size=frame_size,
-        grid_shape=GridShape(columns=grid_columns, rows=grid_rows),
-        profiles=default_static_zone_profiles(),
+        grid_shape=RoadGridShape(columns=grid_columns, rows=grid_rows),
+        profiles=default_road_region_prior_profiles(),
         dataset_config=project_relative(dataset_path),
         experiment_name=name,
         target_classes=target_classes,
     )
     write_jsonl(cell_records, cells_path)
-    write_static_zone_prior_report_json(report, report_json_path)
-    write_static_zone_prior_report_markdown(report, report_md_path)
-
+    write_road_region_prior_report_json(report, report_json_path)
+    write_road_region_prior_report_markdown(report, report_md_path)
     manifest = {
         "schema_version": 1,
-        "pipeline_type": "static_zone_prior_poc",
+        "pipeline_type": "road_region_prior_poc",
         "experiment_name": name,
         "run_id": selected_run_id,
         "dataset_config": project_relative(dataset_path),
@@ -129,7 +128,7 @@ def _inspect_stream(dataset_config) -> tuple[int, FrameSize]:
             frame_size = packet.original_size
         elif packet.original_size != frame_size:
             raise ValueError(
-                f"Static zone POC requires fixed frame size: {frame_size} -> {packet.original_size}"
+                f"Road region prior POC requires fixed frame size: {frame_size} -> {packet.original_size}"
             )
     if frame_size is None:
         raise ValueError("Dataset stream produced no frames.")
@@ -149,7 +148,7 @@ def _target_classes_from_config(raw_config: dict[str, Any]) -> tuple[str, ...]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Phase 1.3-C static zone prior POC.")
+    parser = argparse.ArgumentParser(description="Run Phase 1.3 traffic road/lane region prior POC.")
     parser.add_argument("--dataset-config", required=True)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--experiment-name")
@@ -162,7 +161,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    manifest = run_static_zone_prior_poc(
+    manifest = run_road_region_prior_poc(
         dataset_config_path=args.dataset_config,
         output_root=args.output_root,
         experiment_name=args.experiment_name,
