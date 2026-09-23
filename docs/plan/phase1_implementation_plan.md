@@ -95,9 +95,9 @@ docs/tasks/phase1/task3_rule_based_roi_generator.md
 | Task 2. Dataset Stream Loader | Owner A | Owner B | `data_loader/`, `common/schemas.py`, `configs/datasets/base/default.yaml` |
 | Task 3. Rule-based ROI generator Emulator | Owner A | Owner B | `roi_generator/`, `configs/roi_generator/base/default.yaml` |
 | Task 4. ROI Metadata 저장 | Owner A | Owner B | `roi_generator/metadata.py`, `common/schemas.py`, `outputs/roi_metadata/` |
-| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/run_full_frame_baseline.py`, `configs/models/yolo_default.yaml` |
+| Task 5. Full-frame YOLO Baseline | Owner B | Owner A | `gpu_inference/yolo_full_frame.py`, `experiments/phase1_legacy/run_full_frame_baseline.py`, `configs/models/yolo_default.yaml` |
 | Task 6. ROI YOLO Inference | Owner B | Owner A | `gpu_inference/yolo_roi.py`, `gpu_inference/coordinate_restore.py` |
-| Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/compare_results.py`, `outputs/reports/` |
+| Task 7. Evaluation | Owner B | Owner A | `evaluation/`, `experiments/phase1_legacy/compare_results.py`, `outputs/reports/` |
 | Task 8. Visualization | Owner B | Owner A | `outputs/visualizations/`, visualization helper modules |
 | Support. Sample Data Utility | Owner A | Owner B | `tools/datasets/download_sample_data.py`, `docs/how-to/dataset_setup.md`, `configs/datasets/**/*.yaml` |
 

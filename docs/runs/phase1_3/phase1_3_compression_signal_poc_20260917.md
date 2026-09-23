@@ -18,8 +18,8 @@ Compression Signal Prototype은 pixel decode 이후의 motion/edge/tile 신호�
 추가한 구현:
 
 - `evaluation/reports/compression_signal.py`
-- `experiments/run_compression_signal_poc.py`
-- `experiments/run_compression_signal_matrix.py`
+- `experiments/phase1_3/run_compression_signal_poc.py`
+- `experiments/phase1_3/run_compression_signal_matrix.py`
 - `tests/evaluation_tests/test_compression_signal_report.py`
 
 runner는 dataset이 video stream이면 `ffprobe`로 frame-level metadata를 추출하고, image sequence이면 encoded stream metadata가 보존되지 않았다고 기록한다.
@@ -63,4 +63,4 @@ Compression signal은 Phase 1.3의 immediate ROI candidate에서 제외하고, P
 ## Verification
 
 - `python -m unittest tests.evaluation_tests.test_compression_signal_report`
-- `python -m py_compile evaluation/reports/compression_signal.py experiments/run_compression_signal_poc.py experiments/run_compression_signal_matrix.py tests/evaluation_tests/test_compression_signal_report.py`
+- `python -m py_compile evaluation/reports/compression_signal.py experiments/phase1_3/run_compression_signal_poc.py experiments/phase1_3/run_compression_signal_matrix.py tests/evaluation_tests/test_compression_signal_report.py`

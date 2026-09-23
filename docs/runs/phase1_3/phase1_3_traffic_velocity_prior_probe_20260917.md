@@ -13,7 +13,7 @@ Phase 1.3-G에서 Traffic / UA-DETRAC은 기존 hybrid 후보로 바로 올리�
 추가한 구현:
 
 - `evaluation/reports/velocity_prior_tracker.py`
-- `experiments/run_velocity_prior_tracker_poc.py`
+- `experiments/phase1_3/run_velocity_prior_tracker_poc.py`
 - `tests/evaluation_tests/test_velocity_prior_tracker_report.py`
 
 Profile:
@@ -83,6 +83,6 @@ Traffic 후보를 `velocity_tracker` 단독으로 600-frame validation shortlist
 ## Verification
 
 - `python -m unittest tests.evaluation_tests.test_velocity_prior_tracker_report`
-- `python -m py_compile evaluation/reports/velocity_prior_tracker.py experiments/run_velocity_prior_tracker_poc.py tests/evaluation_tests/test_velocity_prior_tracker_report.py`
-- `python experiments/run_velocity_prior_tracker_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 120`
-- `python experiments/run_velocity_prior_tracker_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 600`
+- `python -m py_compile evaluation/reports/velocity_prior_tracker.py experiments/phase1_3/run_velocity_prior_tracker_poc.py tests/evaluation_tests/test_velocity_prior_tracker_report.py`
+- `python experiments/phase1_3/run_velocity_prior_tracker_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 120`
+- `python experiments/phase1_3/run_velocity_prior_tracker_poc.py --dataset-config configs/datasets/ua_detrac/ua_detrac_mvi_39361.yaml --limit 600`

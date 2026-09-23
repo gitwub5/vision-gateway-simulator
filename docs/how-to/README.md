@@ -8,6 +8,7 @@
 
 | File | Scope |
 |---|---|
+| `quickstart.md` | 새 환경에서 unit test, synthetic smoke, 공개 sample 실행 |
 | `dataset_setup.md` | sample dataset 준비와 config 확인 |
 | `roi_proposal_validation.md` | ROI proposal validation 실행 방법 |
 | `e2e_inference_validation.md` | ROI gate + YOLO E2E validation 실행 방법 |
@@ -21,3 +22,4 @@
 - repo root에서 실행하는 명령만 기록한다.
 - run 결과 수치와 해석은 `docs/runs/`에 기록한다.
 - 계획 변경이나 판단 기준은 `docs/plan/`에 기록한다.
+- 처음 프로젝트를 실행하는 사용자가 따라야 할 최소 경로는 `quickstart.md`에 유지한다.

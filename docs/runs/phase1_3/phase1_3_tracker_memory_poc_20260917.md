@@ -31,8 +31,8 @@ full-frame detector 호출과 입력 면적을 얼마나 줄이면서 recall을 
 Added:
 
 - `evaluation/reports/tracker_memory.py`
-- `experiments/run_tracker_memory_poc.py`
-- `experiments/run_tracker_memory_matrix.py`
+- `experiments/phase1_3/run_tracker_memory_poc.py`
+- `experiments/phase1_3/run_tracker_memory_matrix.py`
 - `tests/evaluation_tests/test_tracker_memory_report.py`
 
 The runner reuses existing dataset loaders and annotation loaders. It records per-frame memory ROI count, containment, refresh state, and estimated effective input area.
@@ -86,6 +86,6 @@ Carry tracker memory forward as a component, not as a universal standalone gate:
 ## Verification
 
 - `.venv/bin/python -m unittest tests.evaluation_tests.test_tracker_memory_report`
-- `.venv/bin/python -m py_compile evaluation/reports/tracker_memory.py experiments/run_tracker_memory_poc.py experiments/run_tracker_memory_matrix.py tests/evaluation_tests/test_tracker_memory_report.py`
-- `.venv/bin/python experiments/run_tracker_memory_matrix.py ...`
+- `.venv/bin/python -m py_compile evaluation/reports/tracker_memory.py experiments/phase1_3/run_tracker_memory_poc.py experiments/phase1_3/run_tracker_memory_matrix.py tests/evaluation_tests/test_tracker_memory_report.py`
+- `.venv/bin/python experiments/phase1_3/run_tracker_memory_matrix.py ...`
 

@@ -25,36 +25,42 @@ Dataset stream
    - 프로젝트 목적, 빠른 실행, 폴더 역할을 확인한다.
 
 2. `docs/README.md`
-   - 공유 문서와 로컬 idea 문서의 경계를 확인한다.
+   - 전체 문서의 역할과 읽는 순서를 확인한다.
 
-3. `docs/plan/README.md`
-   - 현재 공유 plan 문서 목록과 문서별 용도를 확인한다.
+3. `docs/current_status.md`
+   - 완료된 Phase, 현재 결론, 한계와 다음 작업을 확인한다.
 
-4. 현재 작업 phase의 plan 문서
-   - 예: `docs/plan/phase1_implementation_plan.md`, `docs/plan/phase1_1_implementation_plan.md`, `docs/plan/phase1_validation_plan.md`
+4. `docs/architecture.md`
+   - runtime data contract와 모듈 경계를 확인한다.
 
-5. `docs/tasks/README.md`
-   - Task 문서가 Phase별로 정리되는 규칙을 확인한다.
+5. `docs/how-to/quickstart.md`
+   - unit test와 synthetic smoke run으로 환경을 확인한다.
 
-6. 필요한 Task 문서
-   - Phase별 구현 세부 내용은 `docs/tasks/phase*/` 아래에 있다.
+6. 필요한 plan/run/task 문서
+   - 현재 판단은 최신 run 문서를 우선하고, 과거 plan과 task는 구현 배경을 확인할 때 읽는다.
 
 ## 문서 구조
 
 ```text
 docs/
   README.md
+  current_status.md
+  architecture.md
+  how-to/
+    quickstart.md
   plan/
     README.md
     phase1_implementation_plan.md
     phase1_1_implementation_plan.md
+    phase1_2_performance_improvement_plan.md
+    phase1_3_scene_domain_roi_gate_poc_plan.md
     phase1_validation_plan.md
     vision_frontend_validation_roadmap.md
   tasks/
     README.md
     phase1/
       task2_dataset_stream_loader.md
-      task3_rule_based_roi_gate.md
+      task3_rule_based_roi_generator.md
       task4_roi_metadata.md
       task5_full_frame_yolo_baseline.md
       task6_roi_yolo_inference.md
@@ -62,6 +68,9 @@ docs/
       task8_visualization.md
   runs/
     phase1/phase1_validation_runs.md
+    phase1_1/
+    phase1_2/
+    phase1_3/
   idea/       # gitignored, local-only
 ```
 
@@ -77,11 +86,11 @@ docs/
 
 이 섹션은 phase별 세부 구현 상태를 길게 복제하지 않고, 새 agent가 어디를 보면 되는지만 안내한다.
 
-- Phase별 구현 계획은 `docs/plan/phase*_implementation_plan.md`를 확인한다.
-- 공통 검증 파이프라인은 `docs/plan/phase1_validation_plan.md`를 확인한다.
-- 실제 run 기록과 report 위치는 `docs/runs/phase1/phase1_validation_runs.md`를 확인한다.
-- Phase 1.1 ROI/gate policy 개선 계획은 `docs/plan/phase1_1_implementation_plan.md`를 확인한다.
-- Phase 2 SNN 전환, DeepStream과의 경계, 사업성 판단처럼 아직 공유하기 이른 내용은 `docs/idea/`에서 로컬 메모로 관리한다.
+- Phase 1~1.3 탐색은 완료됐다. 현재 상태는 `docs/current_status.md`를 기준으로 판단한다.
+- Phase 1.3 최종 결론은 `docs/runs/phase1_3/phase1_3_final_domain_recommendation_matrix_20260917.md`에 있다.
+- Phase 2 architecture family는 선정됐지만 production runtime path 구현은 시작하지 않았다.
+- 과거 계획은 `docs/plan/`, 실제 실행 기록은 `docs/runs/`, 구현 배경은 `docs/tasks/`에서 확인한다.
+- DeepStream, hardware, SNN 전환과 사업성 판단처럼 아직 공유하기 이른 내용은 `docs/idea/`에서 로컬 메모로 관리한다.
 
 ## 주요 코드 위치
 
@@ -93,7 +102,7 @@ docs/
 | `gpu_inference/` | full-frame YOLO, ROI YOLO, coordinate restore |
 | `evaluation/` | recall, containment, workload, latency report |
 | `visualization/` | ROI overlay, comparison, failure case render |
-| `experiments/` | end-to-end 실행 script |
+| `experiments/` | 대표 validation runner와 Phase별 연구 재현 script. 선택 기준은 `experiments/README.md` 참고 |
 | `configs/` | dataset/gate/YOLO config |
 | `tools/` | sample data, smoke video, auxiliary scripts |
 

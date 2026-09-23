@@ -31,8 +31,8 @@ Phase 1.3-E에서는 motion map 없이 단일 RGB frame에서 계산 가능한 c
 Added:
 
 - `evaluation/reports/lightweight_visual_signal.py`
-- `experiments/run_lightweight_visual_signal_poc.py`
-- `experiments/run_lightweight_visual_signal_matrix.py`
+- `experiments/phase1_3/run_lightweight_visual_signal_poc.py`
+- `experiments/phase1_3/run_lightweight_visual_signal_matrix.py`
 - `tests/evaluation_tests/test_lightweight_visual_signal_report.py`
 
 The runner computes per-frame cell scores from grayscale edge/texture signals, selects top-scoring cells, and evaluates center/bbox containment against target GT.
@@ -95,6 +95,6 @@ Carry lightweight visual signal forward only as a hybrid component:
 ## Verification
 
 - `.venv/bin/python -m unittest tests.evaluation_tests.test_lightweight_visual_signal_report`
-- `.venv/bin/python -m py_compile evaluation/reports/lightweight_visual_signal.py experiments/run_lightweight_visual_signal_poc.py experiments/run_lightweight_visual_signal_matrix.py tests/evaluation_tests/test_lightweight_visual_signal_report.py`
-- `.venv/bin/python experiments/run_lightweight_visual_signal_matrix.py ...`
+- `.venv/bin/python -m py_compile evaluation/reports/lightweight_visual_signal.py experiments/phase1_3/run_lightweight_visual_signal_poc.py experiments/phase1_3/run_lightweight_visual_signal_matrix.py tests/evaluation_tests/test_lightweight_visual_signal_report.py`
+- `.venv/bin/python experiments/phase1_3/run_lightweight_visual_signal_matrix.py ...`
 

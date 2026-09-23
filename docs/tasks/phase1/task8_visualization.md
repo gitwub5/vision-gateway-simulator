@@ -17,7 +17,7 @@ ROI overlay / detection comparison / failure case images
 
 - `visualization/renderer.py`
 - `visualization/__init__.py`
-- `experiments/render_visualizations.py`
+- `experiments/phase1_legacy/render_visualizations.py`
 - `tests/test_visualization.py`
 - `docs/plan/phase1_implementation_plan.md`
 - `README.md`
@@ -65,15 +65,15 @@ Task 4~7 산출물이 먼저 필요하다.
 
 ```bash
 python experiments/run_rule_roi_baseline.py
-python experiments/run_full_frame_baseline.py
-python experiments/run_roi_yolo_inference.py
-python experiments/compare_results.py
+python experiments/phase1_legacy/run_full_frame_baseline.py
+python experiments/phase1_legacy/run_roi_yolo_inference.py
+python experiments/phase1_legacy/compare_results.py
 ```
 
 시각화 생성:
 
 ```bash
-python experiments/render_visualizations.py \
+python experiments/phase1_legacy/render_visualizations.py \
   --dataset-config configs/datasets/base/default.yaml \
   --roi-metadata outputs/roi_metadata/rule_roi.jsonl \
   --full-frame-detections outputs/detections/full_frame.jsonl \
@@ -84,13 +84,13 @@ python experiments/render_visualizations.py \
 일부 frame만 렌더링:
 
 ```bash
-python experiments/render_visualizations.py --render-limit 20
+python experiments/phase1_legacy/render_visualizations.py --render-limit 20
 ```
 
 실패 사례 IoU threshold 변경:
 
 ```bash
-python experiments/render_visualizations.py --iou-threshold 0.4
+python experiments/phase1_legacy/render_visualizations.py --iou-threshold 0.4
 ```
 
 ## 검증 방법
@@ -98,7 +98,7 @@ python experiments/render_visualizations.py --iou-threshold 0.4
 ```bash
 python3 -m compileall common data_loader roi_generator gpu_inference evaluation visualization experiments tests tools
 python3 -m unittest tests.test_visualization
-python3 experiments/render_visualizations.py --help
+python3 experiments/phase1_legacy/render_visualizations.py --help
 ```
 
 검증 항목:

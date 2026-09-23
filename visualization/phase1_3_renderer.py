@@ -121,7 +121,7 @@ def render_summary_tradeoff_chart(runs: list[dict[str, Any]], output_path: Path)
     ax.set_yticks(y, [row["domain"] for row in rows])
     ax.set_xlim(0, 1.02)
     ax.set_xlabel("ratio")
-    ax.set_title("Phase 1.3 best observed profile by domain")
+    ax.set_title("Best observed ROI profile by domain")
     ax.grid(axis="x", alpha=0.25)
     ax.legend(loc="lower right")
     for index, row in enumerate(rows):
@@ -152,7 +152,7 @@ def render_recommendation_matrix(runs: list[dict[str, Any]], output_path: Path) 
     im = ax.imshow(matrix, vmin=0, vmax=1, cmap="viridis", aspect="auto")
     ax.set_xticks(range(len(labels)), labels, rotation=25, ha="right")
     ax.set_yticks(range(3), ["GT recall", "Input reduction", "ROI count pressure"])
-    ax.set_title("Phase 1.3 validation signals")
+    ax.set_title("Cross-domain ROI validation signals")
     for row in range(matrix.shape[0]):
         for col in range(matrix.shape[1]):
             ax.text(col, row, f"{matrix[row, col]:.2f}", ha="center", va="center", color="white", fontsize=9)

@@ -1,4 +1,4 @@
-"""Run Phase 1.3-D tracker-memory POC across dataset configs."""
+"""Run Phase 1.3-E lightweight visual signal POC across dataset configs."""
 
 from __future__ import annotations
 
@@ -11,25 +11,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from common.io import load_yaml_config, write_json, write_text
 
-DEFAULT_OUTPUT_ROOT = "outputs/tracker_memory_poc"
-DEFAULT_MATRIX_OUTPUT_ROOT = "outputs/tracker_memory_matrices"
+DEFAULT_OUTPUT_ROOT = "outputs/lightweight_visual_signal_poc"
+DEFAULT_MATRIX_OUTPUT_ROOT = "outputs/lightweight_visual_signal_matrices"
 
 
 @dataclass(frozen=True)
-class TrackerMemoryMatrixExperiment:
+class LightweightSignalMatrixExperiment:
     name: str
     dataset: Path
     limit: int
 
 
 @dataclass(frozen=True)
-class PlannedTrackerMemoryRun:
+class PlannedLightweightSignalRun:
     experiment_name: str
     dataset: Path
     run_id: str
@@ -44,7 +44,7 @@ class PlannedTrackerMemoryRun:
         return data
 
 
-def load_tracker_memory_matrix_experiment(path: str | Path) -> TrackerMemoryMatrixExperiment:
+def load_lightweight_signal_matrix_experiment(path: str | Path) -> LightweightSignalMatrixExperiment:
     experiment_path = resolve_project_path(path)
     data = load_yaml_config(experiment_path)
     if data.get("schema_version") != 1:
@@ -55,26 +55,28 @@ def load_tracker_memory_matrix_experiment(path: str | Path) -> TrackerMemoryMatr
     limit = int(data.get("limit", 0))
     if limit <= 0:
         raise ValueError("Experiment limit must be a positive integer.")
-    return TrackerMemoryMatrixExperiment(
+    return LightweightSignalMatrixExperiment(
         name=str(data.get("name") or experiment_path.stem),
         dataset=dataset,
         limit=limit,
     )
 
 
-def build_tracker_memory_matrix_plan(
+def build_lightweight_signal_matrix_plan(
     experiment_configs: list[str | Path],
     run_output_root: str | Path,
     run_suffix: str,
-) -> list[PlannedTrackerMemoryRun]:
-    plan: list[PlannedTrackerMemoryRun] = []
+    grid_columns: int,
+    grid_rows: int,
+) -> list[PlannedLightweightSignalRun]:
+    plan: list[PlannedLightweightSignalRun] = []
     for experiment_config in experiment_configs:
-        experiment = load_tracker_memory_matrix_experiment(experiment_config)
-        run_id = f"{experiment.name}_tracker_memory_{run_suffix}"
+        experiment = load_lightweight_signal_matrix_experiment(experiment_config)
+        run_id = f"{experiment.name}_lightweight_visual_signal_{run_suffix}"
         run_root = Path(run_output_root) / run_id
         command = (
             sys.executable,
-            str(PROJECT_ROOT / "experiments" / "run_tracker_memory_poc.py"),
+            str(PROJECT_ROOT / "experiments" / "phase1_3" / "run_lightweight_visual_signal_poc.py"),
             "--dataset-config",
             project_relative(experiment.dataset),
             "--experiment-name",
@@ -85,9 +87,13 @@ def build_tracker_memory_matrix_plan(
             str(run_output_root),
             "--limit",
             str(experiment.limit),
+            "--grid-columns",
+            str(grid_columns),
+            "--grid-rows",
+            str(grid_rows),
         )
         plan.append(
-            PlannedTrackerMemoryRun(
+            PlannedLightweightSignalRun(
                 experiment_name=experiment.name,
                 dataset=experiment.dataset,
                 run_id=run_id,
@@ -100,8 +106,8 @@ def build_tracker_memory_matrix_plan(
     return plan
 
 
-def execute_tracker_memory_matrix(
-    plan: list[PlannedTrackerMemoryRun],
+def execute_lightweight_signal_matrix(
+    plan: list[PlannedLightweightSignalRun],
     matrix_root: Path,
     experiment_configs: list[str | Path],
     dry_run: bool,
@@ -109,7 +115,7 @@ def execute_tracker_memory_matrix(
     matrix_root.mkdir(parents=True, exist_ok=True)
     manifest = {
         "schema_version": 1,
-        "pipeline_type": "tracker_memory_matrix",
+        "pipeline_type": "lightweight_visual_signal_matrix",
         "experiment_configs": [project_relative(resolve_project_path(path)) for path in experiment_configs],
         "dry_run": dry_run,
         "runs": [
@@ -131,16 +137,16 @@ def execute_tracker_memory_matrix(
                 raise
             manifest["runs"][index]["status"] = "completed"
             write_json(manifest, matrix_root / "manifest.json")
-        summary = summarize_tracker_memory_runs(plan)
+        summary = summarize_lightweight_signal_runs(plan)
         write_json(summary, matrix_root / "summary.json")
-        write_text(render_tracker_memory_summary_markdown(summary), matrix_root / "summary.md")
+        write_text(render_lightweight_signal_summary_markdown(summary), matrix_root / "summary.md")
     return manifest
 
 
-def summarize_tracker_memory_runs(plan: list[PlannedTrackerMemoryRun]) -> dict[str, Any]:
+def summarize_lightweight_signal_runs(plan: list[PlannedLightweightSignalRun]) -> dict[str, Any]:
     runs = []
     for planned in plan:
-        report_path = planned.run_root / "reports" / "tracker_memory_report.json"
+        report_path = planned.run_root / "reports" / "lightweight_visual_signal_report.json"
         data = json.loads(report_path.read_text(encoding="utf-8"))
         runs.append(
             {
@@ -155,15 +161,15 @@ def summarize_tracker_memory_runs(plan: list[PlannedTrackerMemoryRun]) -> dict[s
     return {"schema_version": 1, "runs": runs}
 
 
-def render_tracker_memory_summary_markdown(summary: dict[str, Any]) -> str:
+def render_lightweight_signal_summary_markdown(summary: dict[str, Any]) -> str:
     lines = [
-        "# Feedback / Tracker Memory Matrix Summary",
+        "# Lightweight Visual Signal Matrix Summary",
         "",
         (
-            "| Dataset | Profile | Full-frame call reduction | Effective input reduction | "
-            "GT recall | Memory-frame GT recall | ROI/memory frame | Max miss run |"
+            "| Dataset | Profile | Signal | Selected area | Area reduction | Center GT recall | "
+            "BBox GT recall | Center frame recall | BBox frame recall |"
         ),
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for run in summary["runs"]:
         for profile_name, profile in run["profiles"].items():
@@ -171,12 +177,13 @@ def render_tracker_memory_summary_markdown(summary: dict[str, Any]) -> str:
                 "| "
                 f"`{run['experiment_name']}` | "
                 f"`{profile_name}` | "
-                f"{_format_ratio(profile['full_frame_detector_call_reduction'])} | "
-                f"{_format_ratio(profile['effective_input_area_reduction'])} | "
-                f"{_format_ratio(profile['target_gt_recall'])} | "
-                f"{_format_ratio(profile['memory_frame_target_gt_recall'])} | "
-                f"{profile['average_memory_roi_count_per_memory_frame']:.3f} | "
-                f"{profile['max_consecutive_memory_miss_frames']} |"
+                f"`{profile['profile']['signal_name']}` | "
+                f"{_format_ratio(profile['selected_area_ratio'])} | "
+                f"{_format_ratio(profile['input_area_reduction'])} | "
+                f"{_format_ratio(profile['center_gt_recall'])} | "
+                f"{_format_ratio(profile['bbox_gt_recall'])} | "
+                f"{_format_ratio(profile['center_target_frame_recall'])} | "
+                f"{_format_ratio(profile['bbox_target_frame_recall'])} |"
             )
     lines.append("")
     return "\n".join(lines)
@@ -200,10 +207,12 @@ def _format_ratio(value: float) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Phase 1.3-D tracker memory matrix.")
+    parser = argparse.ArgumentParser(description="Run Phase 1.3-E lightweight visual signal matrix.")
     parser.add_argument("--experiment-config", action="append", required=True)
     parser.add_argument("--run-output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--matrix-output-root", default=DEFAULT_MATRIX_OUTPUT_ROOT)
+    parser.add_argument("--grid-columns", type=int, default=32)
+    parser.add_argument("--grid-rows", type=int, default=18)
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -211,9 +220,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     suffix = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
-    plan = build_tracker_memory_matrix_plan(args.experiment_config, args.run_output_root, suffix)
-    matrix_root = Path(args.matrix_output_root) / f"phase1_3_tracker_memory_{suffix}"
-    manifest = execute_tracker_memory_matrix(
+    plan = build_lightweight_signal_matrix_plan(
+        experiment_configs=args.experiment_config,
+        run_output_root=args.run_output_root,
+        run_suffix=suffix,
+        grid_columns=args.grid_columns,
+        grid_rows=args.grid_rows,
+    )
+    matrix_root = Path(args.matrix_output_root) / f"phase1_3_lightweight_visual_signal_{suffix}"
+    manifest = execute_lightweight_signal_matrix(
         plan=plan,
         matrix_root=matrix_root,
         experiment_configs=args.experiment_config,

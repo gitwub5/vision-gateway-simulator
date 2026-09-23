@@ -14,8 +14,8 @@ Phase 1.3-G에서 600-frame validation으로 올릴 두 hybrid 후보를 선정�
 
 - `evaluation/reports/static_tracker_temporal_hybrid.py`
 - `evaluation/reports/static_lightweight_hybrid.py`
-- `experiments/run_static_tracker_temporal_hybrid_poc.py`
-- `experiments/run_static_lightweight_hybrid_poc.py`
+- `experiments/phase1_3/run_static_tracker_temporal_hybrid_poc.py`
+- `experiments/phase1_3/run_static_lightweight_hybrid_poc.py`
 - `tests/evaluation_tests/test_static_tracker_temporal_hybrid_report.py`
 - `tests/evaluation_tests/test_static_lightweight_hybrid_report.py`
 
@@ -116,8 +116,8 @@ Full table: `outputs/static_lightweight_hybrid_poc/*/reports/static_lightweight_
 ## Verification
 
 - `.venv/bin/python -m unittest tests.evaluation_tests.test_static_tracker_temporal_hybrid_report tests.evaluation_tests.test_static_lightweight_hybrid_report`
-- `.venv/bin/python -m py_compile evaluation/reports/static_tracker_temporal_hybrid.py evaluation/reports/static_lightweight_hybrid.py experiments/run_static_tracker_temporal_hybrid_poc.py experiments/run_static_lightweight_hybrid_poc.py tests/evaluation_tests/test_static_tracker_temporal_hybrid_report.py tests/evaluation_tests/test_static_lightweight_hybrid_report.py`
-- `.venv/bin/python experiments/run_static_tracker_temporal_hybrid_poc.py --dataset-config configs/datasets/physicalai/physicalai_row0709_after3m.yaml --limit 600 ...`
-- `.venv/bin/python experiments/run_static_tracker_temporal_hybrid_poc.py --dataset-config configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml --limit 600 ...`
-- `.venv/bin/python experiments/run_static_lightweight_hybrid_poc.py --dataset-config configs/datasets/mall/mall_dataset.yaml --limit 600 ...`
-- `.venv/bin/python experiments/run_static_lightweight_hybrid_poc.py --dataset-config configs/datasets/motchallenge/mot17_04.yaml --limit 600 ...`
+- `.venv/bin/python -m py_compile evaluation/reports/static_tracker_temporal_hybrid.py evaluation/reports/static_lightweight_hybrid.py experiments/phase1_3/run_static_tracker_temporal_hybrid_poc.py experiments/phase1_3/run_static_lightweight_hybrid_poc.py tests/evaluation_tests/test_static_tracker_temporal_hybrid_report.py tests/evaluation_tests/test_static_lightweight_hybrid_report.py`
+- `.venv/bin/python experiments/phase1_3/run_static_tracker_temporal_hybrid_poc.py --dataset-config configs/datasets/physicalai/physicalai_row0709_after3m.yaml --limit 600 ...`
+- `.venv/bin/python experiments/phase1_3/run_static_tracker_temporal_hybrid_poc.py --dataset-config configs/datasets/visdrone/visdrone_vid_val_uav0000086.yaml --limit 600 ...`
+- `.venv/bin/python experiments/phase1_3/run_static_lightweight_hybrid_poc.py --dataset-config configs/datasets/mall/mall_dataset.yaml --limit 600 ...`
+- `.venv/bin/python experiments/phase1_3/run_static_lightweight_hybrid_poc.py --dataset-config configs/datasets/motchallenge/mot17_04.yaml --limit 600 ...`
